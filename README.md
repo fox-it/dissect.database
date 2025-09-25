@@ -1,14 +1,14 @@
-# dissect.bsddb
+# dissect.database
 
-A Dissect module implementing a parser for the Berkeley DB format. For more information,
-please see [the documentation](https://docs.dissect.tools/en/latest/projects/dissect.bsddb/index.html).
+A Dissect module implementing parsers for various database formats. For more information,
+please see [the documentation](https://docs.dissect.tools/en/latest/projects/dissect.database/index.html).
 
 ## Installation
 
-`dissect.bsddb` is available on [PyPI](https://pypi.org/project/dissect.bsddb/).
+`dissect.database` is available on [PyPI](https://pypi.org/project/dissect.database/).
 
 ```bash
-pip install dissect.bsddb
+pip install dissect.database
 ```
 
 This module is also automatically installed if you install the `dissect` package.

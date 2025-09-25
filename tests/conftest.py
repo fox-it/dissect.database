@@ -26,19 +26,19 @@ def open_file_gz(name: str, mode: str = "rb") -> Iterator[BinaryIO]:
 
 @pytest.fixture
 def btree_db() -> Iterator[BinaryIO]:
-    yield from open_file_gz("_data/btree.db.gz")
+    yield from open_file_gz("_data/bsd/btree.db.gz")
 
 
 @pytest.fixture
 def hash_db() -> Iterator[BinaryIO]:
-    yield from open_file_gz("_data/hash.db.gz")
+    yield from open_file_gz("_data/bsd/hash.db.gz")
 
 
 @pytest.fixture
 def recno_db() -> Iterator[BinaryIO]:
-    yield from open_file_gz("_data/recno.db.gz")
+    yield from open_file_gz("_data/bsd/recno.db.gz")
 
 
 @pytest.fixture
 def rpm_packages() -> Iterator[BinaryIO]:
-    yield from open_file_gz("_data/rpm/Packages.gz")
+    yield from open_file_gz("_data/bsd/rpm/Packages.gz")

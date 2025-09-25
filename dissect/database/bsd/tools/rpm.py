@@ -8,8 +8,8 @@ import stat
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, NamedTuple
 
-from dissect.bsddb import bsddb
-from dissect.bsddb.tools.c_rpm import c_rpm
+from dissect.database.bsd import db
+from dissect.database.bsd.tools.c_rpm import c_rpm
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -208,7 +208,7 @@ class Packages:
     """
 
     def __init__(self, fh: BinaryIO):
-        self.db = bsddb.DB(fh)
+        self.db = db.DB(fh)
 
     def __iter__(self) -> Iterator[Package]:
         return self.entries()

@@ -1,4 +1,4 @@
-project = "dissect.bsddb"
+project = "dissect.database"
 
 extensions = [
     "autoapi.extension",

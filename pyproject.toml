@@ -3,11 +3,11 @@ requires = ["setuptools>=80.9.0", "setuptools_scm[toml]>=6.4.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dissect.bsddb"
-description = "A Dissect module implementing a parser for the Berkeley DB format"
+name = "dissect.database"
+description = "A Dissect module implementing parsers for various database formats"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "AGPL-3.0-or-later"
+license = "Apache-2.0"
 license-files = ["LICENSE", "COPYRIGHT"]
 authors = [
   {name = "Dissect Team", email = "dissect@fox-it.com"}
@@ -31,12 +31,13 @@ dynamic = ["version"]
 
 [project.urls]
 homepage = "https://dissect.tools"
-documentation = "https://docs.dissect.tools/en/latest/projects/dissect.bsddb"
-repository = "https://github.com/fox-it/dissect.bsddb"
+documentation = "https://docs.dissect.tools/en/latest/projects/dissect.database"
+repository = "https://github.com/fox-it/dissect.database"
 
 [project.optional-dependencies]
 dev = [
     "dissect.cstruct>=4.0.dev,<5.0.dev",
+    "dissect.util>=3.5.dev,<4.0.dev",
 ]
 
 [dependency-groups]
@@ -108,7 +109,7 @@ ignore = ["E203", "B904", "UP024", "ANN002", "ANN003", "ANN204", "ANN401", "SIM1
 "*.pyi" = ["E", "F", "PYI"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["dissect.bsddb"]
+known-first-party = ["dissect.database"]
 known-third-party = ["dissect"]
 
 [tool.setuptools.packages.find]

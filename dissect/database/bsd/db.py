@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import cached_property, lru_cache
 from typing import TYPE_CHECKING, BinaryIO
 
-from dissect.bsddb.c_bsddb import c_db
+from dissect.database.bsd.c_db import c_db
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

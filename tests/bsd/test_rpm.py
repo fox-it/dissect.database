@@ -3,7 +3,7 @@ from __future__ import annotations
 import textwrap
 from typing import BinaryIO
 
-from dissect.bsddb.tools.rpm import Packages
+from dissect.database.bsd.tools.rpm import Packages
 
 
 def test_rpm(rpm_packages: BinaryIO) -> None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import BinaryIO
 
-from dissect.bsddb.bsddb import DB
+from dissect.database.bsd.db import DB
 
 
 def _assert_wordlist(db: DB) -> None:
