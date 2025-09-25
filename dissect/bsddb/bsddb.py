@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property, lru_cache
-from typing import TYPE_CHECKING, BinaryIO, Union
+from typing import TYPE_CHECKING, BinaryIO
 
 from dissect.bsddb.c_bsddb import c_db
 
@@ -10,8 +10,7 @@ if TYPE_CHECKING:
 
 
 DBT = tuple[
-    # Change to | when we drop Python 3.9 support
-    Union[c_db.HOFFPAGE, c_db.HKEYDATA, c_db.HEAPHDR, c_db.BKEYDATA, c_db.BOVERFLOW, c_db.BINTERNAL, c_db.RINTERNAL],
+    c_db.HOFFPAGE | c_db.HKEYDATA | c_db.HEAPHDR | c_db.BKEYDATA | c_db.BOVERFLOW | c_db.BINTERNAL | c_db.RINTERNAL,
     bytes,
 ]
 """An internal page entry structure + data (loosely related to Data-Base Thang)."""
@@ -145,7 +144,7 @@ class Page:
         return self.db.fh.read(self.db.page_size)
 
     @cached_property
-    def data(self) -> bytes:
+    def data(self) -> memoryview:
         """Page data, excluding any overhead (headers)."""
         return memoryview(self.raw)[self.db._page_overhead :]
 
@@ -162,7 +161,7 @@ class Page:
     @cached_property
     def lookup(self) -> list[int]:
         """List of offsets to entries in the page."""
-        if self.header.type in (c_db.P_LBTREE, c_db.P_IBTREE, c_db.P_LRECNO, c_db.P_IRECNO, c_db.P_HASH):
+        if self.type in (c_db.P_LBTREE, c_db.P_IBTREE, c_db.P_LRECNO, c_db.P_IRECNO, c_db.P_HASH):
             return c_db.uint16[self.header.entries](self.data)
         return []
 
@@ -191,11 +190,13 @@ class Page:
             data_length = (next_offset - self.lookup[index]) - len(c_db.HKEYDATA)
 
             return c_db.HKEYDATA(buf), buf[len(c_db.HKEYDATA) : len(c_db.HKEYDATA) + data_length]
+
         if self.header.type == c_db.P_HEAP:
             entry = c_db.HEAPHDR(buf)
             if entry.flags & (c_db.HEAP_RECSPLIT | c_db.HEAP_RECFIRST):
                 raise NotImplementedError("Heap split records not implemented")
             return entry, buf[len(c_db.HEAPHDR) : len(c_db.HEAPHDR) + entry.size]
+
         if self.header.type in (c_db.P_LBTREE, c_db.P_LDUP, c_db.P_LRECNO):
             entry = c_db.BKEYDATA(buf)
             if entry.type == c_db.B_OVERFLOW:

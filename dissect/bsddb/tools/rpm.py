@@ -1,4 +1,4 @@
-# Reference:
+# References:
 # - https://rpm.org/docs/
 from __future__ import annotations
 
@@ -155,7 +155,7 @@ class HeaderBlob:
         self.buf = buf
         self.header = c_rpm.header_intro(self.buf)
 
-        # sizeo(il) + sizeof(dl) + (il * sizeof(pe)) + dl
+        # sizeof(il) + sizeof(dl) + (il * sizeof(pe)) + dl
         self.pvlen = 4 + 4 + (self.header.index_length * len(c_rpm.entryInfo)) + self.header.data_length
         self.data_start = 4 + 4 + (self.header.index_length * len(c_rpm.entryInfo))
         self.data_end = self.data_start + self.header.data_length
@@ -179,13 +179,13 @@ class HeaderBlob:
         else:
             data_size = entry.count * type_size
 
-        self.data = self.buf[self.data_start + entry.offset : self.data_start + entry.offset + data_size]
+        data = self.buf[self.data_start + entry.offset : self.data_start + entry.offset + data_size]
 
         parser = TYPE_PARSERS[type]
         if type in ARRAY_TYPES and entry.count > 1:
             parser = parser[entry.count]
 
-        value = parser(self.data, entry.count) if type == c_rpm.rpmTagType.RPM_STRING_ARRAY_TYPE else parser(self.data)
+        value = parser(data, entry.count) if type == c_rpm.rpmTagType.RPM_STRING_ARRAY_TYPE else parser(data)
         return tag, value
 
     def entries(self) -> Iterator[tuple[c_rpm.rpmTag, int | str | bytes | list[int] | list[str] | None]]:
@@ -195,7 +195,7 @@ class HeaderBlob:
 
     def value(self, tag: c_rpm.rpmTag) -> int | str | bytes | list[int] | list[str] | None:
         """Get the value for the given tag."""
-        if not (idx := self.tag_map.get(tag.value)):
+        if (idx := self.tag_map.get(tag.value)) is None:
             raise IndexError(f"Tag not found: {tag}")
         return self.entry(idx)[1]
 
@@ -220,7 +220,7 @@ class Packages:
                 yield Package(data)
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("input", type=Path, help="input RPMDB Packages file")
     args = parser.parse_args()
@@ -235,6 +235,8 @@ def main() -> None:
                 elif isinstance(entry, Directory):
                     print(f"  DIR  {entry.path}")
             print()
+
+    return 0
 
 
 if __name__ == "__main__":
