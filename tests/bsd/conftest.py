@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, BinaryIO
 
 import pytest
 
-from tests.conftest import open_file_gz
+from tests._util import open_file_gz
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
