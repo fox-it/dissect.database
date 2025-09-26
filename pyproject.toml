@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dissect.database"
-description = "A Dissect module implementing parsers for various database formats, including Berkeley DB and SQLite3"
+description = "A Dissect module implementing parsers for various database formats, including Berkeley DB, Microsofts Extensible Storage Engine (ESE) and SQLite3"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -26,6 +26,7 @@ classifiers = [
 ]
 dependencies = [
     "dissect.cstruct>=4,<5",
+    "dissect.util>=3.5,<4",
 ]
 dynamic = ["version"]
 

@@ -2,8 +2,9 @@
 
 A Dissect module implementing parsers for various database formats, including:
 
-- Berkeley DB
-- SQLite3
+- Berkeley DB, used for example in older RPM databases
+- Microsofts Extensible Storage Engine (ESE), used for example in Active Directory, Exchange and Windows Update
+- SQLite3, commonly used by applications to store configuration data
 
 For more information, please see [the documentation](https://docs.dissect.tools/en/latest/projects/dissect.database/index.html).
 
@@ -16,6 +17,20 @@ pip install dissect.database
 ```
 
 This module is also automatically installed if you install the `dissect` package.
+
+## Tools
+
+### Impacket compatibility shim for secretsdump.py
+
+Impacket does not ([yet](https://github.com/fortra/impacket/pull/1452)) have native support for `dissect.database`,
+so in the meantime a compatibility shim is provided. To use this shim, simply install `dissect.database` using the
+instructions above, and execute `secretsdump.py` like so:
+
+```bash
+python -m dissect.database.ese.tools.impacket /path/to/impacket/examples/secretsdump.py -h
+```
+
+Impacket `secretsdump.py` will now use `dissect.database` for parsing the `NTDS.dit` file, resulting in a nice performance improvement!
 
 ## Build and test instructions
 
