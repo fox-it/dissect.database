@@ -30,7 +30,7 @@ instructions above, and execute `secretsdump.py` like so:
 python -m dissect.database.ese.tools.impacket /path/to/impacket/examples/secretsdump.py -h
 ```
 
-Impacket `secretsdump.py` will now use `dissect.database` for parsing the `NTDS.dit` file, resulting in a nice performance improvement!
+Impacket `secretsdump.py` will now use `dissect.database` for parsing the `NTDS.dit` file, resulting in a significant performance improvement!
 
 ## Build and test instructions
 
