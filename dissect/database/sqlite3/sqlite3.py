@@ -7,15 +7,7 @@ from functools import lru_cache
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, BinaryIO
 
-from dissect.database.sqlite3.c_sqlite3 import (
-    ENCODING,
-    PAGE_TYPES,
-    SERIAL_TYPES,
-    SQLITE3_HEADER_MAGIC,
-    WAL_HEADER_MAGIC,
-    WAL_HEADER_MAGIC_LE,
-    c_sqlite3,
-)
+from dissect.database.sqlite3.c_sqlite3 import c_sqlite3
 from dissect.database.sqlite3.exception import (
     InvalidDatabase,
     InvalidPageNumber,
@@ -26,6 +18,40 @@ from dissect.database.sqlite3.util import parse_table_columns_constraints
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+
+ENCODING = {
+    1: "utf-8",
+    2: "utf-16-le",
+    3: "utf-16-be",
+}
+
+PAGE_TYPES = {
+    c_sqlite3.PAGE_TYPE_INTERIOR_INDEX: "PAGE_TYPE_INTERIOR_INDEX",
+    c_sqlite3.PAGE_TYPE_INTERIOR_TABLE: "PAGE_TYPE_INTERIOR_TABLE",
+    c_sqlite3.PAGE_TYPE_LEAF_INDEX: "PAGE_TYPE_LEAF_INDEX",
+    c_sqlite3.PAGE_TYPE_LEAF_TABLE: "PAGE_TYPE_LEAF_TABLE",
+}
+
+# See https://www.sqlite.org/fileformat.html -- Record format
+SERIAL_TYPES = {
+    0: lambda fh: None,
+    1: c_sqlite3.int8,
+    2: c_sqlite3.int16,
+    3: c_sqlite3.int24,
+    4: c_sqlite3.int32,
+    5: c_sqlite3.int48,
+    6: c_sqlite3.int64,
+    7: c_sqlite3.double,
+    8: lambda fh: 0,
+    9: lambda fh: 1,
+}
+
+SQLITE3_HEADER_MAGIC = b"SQLite format 3\x00"
+
+WAL_HEADER_MAGIC_LE = 0x377F0682
+WAL_HEADER_MAGIC_BE = 0x377F0683
+WAL_HEADER_MAGIC = {WAL_HEADER_MAGIC_LE, WAL_HEADER_MAGIC_BE}
 
 
 class SQLite3:

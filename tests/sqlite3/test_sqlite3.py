@@ -6,13 +6,12 @@ from typing import Any, BinaryIO
 import pytest
 
 from dissect.database.sqlite3 import sqlite3
-from dissect.database.sqlite3.c_sqlite3 import SQLITE3_HEADER_MAGIC
 
 
 def test_sqlite(sqlite_db: BinaryIO) -> None:
     s = sqlite3.SQLite3(sqlite_db)
 
-    assert s.header.magic == SQLITE3_HEADER_MAGIC
+    assert s.header.magic == sqlite3.SQLITE3_HEADER_MAGIC
 
     tables = list(s.tables())
     assert len(tables) == 1
