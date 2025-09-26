@@ -1,7 +1,11 @@
 # dissect.database
 
-A Dissect module implementing parsers for various database formats. For more information,
-please see [the documentation](https://docs.dissect.tools/en/latest/projects/dissect.database/index.html).
+A Dissect module implementing parsers for various database formats, including:
+
+- Berkeley DB
+- SQLite3
+
+For more information, please see [the documentation](https://docs.dissect.tools/en/latest/projects/dissect.database/index.html).
 
 ## Installation
 
