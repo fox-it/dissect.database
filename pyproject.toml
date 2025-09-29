@@ -42,13 +42,18 @@ dev = [
 ]
 
 leveldb = [
-    "cramjam>=2.11.0",  # required for snappy decompression
+    "cramjam>=2.11.0,<3",  # required for snappy decompression
+]
+
+indexeddb = [
+    "v8serialize>=0.4.0rc0,<1",  # required for js object decoding
 ]
 
 [dependency-groups]
 test = [
     "pytest",
     "cramjam",
+    "v8serialize",
 ]
 lint = [
     "ruff==0.13.1",
