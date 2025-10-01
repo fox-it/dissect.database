@@ -127,8 +127,8 @@ class CertLog:
         return None
 
     def get_table_records(self, table_name: str) -> Iterator[dict[str, CertLogRecord]]:
-        match table_name.lower():
-            case "requests":
+        match table_name:
+            case "Requests":
                 yield from self.get_table_requests_records()
             case _:
                 yield from self.yield_records_from_table(table_name)
@@ -150,7 +150,7 @@ class CertLog:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="dissect.database.ese Certlog parser")
-    parser.add_argument("-t", "--table", default=None, help="Show only content of <table> (case insensitive)")
+    parser.add_argument("-t", "--table", default=None, help="Show only content of <table> (case sensitive)")
     parser.add_argument("input", help="Certlog database to read")
     args = parser.parse_args()
 
