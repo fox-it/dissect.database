@@ -89,22 +89,6 @@ REQUEST_STATUS_CODE = {
 
 
 class CertLog:
-    WIN_DATETIME_FIELDS = (
-        "CRLLastPublished",
-        "Effective",
-        "NextPublish",
-        "NextUpdate",
-        "NotAfter",
-        "NotBefore",
-        "PropgationComplete",  # typo from data
-        "ResolvedWhen",
-        "RevokedEffectiveWhen",
-        "RevokedWhen",
-        "SubmittedWhen",
-        "ThisPublish",
-        "ThisUpdate",
-    )
-
     def __init__(self, fh: BinaryIO):
         self.db = ESE(fh)
 
