@@ -63,3 +63,13 @@ def ual_db() -> Iterator[BinaryIO]:
 @pytest.fixture
 def certlog_db() -> Iterator[BinaryIO]:
     yield from open_file_gz("_data/ese/tools/CertLog.edb.gz")
+
+
+@pytest.fixture(scope="module")
+def ntds_dit() -> Iterator[BinaryIO]:
+    yield from open_file_gz("_data/ese/ntds.dit.gz")
+
+
+@pytest.fixture(scope="module")
+def system_hive() -> Iterator[BinaryIO]:
+    yield from open_file_gz("_data/ese/SYSTEM.gz")
