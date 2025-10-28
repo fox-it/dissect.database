@@ -73,5 +73,5 @@ def deserialize_blink_host_object(*, stream: v8serialize.decode.ReadableTagStrea
     )
 
 
-class BlinkHostObjectHandlerDecodeError(v8serialize._errors.DecodeV8SerializeError):
+class BlinkHostObjectHandlerDecodeError(v8serialize.DecodeV8SerializeError):
     """Raised when decoding a HostObject as a Blink buffer fails."""

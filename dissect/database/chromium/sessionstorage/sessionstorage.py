@@ -33,7 +33,7 @@ class SessionStorage:
                 yield Namespace(self, record)
 
     def namespace(self, key: int | str) -> Iterator[Namespace] | None:
-        """Return a namespace by the given id or hostname."""
+        """Yield namespaces by the given id or hostname."""
         for namespace in self.namespaces:
             if namespace.id == key or namespace.host == key:
                 yield namespace
