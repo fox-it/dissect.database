@@ -144,7 +144,7 @@ def main() -> None:
         parser = CertLog(fh)
 
         for table in parser.tables():
-            if args.table and table.name.lower() != args.table.lower():
+            if args.table and table.name != args.table:
                 continue
             for record in parser.records(table.name):
                 if args.json:
