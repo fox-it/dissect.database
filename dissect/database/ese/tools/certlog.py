@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-import ctypes
+import datetime
 import json
 from collections.abc import Iterator
 from pathlib import Path
@@ -14,7 +14,7 @@ from dissect.database.ese.c_ese import JET_coltyp
 from dissect.database.ese.table import Table
 from dissect.database.ese.util import RecordValue
 
-CertLogRecord = RecordValue | dict
+CertLogValue = RecordValue | datetime.datetime
 
 SKIP_TABLES = [
     "MSysObjects",
@@ -94,61 +94,54 @@ class CertLog:
     def __init__(self, fh: BinaryIO):
         self.db = ESE(fh)
 
-    def get_tables(self) -> list[Table]:
-        return self.db.tables()
+    def tables(self) -> list[Table]:
+        return [table for table in self.db.tables() if table.name not in SKIP_TABLES]
 
-    def yield_records_from_table(self, table_name: str) -> Iterator[dict[str, CertLogRecord]]:
+    def records(self, table_name: str) -> Iterator[dict[str, CertLogValue]]:
         try:
             table = self.db.table(table_name)
         except KeyError:
             return None
+
         for record in table.records():
             record_data = {"TableName": table.name}
+
             for column in table.columns:
                 value = record.get(column.name)
+
                 if column.type == JET_coltyp.DateTime and value:
                     value = wintimestamp(value)
+                    
+                if table.name == "Requests":
+                    if column.name == "StatusCode":
+                        value = REQUEST_STATUS_CODE.get(value & 0xFFFFFFFF, value & 0xFFFFFFFF)
+                    if column.name == "Disposition":
+                        value = REQUEST_DISPOSITION.get(value, value)
+                    if column.name == "RequestType":
+                        value = REQUEST_TYPE.get(value, value)
+
                 record_data[column.name] = value
+
             yield record_data
-        return None
 
-    def get_table_records(self, table_name: str) -> Iterator[dict[str, CertLogRecord]]:
-        match table_name:
-            case "Requests":
-                yield from self.get_table_requests_records()
-            case _:
-                yield from self.yield_records_from_table(table_name)
-
-        return None
-
-    def get_table_requests_records(self) -> Iterator[dict[str, CertLogRecord]]:
-        for record in self.yield_records_from_table("Requests"):
-            if "StatusCode" in record:
-                status_code_as_uint32 = ctypes.c_uint32(record["StatusCode"]).value
-                record["StatusCode"] = REQUEST_STATUS_CODE.get(status_code_as_uint32, status_code_as_uint32)
-            if "Disposition" in record:
-                record["Disposition"] = REQUEST_DISPOSITION.get(record["Disposition"], record["Disposition"])
-            if "RequestType" in record:
-                record["RequestType"] = REQUEST_TYPE.get(record["RequestType"], record["RequestType"])
-            yield record
-        return None
+    def entries(self) -> Iterator[dict[str, CertLogValue]]:
+        for table in self.tables():
+            yield from self.records(table.name)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="dissect.database.ese Certlog parser")
-    parser.add_argument("-t", "--table", default=None, help="Show only content of <table> (case sensitive)")
-    parser.add_argument("input", help="Certlog database to read")
+    parser.add_argument("input", help="certlog database to read")
+    parser.add_argument("-t", "--table", metavar="TABLE", help="show only content of TABLE (case sensitive)")
     args = parser.parse_args()
 
     with Path(args.input).open("rb") as fh:
         parser = CertLog(fh)
 
-        for table in parser.get_tables():
-            if table.name in SKIP_TABLES:
-                continue
+        for table in parser.tables():
             if args.table and table.name.lower() != args.table.lower():
                 continue
-            for record in parser.get_table_records(table.name):
+            for record in parser.records(table.name):
                 print(json.dumps(record, default=str))
 
 
