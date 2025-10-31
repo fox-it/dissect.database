@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
-from collections.abc import Iterator
+import typing
 from pathlib import Path
 from typing import BinaryIO
 
@@ -11,8 +11,12 @@ from dissect.util.ts import wintimestamp
 
 from dissect.database.ese import ESE
 from dissect.database.ese.c_ese import JET_coltyp
-from dissect.database.ese.table import Table
 from dissect.database.ese.util import RecordValue
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from dissect.database.ese.table import Table
 
 CertLogValue = RecordValue | datetime.datetime
 
@@ -111,7 +115,7 @@ class CertLog:
 
                 if column.type == JET_coltyp.DateTime and value:
                     value = wintimestamp(value)
-                    
+
                 if table.name == "Requests":
                     if column.name == "StatusCode":
                         value = REQUEST_STATUS_CODE.get(value & 0xFFFFFFFF, value & 0xFFFFFFFF)
@@ -133,6 +137,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="dissect.database.ese Certlog parser")
     parser.add_argument("input", help="certlog database to read")
     parser.add_argument("-t", "--table", metavar="TABLE", help="show only content of TABLE (case sensitive)")
+    parser.add_argument("-j", "--json", help="output un json compatible format", action="store_true", default=False)
     args = parser.parse_args()
 
     with Path(args.input).open("rb") as fh:
@@ -142,7 +147,10 @@ def main() -> None:
             if args.table and table.name.lower() != args.table.lower():
                 continue
             for record in parser.records(table.name):
-                print(json.dumps(record, default=str))
+                if args.json:
+                    print(json.dumps(record, default=str))
+                else:
+                    print(record)
 
 
 if __name__ == "__main__":
