@@ -137,7 +137,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="dissect.database.ese Certlog parser")
     parser.add_argument("input", help="certlog database to read")
     parser.add_argument("-t", "--table", metavar="TABLE", help="show only content of TABLE (case sensitive)")
-    parser.add_argument("-j", "--json", help="output un json compatible format", action="store_true", default=False)
+    parser.add_argument("-j", "--json", help="output in JSON format", action="store_true", default=False)
     args = parser.parse_args()
 
     with Path(args.input).open("rb") as fh:
