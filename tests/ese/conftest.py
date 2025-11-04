@@ -58,3 +58,8 @@ def sru_db() -> Iterator[BinaryIO]:
 @pytest.fixture
 def ual_db() -> Iterator[BinaryIO]:
     yield from open_file_gz("_data/ese/tools/Current.mdb.gz")
+
+
+@pytest.fixture
+def certlog_db() -> Iterator[BinaryIO]:
+    yield from open_file_gz("_data/ese/tools/CertLog.edb.gz")
