@@ -67,6 +67,12 @@ c_secd.load(secd_def)
 
 
 class SecurityDescriptor:
+    """Represents a Windows Security Descriptor.
+
+    Parses and provides access to the components of a security descriptor
+    including owner SID, group SID, SACL, and DACL.
+    """
+
     # Control indexes in bit field
     SR = 0  # Self-Relative
     RM = 1  # RM Control Valid
@@ -86,10 +92,22 @@ class SecurityDescriptor:
     OD = 15  # Owner Defaulted
 
     def has_control(self, control: int) -> bool:
-        """Check if the n-th bit is set in the control field."""
+        """Check if the n-th bit is set in the control field.
+
+        Args:
+            control: The control bit index to check.
+
+        Returns:
+            True if the control bit is set, False otherwise.
+        """
         return (self.control >> control) & 1 == 1
 
     def __init__(self, fh: BytesIO) -> None:
+        """Initialize a SecurityDescriptor from binary data.
+
+        Args:
+            fh: Binary file handle containing the security descriptor data.
+        """
         self.fh = fh
         self.descriptor = c_secd.SECURITY_DESCRIPTOR(fh)
 
@@ -117,7 +135,15 @@ class SecurityDescriptor:
 
 
 class LdapSid:
+    """Represents an LDAP Security Identifier (SID)."""
+
     def __init__(self, fh: BytesIO | None = None, in_obj: object | None = None) -> None:
+        """Initialize an LdapSid from binary data or existing object.
+
+        Args:
+            fh: Binary file handle to parse SID from (optional).
+            in_obj: Existing SID object to wrap (optional).
+        """
         if fh:
             self.fh = fh
             self.ldap_sid = c_secd.LDAP_SID(fh)
@@ -201,7 +227,14 @@ class ObjectAceFlag(IntFlag):
 
 
 class ACL:
+    """Represents an Access Control List containing Access Control Entries."""
+
     def __init__(self, fh: BytesIO) -> None:
+        """Initialize an ACL from binary data.
+
+        Args:
+            fh: Binary file handle containing the ACL data.
+        """
         self.fh = fh
         self.acl = c_secd.ACL(fh)
         self.aces: list[ACE] = []
@@ -215,12 +248,24 @@ class ACE:
     """Base ACE class that handles common ACE functionality."""
 
     def __init__(self, fh: BytesIO) -> None:
+        """Initialize an ACE from binary data.
+
+        Args:
+            fh: Binary file handle containing the ACE data.
+        """
         self.fh = fh
         self.ace = c_secd.ACE(fh)
 
     @classmethod
     def parse(cls, fh: BytesIO) -> ACE:
-        """Factory method to create the appropriate ACE subclass based on ACE type."""
+        """Factory method to create the appropriate ACE subclass based on ACE type.
+
+        Args:
+            fh: Binary file handle containing the ACE data.
+
+        Returns:
+            The appropriate ACE subclass instance.
+        """
         # Save current position to reset after reading the type
         pos = fh.tell()
         ace_header = c_secd.ACE(fh)
@@ -242,7 +287,14 @@ class ACE:
                 return UnsupportedACE(fh)
 
     def has_flag(self, flag: AceFlag | int) -> bool:
-        """Check if the ACE has a specific flag."""
+        """Check if the ACE has a specific flag.
+
+        Args:
+            flag: The AceFlag or integer flag value to check.
+
+        Returns:
+            True if the flag is set, False otherwise.
+        """
         if isinstance(flag, AceFlag):
             return self.ace.AceFlags & flag.value == flag.value
         return self.ace.AceFlags & flag == flag
@@ -256,7 +308,14 @@ class ACE:
 
 
 class ACCESS_ALLOWED_ACE(ACE):
+    """Represents an ACCESS_ALLOWED_ACE entry."""
+
     def __init__(self, fh: BytesIO) -> None:
+        """Initialize an ACCESS_ALLOWED_ACE from binary data.
+
+        Args:
+            fh: Binary file handle containing the ACE data.
+        """
         super().__init__(fh)
         self.data = c_secd.ACCESS_ALLOWED_ACE(BytesIO(self.ace.Data))
         self.sid = LdapSid(in_obj=self.data.Sid)
@@ -283,6 +342,11 @@ class UnsupportedACE(ACE):
     """ACE class for unsupported ACE types."""
 
     def __init__(self, fh: BytesIO) -> None:
+        """Initialize an UnsupportedACE from binary data.
+
+        Args:
+            fh: Binary file handle containing the ACE data.
+        """
         super().__init__(fh)
         self.data = None
         self.sid = None
@@ -294,28 +358,52 @@ class UnsupportedACE(ACE):
 
 
 class ACCESS_ALLOWED_OBJECT_ACE(ACE):
+    """Represents an ACCESS_ALLOWED_OBJECT_ACE entry."""
+
     # Flag constants (kept for backward compatibility)
     ACE_OBJECT_TYPE_PRESENT = ObjectAceFlag.ACE_OBJECT_TYPE_PRESENT
     ACE_INHERITED_OBJECT_TYPE_PRESENT = ObjectAceFlag.ACE_INHERITED_OBJECT_TYPE_PRESENT
 
     def __init__(self, fh: BytesIO) -> None:
+        """Initialize an ACCESS_ALLOWED_OBJECT_ACE from binary data.
+
+        Args:
+            fh: Binary file handle containing the ACE data.
+        """
         super().__init__(fh)
         self.data = c_secd.ACCESS_ALLOWED_OBJECT_ACE(BytesIO(self.ace.Data))
         self.sid = LdapSid(in_obj=self.data.Sid)
         self.mask = ACCESS_MASK(self.data.Mask)
 
     def has_flag(self, flag: ObjectAceFlag | int) -> bool:
-        """Check if the ACE has a specific flag."""
+        """Check if the ACE has a specific object flag.
+
+        Args:
+            flag: The ObjectAceFlag or integer flag value to check.
+
+        Returns:
+            True if the flag is set, False otherwise.
+        """
         if isinstance(flag, ObjectAceFlag):
             return self.data.Flags & flag.value == flag.value
         return self.data.Flags & flag == flag
 
     def get_object_type(self) -> str | None:
+        """Get the object type GUID if present.
+
+        Returns:
+            The object type GUID as a string, or None if not present.
+        """
         if self.has_flag(ObjectAceFlag.ACE_OBJECT_TYPE_PRESENT):
             return format_GUID(self.data.ObjectType)
         return None
 
     def get_inherited_object_type(self) -> str | None:
+        """Get the inherited object type GUID if present.
+
+        Returns:
+            The inherited object type GUID as a string, or None if not present.
+        """
         if self.has_flag(ObjectAceFlag.ACE_INHERITED_OBJECT_TYPE_PRESENT):
             return format_GUID(self.data.InheritedObjectType)
         return None
@@ -350,8 +438,7 @@ class ACCESS_DENIED_OBJECT_ACE(ACCESS_ALLOWED_OBJECT_ACE):
         )
         return (
             f"<ACCESS_DENIED_OBJECT_ACE Type={self.ace.AceType} AceFlags={' | '.join(ace_flags)} "
-            f"ObjectFlags={data[0]} Sid={data[1]} \n\t\t"
-            f"Mask={data[2]} \n\t\tObjectType={data[3]} InheritedObjectType={data[4]}>"
+            f"ObjectFlags={data[0]} Sid={data[1]} Mask={data[2]} ObjectType={data[3]} InheritedObjectType={data[4]}>"
         )
 
 
@@ -359,27 +446,25 @@ class ACCESS_MASK:
     """Access mask wrapper that uses AccessMaskFlag enum for better type safety."""
 
     def __init__(self, mask: int) -> None:
+        """Initialize an ACCESS_MASK with the given mask value.
+
+        Args:
+            mask: The integer mask value.
+        """
         self.mask = mask
 
     def has_priv(self, priv: AccessMaskFlag | int) -> bool:
-        """Check if the mask has a specific privilege."""
+        """Check if the mask has a specific privilege.
+
+        Args:
+            priv: The AccessMaskFlag or integer privilege to check.
+
+        Returns:
+            True if the privilege is set, False otherwise.
+        """
         if isinstance(priv, AccessMaskFlag):
             return self.mask & priv.value == priv.value
         return self.mask & priv == priv
-
-    def set_priv(self, priv: AccessMaskFlag | int) -> None:
-        """Set a specific privilege."""
-        if isinstance(priv, AccessMaskFlag):
-            self.mask |= priv.value
-        else:
-            self.mask |= priv
-
-    def remove_priv(self, priv: AccessMaskFlag | int) -> None:
-        """Remove a specific privilege."""
-        if isinstance(priv, AccessMaskFlag):
-            self.mask &= ~priv.value
-        else:
-            self.mask &= ~priv
 
     def __repr__(self) -> str:
         active_flags = [flag.name for flag in AccessMaskFlag if self.has_priv(flag)]
