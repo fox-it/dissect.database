@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 from typing import TYPE_CHECKING, BinaryIO
 
 import pytest
@@ -8,6 +9,15 @@ from tests._util import open_file_gz
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+HAS_BENCHMARK = importlib.util.find_spec("pytest_benchmark") is not None
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    if not HAS_BENCHMARK:
+        # If we don't have pytest-benchmark (or pytest-codspeed) installed, register the benchmark marker ourselves
+        # to avoid pytest warnings
+        config.addinivalue_line("markers", "benchmark: mark test for benchmarking (requires pytest-benchmark)")
 
 
 @pytest.fixture
@@ -68,6 +78,11 @@ def certlog_db() -> Iterator[BinaryIO]:
 @pytest.fixture(scope="module")
 def ntds_dit() -> Iterator[BinaryIO]:
     yield from open_file_gz("_data/ese/ntds.dit.gz")
+
+
+@pytest.fixture(scope="module")
+def large_ntds_dit() -> Iterator[BinaryIO]:
+    yield from open_file_gz("_data/ese/large_ntds.dit.gz")
 
 
 @pytest.fixture(scope="module")

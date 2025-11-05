@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from typing import BinaryIO
+from io import BytesIO
+from typing import TYPE_CHECKING, BinaryIO
 from unittest.mock import patch
+
+if TYPE_CHECKING:
+    from pytest_benchmark.fixture import BenchmarkFixture
 
 import pytest
 from dissect.util.ldap import SearchFilter
@@ -16,6 +20,13 @@ from dissect.database.ese.ntds.utils import format_GUID, increment_last_char
 @pytest.fixture(scope="module")
 def ntds(ntds_dit: BinaryIO) -> NTDS:
     return NTDS(ntds_dit)
+
+
+@pytest.fixture(scope="module")
+def large_ntds(large_ntds_dit: BinaryIO) -> NTDS:
+    # Keep this one gunzipped in memory (~110MB) as it is a large file,
+    # and performing I/O through the gzip layer is too slow
+    return NTDS(BytesIO(large_ntds_dit.read()))
 
 
 def test_groups_api(ntds: NTDS) -> None:
@@ -402,3 +413,36 @@ def test_object_repr(ntds: NTDS) -> None:
     object = next(ntds.lookup(objectCategory="subSchema"))
     assert isinstance(object, Object)
     assert repr(object) == "<Object name=Aggregate objectCategory=subSchema objectClass=['subSchema', 'top']>"
+
+
+@pytest.mark.benchmark
+def test_benchmark_small_ntds_users(ntds: NTDS, benchmark: BenchmarkFixture) -> None:
+    benchmark(lambda: list(ntds.users()))
+
+
+@pytest.mark.benchmark
+def test_benchmark_large_ntds_users(large_ntds: NTDS, benchmark: BenchmarkFixture) -> None:
+    users = benchmark(lambda: list(large_ntds.users()))
+    assert len(users) == 8985
+
+
+@pytest.mark.benchmark
+def test_benchmark_small_ntds_groups(ntds: NTDS, benchmark: BenchmarkFixture) -> None:
+    benchmark(lambda: list(ntds.groups()))
+
+
+@pytest.mark.benchmark
+def test_benchmark_large_ntds_groups(large_ntds: NTDS, benchmark: BenchmarkFixture) -> None:
+    groups = benchmark(lambda: list(large_ntds.groups()))
+    assert len(groups) == 253
+
+
+@pytest.mark.benchmark
+def test_benchmark_small_ntds_computers(ntds: NTDS, benchmark: BenchmarkFixture) -> None:
+    benchmark(lambda: list(ntds.computers()))
+
+
+@pytest.mark.benchmark
+def test_benchmark_large_ntds_computers(large_ntds: NTDS, benchmark: BenchmarkFixture) -> None:
+    computers = benchmark(lambda: list(large_ntds.computers()))
+    assert len(computers) == 3014
