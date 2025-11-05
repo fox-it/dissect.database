@@ -8,6 +8,7 @@ from dissect.util.ldap import SearchFilter
 from dissect.util.sid import read_sid
 
 from dissect.database.ese.ntds import NTDS, Computer, Group, User
+from dissect.database.ese.ntds.objects import Object
 from dissect.database.ese.ntds.secd import ACCESS_ALLOWED_ACE, AccessMaskFlag, AceFlag
 from dissect.database.ese.ntds.utils import format_GUID, increment_last_char
 
@@ -227,7 +228,7 @@ def test_computers_api(ntds: NTDS) -> None:
 def test_oid_string_to_attrtyp_with_oid_string(ntds: NTDS) -> None:
     """Test _oid_string_to_attrtyp with OID string format (line 59)"""
     # Find the person class entry using the new schema index
-    person_entry = ntds.schema_index.lookup(ldap="person")
+    person_entry = ntds.schema_index.lookup(ldap_name="person")
     result = ntds._oid_string_to_attrtyp(person_entry.oid)
     assert isinstance(result, int)
     assert result == person_entry.attrtyp
@@ -237,7 +238,7 @@ def test_oid_string_to_attrtyp_with_class_name(ntds: NTDS) -> None:
     """Test _oid_string_to_attrtyp with class name (normal case)"""
     result = ntds._oid_string_to_attrtyp("person")
     assert isinstance(result, int)
-    person_entry = ntds.schema_index.lookup(ldap="person")
+    person_entry = ntds.schema_index.lookup(ldap_name="person")
     assert result == person_entry.attrtyp
 
 
@@ -283,8 +284,8 @@ def test_encode_value_coverage(ntds: NTDS) -> None:
     assert encoded == "test_value"
 
     # Test with sAMAccountName (should be string type)
-    encoded = ntds._encode_value("sAMAccountName", "testuser")
-    assert encoded == "testuser"
+    encoded = ntds._encode_value("objectSid", "S-1-5-21-1957882089-4252948412-2360614479-1134")
+    assert encoded == bytes.fromhex("010500000000000515000000e9e8b274bcd77efd4f1eb48c0000046e")
 
 
 def test_get_dnt_coverage(ntds: NTDS) -> None:
@@ -368,3 +369,36 @@ def test_format_guid() -> None:
 
     result = format_GUID(test_bytes)
     assert result == expected_guid_str, f"Expected {expected_guid_str}, got {result}"
+
+
+def test_schema_index_lookup_key_unsupported(ntds: NTDS) -> None:
+    """Test error handling in schema index lookup"""
+    with pytest.raises(ValueError, match="Unsupported lookup key: novalidkey"):
+        ntds.schema_index.lookup(novalidkey="nonexistent_attribute")
+
+
+def test_schema_index_lookup_multiple_keys(ntds: NTDS) -> None:
+    """Test error handling in schema index lookup with multiple keys"""
+    with pytest.raises(ValueError, match="Exactly one lookup key must be provided"):
+        ntds.schema_index.lookup(ldap_name="person", attrtyp=1234)
+
+    ntds.schema_index.lookup(ldap_name="person")  # This should work without error
+
+
+def test_object_repr(ntds: NTDS) -> None:
+    """Test the __repr__ methods of User, Computer, Object and Group classes."""
+    user = next(ntds.lookup(sAMAccountName="Administrator"))
+    assert isinstance(user, User)
+    assert repr(user) == "<User name=Administrator sAMAccountName=Administrator is_machine_account=False>"
+
+    computer = next(ntds.lookup(sAMAccountName="DC*"))
+    assert isinstance(computer, Computer)
+    assert repr(computer) == "<Computer name=DC01>"
+
+    group = next(ntds.lookup(sAMAccountName="Domain Admins"))
+    assert isinstance(group, Group)
+    assert repr(group) == "<Group name=Domain Admins>"
+
+    object = next(ntds.lookup(objectCategory="subSchema"))
+    assert isinstance(object, Object)
+    assert repr(object) == "<Object name=Aggregate objectCategory=subSchema objectClass=['subSchema', 'top']>"

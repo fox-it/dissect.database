@@ -45,39 +45,51 @@ class SchemaEntry(NamedTuple):
 
 
 class SchemaIndex:
+    """A unified index for schema entries providing fast lookups by various keys.
+
+    Provides efficient lookups for schema entries by DNT, OID, ATTRTYP,
+    LDAP display name, and column name.
+    """
+
     def __init__(self):
+        """Initialize the schema index with empty collections."""
         self._entries: list[SchemaEntry] = []
         self._entry_count: int = 0
-
         self._dnt_index: dict[int, int] = {}
         self._oid_index: dict[str, int] = {}
         self._attrtyp_index: dict[int, int] = {}
-        self._ldap_index: dict[str, int] = {}
-        self._column_index: dict[str, int] = {}
+        self._ldap_name_index: dict[str, int] = {}
+        self._column_name_index: dict[str, int] = {}
 
-    def add_entry(self, entry: SchemaEntry) -> None:
-        """Internal method to add an entry and update all indexes."""
+    def _add_entry(self, entry: SchemaEntry) -> None:
         entry_index = self._entry_count
         self._entries.append(entry)
         self._entry_count += 1
-
         self._dnt_index[entry.dnt] = entry_index
         self._oid_index[entry.oid] = entry_index
         self._attrtyp_index[entry.attrtyp] = entry_index
-        self._ldap_index[entry.ldap_name] = entry_index
-
+        self._ldap_name_index[entry.ldap_name] = entry_index
         if entry.column_name:
-            self._column_index[entry.column_name] = entry_index
+            self._column_name_index[entry.column_name] = entry_index
 
     def lookup(self, **kwargs) -> SchemaEntry | None:
-        """
-        Lookup a schema entry by any indexed field.
-        Supported keys: dnt, oid, attrtyp, ldap and column
+        """Lookup a schema entry by any indexed field.
+
+        Supported keys: dnt, oid, attrtyp, ldap_name and column_name.
+
+        Args:
+            **kwargs: Exactly one keyword argument specifying the lookup key and value.
+
+        Returns:
+            The matching schema entry or None if not found.
+
+        Raises:
+            ValueError: If not exactly one lookup key is provided or if the key is unsupported.
         """
         if len(kwargs) != 1:
             raise ValueError("Exactly one lookup key must be provided")
 
-        key, value = next(iter(kwargs.items()))
+        ((key, value),) = kwargs.items()
 
         try:
             index = getattr(self, f"_{key}_index")
@@ -91,6 +103,15 @@ class SchemaIndex:
 
 
 class NTDS:
+    """NTDS.dit Active Directory database parser.
+
+    Provides methods to query and extract data from an NTDS.dit file,
+    including users, computers, groups, and their relationships.
+
+    Args:
+        fh: A binary file handle to the NTDS.dit database file.
+    """
+
     def __init__(self, fh: BinaryIO):
         self.db = ESE(fh)
         self.data_table = self.db.table("datatable")
@@ -137,27 +158,38 @@ class NTDS:
         self._get_attribute_converter = lru_cache(4096)(self._get_attribute_converter)
 
     def _oid_string_to_attrtyp(self, value: str) -> int | None:
-        """
-        Convert OID string or LDAP display name to ATTRTYP value.
+        """Convert OID string or LDAP display name to ATTRTYP value.
 
         Supports both formats:
             objectClass=person       (LDAP display name)
             objectClass=2.5.6.6      (OID string)
 
         Args:
-            value: Either an OID string (contains dots) or LDAP display name
+            value: Either an OID string (contains dots) or LDAP display name.
 
         Returns:
-            ATTRTYP integer value or None if not found
+            ATTRTYP integer value or None if not found.
         """
-        entry = self.schema_index.lookup(oid=value) if "." in value else self.schema_index.lookup(ldap=value)
+        entry = self.schema_index.lookup(oid=value) if "." in value else self.schema_index.lookup(ldap_name=value)
         return entry.attrtyp if entry else None
 
     def _construct_dn_cached(self, dnt: int) -> str:
-        """Cached helper method for DN construction based on DNT."""
+        """Construct Distinguished Name (DN) from a DNT value.
+
+        This method walks up the parent hierarchy to build the full DN path.
+
+        Args:
+            dnt: The Directory Number Tag to construct the DN for.
+
+        Returns:
+            The fully qualified Distinguished Name as a string.
+
+        Raises:
+            ValueError: If the 'name' column cannot be found in schema.
+        """
         current_record = self._DNT_lookup(dnt)
 
-        name_column = self.schema_index.lookup(ldap="name").column_name
+        name_column = self.schema_index.lookup(ldap_name="name").column_name
         if not name_column:
             raise ValueError("Unable to find 'name' column in schema")
 
@@ -185,59 +217,105 @@ class NTDS:
         return ",".join(components)
 
     def _record_to_object(self, record: Record) -> Object:
-        """Convert a database record to a properly typed Object instance."""
+        """Convert a database record to a properly typed Object instance.
+
+        Args:
+            record: The raw database record to convert.
+
+        Returns:
+            An Object instance, potentially cast to a more specific type
+            (User, Computer, Group) based on objectClass.
+        """
         obj = self._create_mapped_object(record)
         self._normalize_attribute_values(obj)
         return self._cast_to_specific_type(obj)
 
     def _create_mapped_object(self, record: Record) -> Object:
-        """Create an Object with column names mapped to LDAP attribute names."""
-        mapped_record = {}
-        for k, v in record.as_dict().items():
-            schema_entry = self.schema_index.lookup(column=k)
+        """Create an Object with column names mapped to LDAP attribute names.
 
+        Args:
+            record: The database record to map.
+
+        Returns:
+            An Object with LDAP attribute names as keys.
+        """
+        mapped_record = {}
+
+        for k, v in record.as_dict().items():
+            schema_entry = self.schema_index.lookup(column_name=k)
             mapped_name = schema_entry.ldap_name if schema_entry else REVERSE_SPECIAL_ATTRIBUTE_MAPPING.get(k, k)
             mapped_record[mapped_name] = v
+
         return Object(mapped_record, ntds=self)
 
     def _normalize_attribute_values(self, obj: Object) -> None:
-        """Convert attribute values to their proper Python types in-place."""
+        """Convert attribute values to their proper Python types in-place.
+
+        Args:
+            obj: The Object to normalize attribute values for.
+        """
         for attribute, value in obj.record.items():
             func = self._get_attribute_converter(attribute)
             if func:
                 obj.record[attribute] = self._apply_converter(func, value)
 
     def _get_attribute_converter(self, attribute: str) -> Callable | None:
-        """Get the appropriate converter function for an attribute."""
+        """Get the appropriate converter function for an attribute.
+
+        Args:
+            attribute: The LDAP attribute name.
+
+        Returns:
+            A converter function or None if no converter is needed.
+        """
         # First check the list of deviations
         func = ATTRIBUTE_NORMALIZERS.get(attribute)
         if func:
             return func
 
         # Next, try it using the regular TYPE_OID_DECODE_FUNC mapping
-        attr_entry = self.schema_index.lookup(ldap=attribute)
+        attr_entry = self.schema_index.lookup(ldap_name=attribute)
         if attr_entry and attr_entry.type_oid:
             return self.TYPE_OID_DECODE_FUNC.get(attr_entry.type_oid)
 
         return None
 
     def _apply_converter(self, func: Callable, value: Any) -> Any:
-        """Apply converter function to value(s), handling both single values and lists."""
+        """Apply converter function to value(s), handling both single values and lists.
+
+        Args:
+            func: The converter function to apply.
+            value: The value or list of values to convert.
+
+        Returns:
+            The converted value or list of converted values.
+        """
         if isinstance(value, list):
             return [func(v) for v in value]
         return func(value)
 
     def _cast_to_specific_type(self, obj: Object) -> Object:
-        """Cast generic Object to a more specific type based on objectClass."""
+        """Cast generic Object to a more specific type based on objectClass.
+
+        Args:
+            obj: The generic Object to potentially cast.
+
+        Returns:
+            A more specific Object type (User, Computer, Group) if applicable,
+            otherwise the original Object.
+        """
         for class_name, cls in OBJECTCLASS_MAPPING.items():
             if class_name in obj.objectClass:
                 return cls(obj)
         return obj
 
     def _bootstrap_schema(self) -> SchemaIndex:
-        """
-        Load the classes and attributes from the Schema into a unified index
-        providing O(1) lookups for DNT, OID, ATTRTYP, Column, and LDAP display names.
+        """Load the classes and attributes from the Schema into a unified index.
+
+        Provides O(1) lookups for DNT, OID, ATTRTYP, Column, and LDAP display names.
+
+        Returns:
+            A SchemaIndex containing all schema entries from the database.
         """
         # Hardcoded index
         cursor = self.data_table.index("INDEX_00000000").cursor()
@@ -250,7 +328,7 @@ class NTDS:
             oid = convert_attrtyp_to_oid(attrtyp)
             dnt = record.get(FIXED_ATTR_COLS["DNT"])
 
-            schema_index.add_entry(SchemaEntry(dnt=dnt, oid=oid, attrtyp=attrtyp, ldap_name=ldap_name, is_class=True))
+            schema_index._add_entry(SchemaEntry(dnt=dnt, oid=oid, attrtyp=attrtyp, ldap_name=ldap_name, is_class=True))
 
         # Load attributes (e.g. "cn", "sAMAccountName", "memberOf", etc.)
         for record in cursor.find_all(**{FIXED_ATTR_COLS["objectClass"]: FIXED_OBJ_MAP["attributeSchema"]}):
@@ -265,7 +343,7 @@ class NTDS:
             oid = convert_attrtyp_to_oid(attrtyp)
             dnt = record.get(FIXED_ATTR_COLS["DNT"])
 
-            schema_index.add_entry(
+            schema_index._add_entry(
                 SchemaEntry(
                     dnt=dnt,
                     oid=oid,
@@ -281,25 +359,55 @@ class NTDS:
         return schema_index
 
     def _ldapDisplayName_to_DNT(self, ldapDisplayName: str) -> int | None:
-        entry = self.schema_index.lookup(ldap=ldapDisplayName)
+        """Convert an LDAP display name to its corresponding DNT value.
+
+        Args:
+            ldapDisplayName: The LDAP display name to look up.
+
+        Returns:
+            The DNT value or None if not found.
+        """
+        entry = self.schema_index.lookup(ldap_name=ldapDisplayName)
         if entry:
             return entry.dnt
         return None
 
     def _DNT_to_ldapDisplayName(self, dnt: int) -> str | None:
-        # First try O(1) lookup in our schema index
+        """Convert a DNT value to its corresponding LDAP display name.
+
+        Args:
+            dnt: The Directory Number Tag to look up.
+
+        Returns:
+            The LDAP display name or None if not found.
+        """
         entry = self.schema_index.lookup(dnt=dnt)
         if entry:
             return entry.ldap_name
         return None
 
     def _DNT_lookup(self, dnt: int) -> Record:
-        """Lookup a record by its DNT value."""
+        """Lookup a record by its DNT value.
+
+        Args:
+            dnt: The Directory Number Tag to look up.
+
+        Returns:
+            The database record for the given DNT.
+        """
         return self.data_table.index("DNT_index").cursor().find(**{FIXED_ATTR_COLS["DNT"]: dnt})
 
     def _encode_value(self, attribute: str, value: str) -> int | bytes | str:
-        # Direct O(1) lookup for attribute type
-        attr_entry = self.schema_index.lookup(ldap=attribute)
+        """Encode a string value according to the attribute's type.
+
+        Args:
+            attribute: The LDAP attribute name.
+            value: The string value to encode.
+
+        Returns:
+            The encoded value in the appropriate type for the attribute.
+        """
+        attr_entry = self.schema_index.lookup(ldap_name=attribute)
         if not attr_entry:
             return value
 
@@ -310,8 +418,15 @@ class NTDS:
         return value
 
     def _process_query(self, ldap: SearchFilter, passed_objects: None | list[Record] = None) -> Generator[Record]:
-        """Process LDAP query recursively, handling nested logical operations."""
-        # Simple filter - fetch records directly or filter passed objects
+        """Process LDAP query recursively, handling nested logical operations.
+
+        Args:
+            ldap: The LDAP search filter to process.
+            passed_objects: Optional list of records to filter instead of querying database.
+
+        Yields:
+            Records matching the search filter.
+        """
         if not ldap.is_nested():
             if passed_objects is None:
                 try:
@@ -322,16 +437,23 @@ class NTDS:
                 yield from self._filter_records(ldap, passed_objects)
             return
 
-        # Handle logical operators
         if ldap.operator == LogicalOperator.AND:
             yield from self._process_and_operation(ldap, passed_objects)
         elif ldap.operator == LogicalOperator.OR:
             yield from self._process_or_operation(ldap, passed_objects)
 
     def _filter_records(self, ldap: SearchFilter, records: list[Record]) -> Generator[Record]:
-        """Filter a list of records against a simple LDAP filter."""
+        """Filter a list of records against a simple LDAP filter.
+
+        Args:
+            ldap: The LDAP search filter to apply.
+            records: The list of records to filter.
+
+        Yields:
+            Records that match the filter criteria.
+        """
         encoded_value = self._encode_value(ldap.attribute, ldap.value)
-        attr_entry = self.schema_index.lookup(ldap=ldap.attribute)
+        attr_entry = self.schema_index.lookup(ldap_name=ldap.attribute)
 
         if not attr_entry or not attr_entry.column_name:
             return
@@ -349,7 +471,17 @@ class NTDS:
     def _value_matches_filter(
         self, record_value: Any, encoded_value: Any, has_wildcard: bool, wildcard_prefix: str | None
     ) -> bool:
-        """Check if a record value matches the filter criteria."""
+        """Check if a record value matches the filter criteria.
+
+        Args:
+            record_value: The value from the database record.
+            encoded_value: The encoded filter value to match against.
+            has_wildcard: Whether the filter contains wildcard characters.
+            wildcard_prefix: The prefix to match for wildcard searches.
+
+        Returns:
+            True if the value matches the filter criteria.
+        """
         if isinstance(record_value, list):
             return encoded_value in record_value
 
@@ -359,7 +491,15 @@ class NTDS:
         return encoded_value == record_value
 
     def _process_and_operation(self, ldap: SearchFilter, passed_objects: None | list[Record]) -> Generator[Record]:
-        """Process AND logical operation."""
+        """Process AND logical operation.
+
+        Args:
+            ldap: The LDAP search filter with AND operator.
+            passed_objects: Optional list of records to filter.
+
+        Yields:
+            Records matching all conditions in the AND operation.
+        """
         if passed_objects is not None:
             records_to_process = passed_objects
             children_to_check = ldap.children
@@ -374,14 +514,32 @@ class NTDS:
                 yield record
 
     def _process_or_operation(self, ldap: SearchFilter, passed_objects: None | list[Record]) -> Generator[Record]:
-        """Process OR logical operation."""
+        """Process OR logical operation.
+
+        Args:
+            ldap: The LDAP search filter with OR operator.
+            passed_objects: Optional list of records to filter.
+
+        Yields:
+            Records matching any condition in the OR operation.
+        """
         for child in ldap.children:
             yield from self._process_query(child, passed_objects=passed_objects)
 
     def _query_database(self, filter: SearchFilter) -> Generator[Record]:
-        """Execute a simple LDAP filter against the database."""
+        """Execute a simple LDAP filter against the database.
+
+        Args:
+            filter: The LDAP search filter to execute.
+
+        Yields:
+            Records matching the filter.
+
+        Raises:
+            ValueError: If the attribute is not found or has no column mapping.
+        """
         # Validate attribute exists and get column mapping
-        attr_entry = self.schema_index.lookup(ldap=filter.attribute)
+        attr_entry = self.schema_index.lookup(ldap_name=filter.attribute)
         if not attr_entry:
             raise ValueError(f"Attribute '{filter.attribute}' not found in the NTDS database.")
 
@@ -407,7 +565,16 @@ class NTDS:
                 log.debug("No record found for filter: %s", filter)
 
     def _handle_wildcard_query(self, index: Any, column_name: str, filter_value: str) -> Generator[Record]:
-        """Handle wildcard queries using range searches."""
+        """Handle wildcard queries using range searches.
+
+        Args:
+            index: The database index to search.
+            column_name: The column name for the search.
+            filter_value: The filter value containing wildcards.
+
+        Yields:
+            Records matching the wildcard pattern.
+        """
         cursor = index.cursor()
 
         # Create search bounds
@@ -427,7 +594,17 @@ class NTDS:
             current_record = cursor.record()
 
     def get_members_from_group(self, group: Group) -> Generator[User]:
-        """Returns a generator of User objects that are members of the given group."""
+        """Get all users that are members of the specified group.
+
+        Args:
+            group: The Group object to get members for.
+
+        Yields:
+            User objects that are members of the group.
+
+        Raises:
+            TypeError: If the provided object is not a Group instance.
+        """
         if not isinstance(group, Group):
             raise TypeError("The provided object is not a Group instance.")
         dnt_index = self.data_table.find_index(FIXED_ATTR_COLS["DNT"])
@@ -450,7 +627,17 @@ class NTDS:
             yield from self.lookup(primaryGroupID=primary_group_rid)
 
     def get_groups_for_member(self, user: User) -> Generator[Group]:
-        """Returns a generator of Group objects that the given user is a member of."""
+        """Get all groups that the specified user is a member of.
+
+        Args:
+            user: The User object to get group memberships for.
+
+        Yields:
+            Group objects that the user is a member of.
+
+        Raises:
+            TypeError: If the provided object is not a User instance.
+        """
         if not isinstance(user, User):
             raise TypeError("The provided object is not a User instance.")
         group_index = self.data_table.find_index(FIXED_ATTR_COLS["DNT"])
@@ -473,14 +660,28 @@ class NTDS:
             yield from self.lookup(objectSid=f"{user.objectSid.rsplit('-', 1)[0]}-{primary_group_id}")
 
     def construct_distinguished_name(self, record: Record) -> str | None:
-        """Constructs the distinguished name (DN) for a given record."""
+        """Construct the Distinguished Name (DN) for a given record.
+
+        Args:
+            record: The database record to construct DN for.
+
+        Returns:
+            The fully qualified Distinguished Name or None if DNT is not available.
+        """
         dnt = record.get("DNT")
         if dnt:
             return self._construct_dn_cached(dnt)
         return None
 
     def dacl(self, obj: Object) -> ACL | None:
-        """Returns the DACL for the given Object."""
+        """Get the Discretionary Access Control List (DACL) for an object.
+
+        Args:
+            obj: The Object to retrieve the DACL for.
+
+        Returns:
+            The ACL object containing access control entries, or None if unavailable.
+        """
         nt_security_descriptor = obj.record.get("nTSecurityDescriptor")
         if not nt_security_descriptor:
             return None
@@ -506,16 +707,32 @@ class NTDS:
             return security_descriptor.dacl
 
     def query(self, query: str, optimize: bool = True) -> Generator[Object]:
-        """
-        Executes an LDAP query against the NTDS database and returns a list of Objects.
-        If an Object can be cast to a more specific Object type, it will be returned as such.
+        """Execute an LDAP query against the NTDS database.
+
+        Args:
+            query: The LDAP query string to execute.
+            optimize: Whether to optimize the query (default: True).
+
+        Yields:
+            Object instances matching the query. Objects are cast to more specific
+            types (User, Computer, Group) when possible.
         """
         ldap: SearchFilter = SearchFilter.parse(query, optimize)
         for record in self._process_query(ldap):
             yield self._record_to_object(record)
 
     def lookup(self, **kwargs: str) -> Generator[Object]:
-        """Helper function to perform a query based on a single attribute."""
+        """Perform a simple attribute-value lookup query.
+
+        Args:
+            **kwargs: Exactly one keyword argument specifying attribute and value.
+
+        Yields:
+            Object instances matching the attribute-value pair.
+
+        Raises:
+            ValueError: If not exactly one attribute is provided.
+        """
         if len(kwargs) != 1:
             raise ValueError("Exactly one attribute must be provided")
 
@@ -523,10 +740,25 @@ class NTDS:
         yield from self.query(f"({attr}={value})")
 
     def users(self) -> Generator[User]:
+        """Get all user objects from the database.
+
+        Yields:
+            User objects representing all users in the directory.
+        """
         yield from self.lookup(objectCategory="person")
 
     def computers(self) -> Generator[Computer]:
+        """Get all computer objects from the database.
+
+        Yields:
+            Computer objects representing all computers in the directory.
+        """
         yield from self.lookup(objectCategory="computer")
 
     def groups(self) -> Generator[Group]:
+        """Get all group objects from the database.
+
+        Yields:
+            Group objects representing all groups in the directory.
+        """
         yield from self.lookup(objectCategory="group")

@@ -70,10 +70,16 @@ OID_PREFIX = {
 
 
 def convert_attrtyp_to_oid(oid_int: int) -> str:
-    """
-    Gets the OID from an ATTRTYP 32-bit integer value.
-    Example for attrbute printShareName:
-        ATTRTYP: 590094 (hex: 0x9010e) -> 1.2.840.113556.1.4.270"
+    """Gets the OID from an ATTRTYP 32-bit integer value.
+
+    Example for attribute printShareName:
+        ATTRTYP: 590094 (hex: 0x9010e) -> 1.2.840.113556.1.4.270
+
+    Args:
+        oid_int: The ATTRTYP 32-bit integer value to convert.
+
+    Returns:
+        The OID string representation.
     """
     return f"{OID_PREFIX[oid_int & 0xFFFF0000]:s}.{oid_int & 0x0000FFFF:d}"
 
@@ -101,9 +107,16 @@ OID_TO_TYPE: dict[str, str] = {
 
 
 def increment_last_char(s: str) -> str | None:
-    """
-    Increment the last character in a string to find the next lexicographically
-    sortable key for binary tree searching.
+    """Increment the last character in a string to find the next lexicographically sortable key.
+
+    Used for binary tree searching to find the upper bound of a range search.
+
+    Args:
+        s: The string to increment.
+
+    Returns:
+        A new string with the last character incremented, or None if increment
+        would overflow all characters.
     """
     s_list = list(s)
     i = len(s_list) - 1
@@ -200,8 +213,7 @@ def write_sid(sid_string: str, endian: str = "<") -> bytes:
 
     Args:
         sid_string: A SID string in the format "S-{revision}-{authority}-{sub_authority}...".
-        endian: Optional endianness for writing the sub authorities.
-        swap_last: Optional flag for swapping the endianness of the _last_ sub authority entry.
+        endian: Endianness for writing the sub authorities (default: "<").
 
     Returns:
         The binary representation of the SID.
@@ -245,6 +257,14 @@ def write_sid(sid_string: str, endian: str = "<") -> bytes:
 
 # https://learn.microsoft.com/en-us/windows/win32/api/guiddef/ns-guiddef-guid
 def format_GUID(uuid: bytes) -> str:
+    """Format a 16-byte GUID to its string representation.
+
+    Args:
+        uuid: 16 bytes representing the GUID.
+
+    Returns:
+        The formatted GUID string in the format XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX.
+    """
     uuid1, uuid2, uuid3 = struct.unpack("<LHH", uuid[:8])
     uuid4, uuid5, uuid6 = struct.unpack(">HHL", uuid[8:16])
     return f"{uuid1:08X}-{uuid2:04X}-{uuid3:04X}-{uuid4:04X}-{uuid5:04X}{uuid6:08X}"
