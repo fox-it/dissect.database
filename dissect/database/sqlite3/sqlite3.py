@@ -63,7 +63,7 @@ class SQLite3:
     Args:
         fh: The path or file-like object to open a SQLite3 database on.
         wal: The path or file-like object to open a SQLite3 WAL file on.
-        checkpoint: The checkpoint to apply from the WAL file. Can be a Checkpoint object or an integer index.
+        checkpoint: The checkpoint to apply from the WAL file. Can be a :class:`Checkpoint` object or an integer index.
 
     Raises:
         InvalidDatabase: If the file-like object does not look like a SQLite3 database based on the header magic.
@@ -87,8 +87,8 @@ class SQLite3:
 
         self.fh = fh
         self.path = path
-        self.checkpoint = checkpoint
         self.wal = None
+        self.checkpoint = None
 
         if wal:
             self.wal = WAL(wal)
@@ -96,16 +96,17 @@ class SQLite3:
             # Check for common WAL sidecars next to the DB.
             for suffix in (".sqlite-wal", ".db-wal"):
                 if (candidate := self.path.with_suffix(suffix)).exists():
-                    self.wal = WAL(candidate.open("rb"))
+                    self.wal = WAL(candidate)
                     break
 
         # If a checkpoint index was provided, resolve it to a Checkpoint object.
-        if self.wal and isinstance(self.checkpoint, int):
+        if self.wal and isinstance(checkpoint, int):
             checkpoint = self.checkpoint
-            checkpoints = self.wal.checkpoints
-            if checkpoint < 0 or checkpoint >= len(checkpoints):
+            if checkpoint < 0 or checkpoint >= len(self.wal.checkpoints):
                 raise IndexError("WAL checkpoint index out of range")
-            self.checkpoint = checkpoints[checkpoint]
+            self.checkpoint = self.wal.checkpoints[checkpoint]
+        else:
+            self.checkpoint = checkpoint
 
         self.header = c_sqlite3.header(self.fh)
         if self.header.magic != SQLITE3_HEADER_MAGIC:
