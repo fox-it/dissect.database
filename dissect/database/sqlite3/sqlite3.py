@@ -91,7 +91,7 @@ class SQLite3:
         self.checkpoint = None
 
         if wal:
-            self.wal = WAL(wal)
+            self.wal = WAL(wal) if not isinstance(wal, WAL) else wal
         elif path:
             # Check for common WAL sidecars next to the DB.
             for suffix in (".sqlite-wal", ".db-wal"):
@@ -101,7 +101,6 @@ class SQLite3:
 
         # If a checkpoint index was provided, resolve it to a Checkpoint object.
         if self.wal and isinstance(checkpoint, int):
-            checkpoint = self.checkpoint
             if checkpoint < 0 or checkpoint >= len(self.wal.checkpoints):
                 raise IndexError("WAL checkpoint index out of range")
             self.checkpoint = self.wal.checkpoints[checkpoint]
@@ -131,7 +130,7 @@ class SQLite3:
             return
 
         for checkpoint in self.wal.commits:
-            yield SQLite3(self.fh, self.wal.fh, checkpoint)
+            yield SQLite3(self.fh, self.wal, checkpoint)
 
     def table(self, name: str) -> Table | None:
         name = name.lower()
@@ -189,9 +188,6 @@ class SQLite3:
             if num in self.checkpoint:
                 frame = self.checkpoint.get(num)
                 return frame.data
-            else:
-                # If the page is not present in the checkpoint, skip.
-                pass
 
         # Check if the latest valid instance of the page is committed (either the frame itself
         # is the commit frame or it is included in a commit's frames). If so, return that frame's data.
