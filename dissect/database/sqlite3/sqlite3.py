@@ -126,7 +126,7 @@ class SQLite3:
         if not self.wal:
             return
 
-        for checkpoint in self.wal.commits:
+        for checkpoint in self.wal.checkpoints:
             yield SQLite3(self.fh, self.wal, checkpoint)
 
     def table(self, name: str) -> Table | None:
