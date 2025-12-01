@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import os
 import struct
 from functools import cached_property, lru_cache
 from pathlib import Path
@@ -12,6 +14,8 @@ from dissect.database.sqlite3.exception import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+log = logging.getLogger(__name__)
+log.setLevel(os.getenv("DISSECT_LOG_SQLITE3", "CRITICAL"))
 
 # See https://sqlite.org/fileformat2.html#wal_file_format
 WAL_HEADER_MAGIC_LE = 0x377F0682
@@ -39,7 +43,6 @@ class WAL:
             raise InvalidDatabase("Invalid header magic")
 
         self.checksum_endian = "<" if self.header.magic == WAL_HEADER_MAGIC_LE else ">"
-        self._checkpoints = None
 
         self.frame = lru_cache(1024)(self.frame)
 
@@ -144,8 +147,8 @@ class Frame:
         return self.header.page_count
 
 
-# Collection of frames that were committed together
 class _FrameCollection:
+    """Convenience class to keep track of a collection of frames that were committed together."""
     def __init__(self, wal: WAL, frames: list[Frame]):
         self.wal = wal
         self.frames = frames

@@ -179,10 +179,9 @@ class SQLite3:
         if num == 1:  # Page 1 is root
             self.fh.seek(len(c_sqlite3.header))
             return self.fh.read(self.header.page_size)
-        self.fh.seek((num - 1) * self.page_size)
 
         # If a specific WAL checkpoint was provided, use it instead of the on-disk page.
-        if self.wal and self.checkpoint is not None and num in self.checkpoint:
+        if self.checkpoint is not None and num in self.checkpoint:
             frame = self.checkpoint.get(num)
             return frame.data
 
@@ -194,6 +193,7 @@ class SQLite3:
                     frame = commit.get(num)
                     return frame.data
 
+        self.fh.seek((num - 1) * self.page_size)
         return self.fh.read(self.header.page_size)
 
     def page(self, num: int) -> Page:
