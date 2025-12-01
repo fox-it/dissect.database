@@ -110,8 +110,6 @@ class WAL:
         return sorted(
             checkpoints_map.values(),
             key=lambda c: c.frames[0].header.salt1,
-            # TODO Should this be reverse? Reverse means: cp0 is the latest, cpN the oldest
-            reverse=True,
         )
 
 

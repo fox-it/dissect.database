@@ -9,28 +9,28 @@ if TYPE_CHECKING:
 
 
 def test_sqlite_wal_binaryio(sqlite_db: Path, sqlite_wal: Path) -> None:
-    s = sqlite3.SQLite3(sqlite_db.open("rb"), sqlite_wal.open("rb"), checkpoint=2)
-    _sqlite_read_checkpoint2(s)
-
     s = sqlite3.SQLite3(sqlite_db.open("rb"), sqlite_wal.open("rb"), checkpoint=1)
     _sqlite_read_checkpoint1(s)
 
-    s = sqlite3.SQLite3(sqlite_db.open("rb"), sqlite_wal.open("rb"), checkpoint=0)
-    _sqlite_read_checkpoint0(s)
+    s = sqlite3.SQLite3(sqlite_db.open("rb"), sqlite_wal.open("rb"), checkpoint=2)
+    _sqlite_read_checkpoint2(s)
+
+    s = sqlite3.SQLite3(sqlite_db.open("rb"), sqlite_wal.open("rb"), checkpoint=3)
+    _sqlite_read_checkpoint3(s)
 
 
 def test_sqlite_wal_path(sqlite_db: Path, sqlite_wal: Path) -> None:
-    s = sqlite3.SQLite3(sqlite_db, sqlite_wal, checkpoint=2)
-    _sqlite_read_checkpoint2(s)
-
     s = sqlite3.SQLite3(sqlite_db, sqlite_wal, checkpoint=1)
     _sqlite_read_checkpoint1(s)
 
-    s = sqlite3.SQLite3(sqlite_db, sqlite_wal, checkpoint=0)
-    _sqlite_read_checkpoint0(s)
+    s = sqlite3.SQLite3(sqlite_db, sqlite_wal, checkpoint=2)
+    _sqlite_read_checkpoint2(s)
+
+    s = sqlite3.SQLite3(sqlite_db, sqlite_wal, checkpoint=3)
+    _sqlite_read_checkpoint3(s)
 
 
-def _sqlite_read_checkpoint2(s: sqlite3.SQLite3) -> None:
+def _sqlite_read_checkpoint1(s: sqlite3.SQLite3) -> None:
     # After the first checkpoint the "after checkpoint" entries are present
     table = next(iter(s.tables()))
 
@@ -66,7 +66,7 @@ def _sqlite_read_checkpoint2(s: sqlite3.SQLite3) -> None:
     assert rows[8].value == 45
 
 
-def _sqlite_read_checkpoint1(s: sqlite3.SQLite3) -> None:
+def _sqlite_read_checkpoint2(s: sqlite3.SQLite3) -> None:
     # After the second checkpoint two more entries are present ("second checkpoint")
     table = next(iter(s.tables()))
 
@@ -108,7 +108,7 @@ def _sqlite_read_checkpoint1(s: sqlite3.SQLite3) -> None:
     assert rows[10].value == 101
 
 
-def _sqlite_read_checkpoint0(s: sqlite3.SQLite3) -> None:
+def _sqlite_read_checkpoint3(s: sqlite3.SQLite3) -> None:
     # After the third checkpoint the deletion and update of one "after checkpoint" are reflected
     table = next(iter(s.tables()))
     rows = list(table.rows())
