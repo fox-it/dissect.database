@@ -123,6 +123,7 @@ class SQLite3:
         self.page = lru_cache(256)(self.page)
 
     def checkpoints(self) -> Iterator[SQLite3]:
+    """Yield instances of the database at all available checkpoints in the WAL file, if applicable."""
         if not self.wal:
             return
 
@@ -180,18 +181,17 @@ class SQLite3:
             return self.fh.read(self.header.page_size)
 
         # If a specific WAL checkpoint was provided, use it instead of the on-disk page.
-        if self.checkpoint is not None and num in self.checkpoint:
-            frame = self.checkpoint.get(num)
+        if self.checkpoint is not None and (frame := self.checkpoint.get(num)):
             return frame.data
 
         # Check if the latest valid instance of the page is committed (either the frame itself
         # is the commit frame or it is included in a commit's frames). If so, return that frame's data.
         if self.wal:
             for commit in self.wal.commits:
-                if num in commit:
-                    frame = commit.get(num)
+                if (frame := commit.get(num)):
                     return frame.data
 
+        # Else we read the page from the database file
         self.fh.seek((num - 1) * self.page_size)
         return self.fh.read(self.header.page_size)
 
