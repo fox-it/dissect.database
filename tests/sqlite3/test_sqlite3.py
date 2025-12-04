@@ -10,18 +10,13 @@ from dissect.database.sqlite3 import sqlite3
 if TYPE_CHECKING:
     from pathlib import Path
 
+@pytest.mark.parametrize(
+    ("db_as_path"),
+    [pytest.param(True, id="db_as_path"), pytest.param(False, id="db_as_fh")],
+)
+def test_sqlite(sqlite_db: Path, db_as_path: bool) -> None:
+    db = sqlite3.SQLite3(sqlite_db) if db_as_path else sqlite3.SQLite3(sqlite_db.open("rb"))
 
-def test_sqlite_binaryio(sqlite_db: Path) -> None:
-    s = sqlite3.SQLite3(sqlite_db.open("rb"))
-    _sqlite_read_data(s)
-
-
-def test_sqlite_path(sqlite_db: Path) -> None:
-    s = sqlite3.SQLite3(sqlite_db)
-    _sqlite_read_data(s)
-
-
-def _sqlite_read_data(db: sqlite3.SQLite3) -> None:
     assert db.header.magic == sqlite3.SQLITE3_HEADER_MAGIC
 
     tables = list(db.tables())
@@ -51,6 +46,21 @@ def _sqlite_read_data(db: sqlite3.SQLite3) -> None:
     assert rows[4].id == 5
     assert rows[4].name == "negative"
     assert rows[4].value == -11644473429
+    assert rows[5].id == 6
+    assert rows[5].name == "after checkpoint"
+    assert rows[5].value == 42
+    assert rows[6].id == 8
+    assert rows[6].name == "after checkpoint"
+    assert rows[6].value == 44
+    assert rows[7].id == 9
+    assert rows[7].name == "wow"
+    assert rows[7].value == 1234
+    assert rows[8].id == 10
+    assert rows[8].name == "second checkpoint"
+    assert rows[8].value == 100
+    assert rows[9].id == 11
+    assert rows[9].name == "second checkpoint"
+    assert rows[9].value == 101
 
     assert len(rows) == len(list(table))
     assert table.row(0).__dict__ == rows[0].__dict__
