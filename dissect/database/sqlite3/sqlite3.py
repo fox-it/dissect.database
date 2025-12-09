@@ -176,10 +176,6 @@ class SQLite3:
         if (num < 1 or num > self.header.page_count) and self.header.page_count > 0:
             raise InvalidPageNumber("Page number exceeds boundaries")
 
-        if num == 1:  # Page 1 is root
-            self.fh.seek(len(c_sqlite3.header))
-            return self.fh.read(self.header.page_size)
-
         # If a specific WAL checkpoint was provided, use it instead of the on-disk page.
         if self.checkpoint is not None and (frame := self.checkpoint.get(num)):
             return frame.data
@@ -190,6 +186,10 @@ class SQLite3:
             for commit in reversed(self.wal.commits):
                 if (frame := commit.get(num)) and frame.valid:
                     return frame.data
+
+        if num == 1:  # Page 1 is root
+            self.fh.seek(len(c_sqlite3.header))
+            return self.fh.read(self.header.page_size)
 
         # Else we read the page from the database file
         self.fh.seek((num - 1) * self.page_size)
