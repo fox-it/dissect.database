@@ -106,7 +106,7 @@ class WAL:
             # Keep the most recent commit for each salt1 (later commits overwrite).
             checkpoints_map[salt1] = commit
 
-        return [checkpoints_map[salt] for salt in sorted(checkpoints_map.keys()]
+        return [checkpoints_map[salt] for salt in sorted(checkpoints_map.keys())]
 
 
 class Frame:
