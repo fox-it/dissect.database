@@ -145,6 +145,7 @@ class Frame:
 
 class _FrameCollection:
     """Convenience class to keep track of a collection of frames that were committed together."""
+
     def __init__(self, wal: WAL, frames: list[Frame]):
         self.wal = wal
         self.frames = frames

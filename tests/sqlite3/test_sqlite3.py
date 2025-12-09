@@ -10,6 +10,7 @@ from dissect.database.sqlite3 import sqlite3
 if TYPE_CHECKING:
     from pathlib import Path
 
+
 @pytest.mark.parametrize(
     ("db_as_path"),
     [pytest.param(True, id="db_as_path"), pytest.param(False, id="db_as_fh")],
