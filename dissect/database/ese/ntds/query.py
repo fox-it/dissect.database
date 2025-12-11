@@ -79,12 +79,15 @@ class Query:
             raise ValueError(f"No column mapping found for attribute {filter.attribute!r}")
 
         # Get the database index for this attribute
-        if (index := self.db.data.table.find_index(column_name)) is None:
+        if (index := self.db.data.table.find_index([column_name])) is None:
             raise ValueError(f"Index for attribute {column_name!r} not found in the NTDS database")
 
-        if "*" in filter.value and filter.value.endswith("*"):
+        if "*" in filter.value:
             # Handle wildcard searches differently
-            yield from _process_wildcard(index, column_name, filter.value)
+            if filter.value.endswith("*"):
+                yield from _process_wildcard_tail(index, column_name, filter.value)
+            else:
+                raise NotImplementedError("Wildcards in the middle or start of the value are not yet supported")
         else:
             # Exact match query
             encoded_value = encode_value(self.db, filter.attribute, filter.value)
@@ -157,7 +160,7 @@ class Query:
                 yield record
 
 
-def _process_wildcard(index: Index, column_name: str, filter_value: str) -> Iterator[Record]:
+def _process_wildcard_tail(index: Index, column_name: str, filter_value: str) -> Iterator[Record]:
     """Handle wildcard queries using range searches.
 
     Args:
@@ -173,7 +176,7 @@ def _process_wildcard(index: Index, column_name: str, filter_value: str) -> Iter
     # Create search bounds
     value = filter_value.replace("*", "")
     cursor.seek(**{column_name: _increment_last_char(value)})
-    end_record = cursor.record()
+    end = cursor.record()
 
     # Seek back to the start
     cursor.reset()
@@ -181,7 +184,7 @@ def _process_wildcard(index: Index, column_name: str, filter_value: str) -> Iter
 
     # Yield all records in range
     record = cursor.record()
-    while record != end_record:
+    while record != end:
         yield record
         record = cursor.next()
 

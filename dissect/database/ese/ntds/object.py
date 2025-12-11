@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import struct
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -8,9 +9,10 @@ from dissect.database.ese.ntds.util import decode_value
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from datetime import datetime
 
     from dissect.database.ese.ntds.database import Database
-    from dissect.database.ese.ntds.sd import ACL, SecurityDescriptor
+    from dissect.database.ese.ntds.sd import SecurityDescriptor
     from dissect.database.ese.record import Record
 
 
@@ -78,10 +80,62 @@ class Object:
 
         return result
 
+    def parent(self) -> Object | None:
+        """Return the parent object of this object, if any."""
+        if (pdnt := self.get("Pdnt")) is not None:
+            return self.db.data._lookup_dnt(pdnt)
+        return None
+
+    def ancestors(self) -> Iterator[Object]:
+        """Yield all ancestor objects of this object."""
+        for (dnt,) in list(struct.iter_unpack("<I", self.get("Ancestors")))[::-1]:
+            yield self.db.data._lookup_dnt(dnt)
+
+    def children(self) -> Iterator[Object]:
+        """Yield all child objects of this object."""
+        # Our query code currently doesn't really work nicely on this specific query, so just do it manually for now
+        cursor = self.db.data.table.index("PDNT_index").cursor()
+        cursor.seek(PDNT_col=self.DNT + 1)
+        end = cursor.record()
+
+        cursor.reset()
+        cursor.seek(PDNT_col=self.DNT)
+
+        record = cursor.record()
+        while record != end:
+            yield Object.from_record(self.db, record)
+            record = cursor.next()
+
+    # Some commonly used properties, for convenience and type hinting
+    @property
+    def dnt(self) -> int:
+        """Return the object's Directory Number Tag (DNT)."""
+        return self.get("DNT")
+
+    @property
+    def pdnt(self) -> int | None:
+        """Return the object's Parent Directory Number Tag (PDNT)."""
+        return self.get("Pdnt")
+
+    @property
+    def ncdnt(self) -> int | None:
+        """Return the object's Naming Context Directory Number Tag (NCDNT)."""
+        return self.get("NCDNT")
+
+    @property
+    def name(self) -> str | None:
+        """Return the object's name."""
+        return self.get("name")
+
     @property
     def sid(self) -> str | None:
         """Return the object's Security Identifier (SID)."""
         return self.get("objectSid")
+
+    @property
+    def guid(self) -> str | None:
+        """Return the object's GUID."""
+        return self.get("objectGUID")
 
     @property
     def distinguishedName(self) -> str | None:
@@ -100,18 +154,122 @@ class Object:
         return None
 
     @property
-    def sacl(self) -> ACL | None:
-        """Return the System Access Control List (SACL) for this object."""
-        if (sd := self.sd) is not None:
-            return sd.sacl
-        return None
+    def when_created(self) -> datetime | None:
+        """Return the object's creation time."""
+        return self.get("whenCreated")
 
     @property
-    def dacl(self) -> ACL | None:
-        """Return the Discretionary Access Control List (DACL) for this object."""
-        if (sd := self.sd) is not None:
-            return sd.dacl
-        return None
+    def when_changed(self) -> datetime | None:
+        """Return the object's last modification time."""
+        return self.get("whenChanged")
+
+
+class Domain(Object):
+    """Represents a domain object in the Active Directory."""
+
+    __object_class__ = "domain"
+
+    def __repr__(self) -> str:
+        return f"<Domain name={self.name!r}>"
+
+
+class DomainDNS(Domain):
+    """Represents a domain DNS object in the Active Directory."""
+
+    __object_class__ = "domainDNS"
+
+    def __repr__(self) -> str:
+        return f"<DomainDNS name={self.name!r}>"
+
+
+class BuiltinDomain(Object):
+    """Represents a built-in domain object in the Active Directory."""
+
+    __object_class__ = "builtinDomain"
+
+    def __repr__(self) -> str:
+        return f"<BuiltinDomain name={self.name!r}>"
+
+
+class Configuration(Object):
+    """Represents a configuration object in the Active Directory."""
+
+    __object_class__ = "configuration"
+
+    def __repr__(self) -> str:
+        return f"<Configuration name={self.name!r}>"
+
+
+class QuotaContainer(Object):
+    """Represents a quota container object in the Active Directory."""
+
+    __object_class__ = "msDS-QuotaContainer"
+
+    def __repr__(self) -> str:
+        return f"<QuotaContainer name={self.name!r}>"
+
+
+class CrossRefContainer(Object):
+    """Represents a cross-reference container object in the Active Directory."""
+
+    __object_class__ = "crossRefContainer"
+
+    def __repr__(self) -> str:
+        return f"<CrossRefContainer name={self.name!r}>"
+
+
+class SitesContainer(Object):
+    """Represents a sites container object in the Active Directory."""
+
+    __object_class__ = "sitesContainer"
+
+    def __repr__(self) -> str:
+        return f"<SitesContainer name={self.name!r}>"
+
+
+class Locality(Object):
+    """Represents a locality object in the Active Directory."""
+
+    __object_class__ = "locality"
+
+    def __repr__(self) -> str:
+        return f"<Locality name={self.name!r}>"
+
+
+class PhysicalLocation(Object):
+    """Represents a physical location object in the Active Directory."""
+
+    __object_class__ = "physicalLocation"
+
+    def __repr__(self) -> str:
+        return f"<PhysicalLocation name={self.name!r}>"
+
+
+class Container(Object):
+    """Represents a container object in the Active Directory."""
+
+    __object_class__ = "container"
+
+    def __repr__(self) -> str:
+        return f"<Container name={self.name!r}>"
+
+
+class OrganizationalUnit(Object):
+    """Represents an organizational unit object in the Active Directory."""
+
+    __object_class__ = "organizationalUnit"
+
+    def __repr__(self) -> str:
+        return f"<OrganizationalUnit name={self.name!r}>"
+
+
+class LostAndFound(Object):
+    """Represents a lost and found object in the Active Directory."""
+
+    __object_class__ = "lostAndFound"
+
+    def __repr__(self) -> str:
+        return f"<LostAndFound name={self.name!r}>"
 
 
 class Group(Object):

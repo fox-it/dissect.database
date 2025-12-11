@@ -77,7 +77,7 @@ class DataTable:
         Args:
             dnt: The DNT to look up.
         """
-        record = self.table.index("DNT_index").cursor().find(DNT_col=dnt)
+        record = self.table.index("DNT_index").cursor().search(DNT_col=dnt)
         return Object.from_record(self.db, record)
 
     def _make_dn(self, dnt: int) -> str:
