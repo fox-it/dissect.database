@@ -3,10 +3,9 @@ from __future__ import annotations
 import logging
 from enum import IntFlag
 from io import BytesIO
+from uuid import UUID
 
 from dissect import cstruct
-
-from dissect.database.ese.ntds.utils import format_GUID
 
 log = logging.getLogger(__name__)
 
@@ -395,7 +394,7 @@ class ACCESS_ALLOWED_OBJECT_ACE(ACE):
             The object type GUID as a string, or None if not present.
         """
         if self.has_flag(ObjectAceFlag.ACE_OBJECT_TYPE_PRESENT):
-            return format_GUID(self.data.ObjectType)
+            return str(UUID(bytes_le=self.data.ObjectType)).upper()
         return None
 
     def get_inherited_object_type(self) -> str | None:
@@ -405,7 +404,7 @@ class ACCESS_ALLOWED_OBJECT_ACE(ACE):
             The inherited object type GUID as a string, or None if not present.
         """
         if self.has_flag(ObjectAceFlag.ACE_INHERITED_OBJECT_TYPE_PRESENT):
-            return format_GUID(self.data.InheritedObjectType)
+            return str(UUID(bytes_le=self.data.InheritedObjectType)).upper()
         return None
 
     def __repr__(self) -> str:
