@@ -159,7 +159,7 @@ class SecurityDescriptorTable:
         self.db = db
         self.table = self.db.ese.table("sd_table")
 
-    def dacl(self, id: int) -> ACL | None:
+    def sd(self, id: int) -> ACL | None:
         """Get the Discretionary Access Control List (DACL), if available.
 
         Args:
@@ -175,5 +175,4 @@ class SecurityDescriptorTable:
         if (value := record.get("sd_value")) is None:
             return None
 
-        sd = SecurityDescriptor(BytesIO(value))
-        return sd.dacl
+        return SecurityDescriptor(BytesIO(value))

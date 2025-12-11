@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from dissect.database.ese.ntds.schema import FIXED_COLUMN_MAP
@@ -9,7 +10,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from dissect.database.ese.ntds.database import Database
-    from dissect.database.ese.ntds.sd import ACL
+    from dissect.database.ese.ntds.sd import ACL, SecurityDescriptor
     from dissect.database.ese.record import Record
 
 
@@ -32,7 +33,7 @@ class Object:
         cls.__known_classes__[cls.__object_class__] = cls
 
     def __repr__(self) -> str:
-        return f"<Object name={self.name} objectCategory={self.objectCategory} objectClass={self.objectClass}>"
+        return f"<Object name={self.name!r} objectCategory={self.objectCategory} objectClass={self.objectClass}>"
 
     def __getattr__(self, name: str) -> Any:
         return self.get(name)
@@ -78,6 +79,11 @@ class Object:
         return result
 
     @property
+    def sid(self) -> str | None:
+        """Return the object's Security Identifier (SID)."""
+        return self.get("objectSid")
+
+    @property
     def distinguishedName(self) -> str | None:
         """Return the fully qualified Distinguished Name (DN) for this object."""
         if (dnt := self.get("DNT")) is not None:
@@ -86,15 +92,25 @@ class Object:
 
     DN = distinguishedName
 
+    @cached_property
+    def sd(self) -> SecurityDescriptor | None:
+        """Return the Security Descriptor for this object."""
+        if (sd_id := self.get("nTSecurityDescriptor")) is not None:
+            return self.db.sd.sd(sd_id)
+        return None
+
+    @property
+    def sacl(self) -> ACL | None:
+        """Return the System Access Control List (SACL) for this object."""
+        if (sd := self.sd) is not None:
+            return sd.sacl
+        return None
+
     @property
     def dacl(self) -> ACL | None:
-        """Get the Discretionary Access Control List (DACL) for this object.
-
-        Returns:
-            The ACL object containing access control entries.
-        """
-        if (sd_id := self.get("nTSecurityDescriptor")) is not None:
-            return self.db.sd.dacl(sd_id)
+        """Return the Discretionary Access Control List (DACL) for this object."""
+        if (sd := self.sd) is not None:
+            return sd.dacl
         return None
 
 
@@ -104,7 +120,7 @@ class Group(Object):
     __object_class__ = "group"
 
     def __repr__(self) -> str:
-        return f"<Group name={self.sAMAccountName}>"
+        return f"<Group name={self.sAMAccountName!r}>"
 
     def members(self) -> Iterator[User]:
         """Yield all members of this group."""
@@ -128,7 +144,7 @@ class Server(Object):
     __object_class__ = "server"
 
     def __repr__(self) -> str:
-        return f"<Server name={self.name}>"
+        return f"<Server name={self.name!r}>"
 
 
 class User(Object):
@@ -138,7 +154,7 @@ class User(Object):
 
     def __repr__(self) -> str:
         return (
-            f"<User name={self.name} sAMAccountName={self.sAMAccountName} "
+            f"<User name={self.name!r} sAMAccountName={self.sAMAccountName!r} "
             f"is_machine_account={self.is_machine_account()}>"
         )
 
