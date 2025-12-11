@@ -61,6 +61,9 @@ class Record:
         except KeyError:
             return object.__getattribute__(self, attr)
 
+    def __contains__(self, attr: str) -> bool:
+        return attr in self._table._column_name_map
+
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Record):
             return False
