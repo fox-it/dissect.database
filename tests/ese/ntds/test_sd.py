@@ -17,7 +17,7 @@ def test_dacl_specific_user(ntds_small: NTDS) -> None:
     user = next(u for u in ntds_small.users() if u.name == "RACHELLE_LYNN")
 
     # Checked using Active Directory User and Computers (ADUC) GUI for user RACHELLE_LYNN
-    ace = next(ace for ace in esm.dacl.ace if ace.sid == user.sid)
+    ace = next(ace for ace in esm.sd.dacl.ace if ace.sid == user.sid)
     assert ACE_FLAGS.CONTAINER_INHERIT_ACE in ace.flags
     assert ACE_FLAGS.INHERITED_ACE in ace.flags
 

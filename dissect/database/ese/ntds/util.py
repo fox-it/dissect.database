@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from dissect.database.ese.ntds.ntds import NTDS
 
 
-ATTRIBUTE_NORMALIZERS: dict[str, Callable[[NTDS, Any], Any]] = {
+ATTRIBUTE_DECODE_MAP: dict[str, Callable[[NTDS, Any], Any]] = {
     "badPasswordTime": lambda _, value: wintimestamp(int(value)),
     "lastLogonTimestamp": lambda _, value: wintimestamp(int(value)),
     "lastLogon": lambda _, value: wintimestamp(int(value)),
@@ -152,8 +152,11 @@ def decode_value(db: Database, attribute: str, value: Any) -> Any:
     Returns:
         The decoded value in the appropriate Python type for the attribute.
     """
+    if value is None:
+        return value
+
     # First check the list of deviations
-    if (decode := ATTRIBUTE_NORMALIZERS.get(attribute)) is None:
+    if (decode := ATTRIBUTE_DECODE_MAP.get(attribute)) is None:
         # Next, try it using the regular OID_ENCODE_DECODE_MAP mapping
         if (attr_entry := db.data.schema.lookup(ldap_name=attribute)) is None:
             return value

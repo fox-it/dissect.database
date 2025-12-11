@@ -29,6 +29,10 @@ class NTDS:
     def __init__(self, fh: BinaryIO):
         self.db = Database(fh)
 
+    def top(self) -> Object:
+        """Return the top-level object in the NTDS database."""
+        return self.db.data._lookup_dnt(2)  # DNT 2 is always the top object
+
     def query(self, query: str, *, optimize: bool = True) -> Iterator[Object]:
         """Execute an LDAP query against the NTDS database.
 

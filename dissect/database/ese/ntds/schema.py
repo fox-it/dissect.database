@@ -141,17 +141,14 @@ class Schema:
 
         # Load objectClasses (e.g. "person", "user", "group", etc.)
         for record in cursor.find_all(**{FIXED_COLUMN_MAP["objectClass"]: FIXED_OBJ_MAP["classSchema"]}):
-            ldap_name = record.get(FIXED_COLUMN_MAP["lDAPDisplayName"])
             attrtyp = int(record.get(FIXED_COLUMN_MAP["governsID"]))
-            oid = attrtyp_to_oid(attrtyp)
-            dnt = record.get(FIXED_COLUMN_MAP["DNT"])
 
             schema_index.add(
                 SchemaEntry(
-                    dnt=dnt,
-                    oid=oid,
+                    dnt=record.get(FIXED_COLUMN_MAP["DNT"]),
+                    oid=attrtyp_to_oid(attrtyp),
                     attrtyp=attrtyp,
-                    ldap_name=ldap_name,
+                    ldap_name=record.get(FIXED_COLUMN_MAP["lDAPDisplayName"]),
                 )
             )
 
@@ -161,22 +158,17 @@ class Schema:
         for record in cursor.find_all(**{FIXED_COLUMN_MAP["objectClass"]: FIXED_OBJ_MAP["attributeSchema"]}):
             attrtyp = record.get(FIXED_COLUMN_MAP["attributeID"])
             type_oid = attrtyp_to_oid(record.get(FIXED_COLUMN_MAP["attributeSyntax"]))
-            link_id = record.get(FIXED_COLUMN_MAP["linkId"])
-            if link_id is not None:
-                link_id = link_id // 2
 
-            ldap_name = record.get(FIXED_COLUMN_MAP["lDAPDisplayName"])
-            column_name = f"ATT{OID_TO_TYPE[type_oid]}{attrtyp}"
-            oid = attrtyp_to_oid(attrtyp)
-            dnt = record.get(FIXED_COLUMN_MAP["DNT"])
+            if (link_id := record.get(FIXED_COLUMN_MAP["linkId"])) is not None:
+                link_id = link_id // 2
 
             schema_index.add(
                 SchemaEntry(
-                    dnt=dnt,
-                    oid=oid,
+                    dnt=record.get(FIXED_COLUMN_MAP["DNT"]),
+                    oid=attrtyp_to_oid(attrtyp),
                     attrtyp=attrtyp,
-                    ldap_name=ldap_name,
-                    column_name=column_name,
+                    ldap_name=record.get(FIXED_COLUMN_MAP["lDAPDisplayName"]),
+                    column_name=f"ATT{OID_TO_TYPE[type_oid]}{attrtyp}",
                     type_oid=type_oid,
                     link_id=link_id,
                 )
