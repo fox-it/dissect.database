@@ -19,7 +19,9 @@ from dissect.database.sqlite3.wal import WAL, Checkpoint
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from types import TracebackType
 
+    from typing_extensions import Self
 
 ENCODING = {
     1: "utf-8",
@@ -82,9 +84,11 @@ class SQLite3:
         if hasattr(fh, "read"):
             name = getattr(fh, "name", None)
             path = Path(name) if name else None
+            self.db_opened_from_path = False
         else:
             path = fh
             fh = path.open("rb")
+            self.db_opened_from_path = True
 
         self.fh = fh
         self.path = path
@@ -106,11 +110,13 @@ class SQLite3:
 
         if wal:
             self.wal = WAL(wal) if not isinstance(wal, WAL) else wal
+            self.wal_opened_from_path = not hasattr(wal, "read")
         elif path:
             # Check for WAL sidecar next to the DB.
             wal_path = path.with_name(f"{path.name}-wal")
-            if wal_path.exists():
+            if wal_path.exists() and wal_path.stat().st_size > 0:
                 self.wal = WAL(wal_path)
+                self.wal_opened_from_path = True
 
         # If a checkpoint index was provided, resolve it to a Checkpoint object.
         if self.wal and isinstance(checkpoint, int):
@@ -121,6 +127,24 @@ class SQLite3:
             self.checkpoint = checkpoint
 
         self.page = lru_cache(256)(self.page)
+
+    def __enter__(self) -> Self:
+        """Return ``self`` upon entering the runtime context."""
+        return self
+
+    def __exit__(self, _: type[BaseException] | None, __: BaseException | None, ___: TracebackType | None) -> bool:
+        self.close()
+        return False
+
+    def close(self) -> None:
+        """Close the database and WAL file handles if a Path was provided."""
+        # Only close DB handle if we opened it using a path
+        if self.db_opened_from_path:
+            self.fh.close()
+
+        # Only close WAL handle if we opened it using a path
+        if self.wal_opened_from_path:
+            self.wal.fh.close()
 
     def checkpoints(self) -> Iterator[SQLite3]:
         """Yield instances of the database at all available checkpoints in the WAL file, if applicable."""

@@ -26,6 +26,8 @@ def test_sqlite_wal(sqlite_db: Path, sqlite_wal: Path, db_as_path: bool, wal_as_
     )
     _assert_checkpoint_1(db)
 
+    db.close()
+
     db = sqlite3.SQLite3(
         sqlite_db if db_as_path else sqlite_db.open("rb"),
         sqlite_wal if wal_as_path else sqlite_wal.open("rb"),
@@ -33,12 +35,16 @@ def test_sqlite_wal(sqlite_db: Path, sqlite_wal: Path, db_as_path: bool, wal_as_
     )
     _assert_checkpoint_2(db)
 
+    db.close()
+
     db = sqlite3.SQLite3(
         sqlite_db if db_as_path else sqlite_db.open("rb"),
         sqlite_wal if wal_as_path else sqlite_wal.open("rb"),
         checkpoint=3,
     )
     _assert_checkpoint_3(db)
+
+    db.close()
 
 
 def _assert_checkpoint_1(s: sqlite3.SQLite3) -> None:

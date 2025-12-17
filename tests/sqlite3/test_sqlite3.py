@@ -17,7 +17,14 @@ if TYPE_CHECKING:
 )
 def test_sqlite(sqlite_db: Path, db_as_path: bool) -> None:
     db = sqlite3.SQLite3(sqlite_db) if db_as_path else sqlite3.SQLite3(sqlite_db.open("rb"))
+    _assert_sqlite_db(db)
+    db.close()
 
+    with sqlite3.SQLite3(sqlite_db) if db_as_path else sqlite3.SQLite3(sqlite_db.open("rb")) as db:
+        _assert_sqlite_db(db)
+
+
+def _assert_sqlite_db(db: sqlite3.SQLite3) -> None:
     assert db.header.magic == sqlite3.SQLITE3_HEADER_MAGIC
 
     tables = list(db.tables())
@@ -66,6 +73,8 @@ def test_sqlite(sqlite_db: Path, db_as_path: bool) -> None:
     assert len(rows) == len(list(table))
     assert table.row(0).__dict__ == rows[0].__dict__
     assert list(rows[0]) == [("id", 1), ("name", "testing"), ("value", 1337)]
+
+    db.close()
 
 
 @pytest.mark.parametrize(
