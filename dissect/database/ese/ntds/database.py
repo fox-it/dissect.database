@@ -191,7 +191,7 @@ class DataTable:
         cursor.seek([dnt])
 
         record = cursor.record()
-        while record != end:
+        while record is not None and record != end:
             yield Object.from_record(self.db, record)
             record = cursor.next()
 
@@ -489,16 +489,12 @@ class LinkTable:
         cursor.seek([dnt] if base is None else [dnt, base])
 
         record = cursor.record()
-        while record.get("link_DNT") == dnt:
+        while record is not None and record.get("link_DNT") == dnt:
             if base is not None and record.get("link_base") != base:
                 break
 
             yield record.get("link_base"), self.db.data.get(record.get("backlink_DNT"))
-
-            try:
-                record = cursor.next()
-            except IndexError:
-                break
+            record = cursor.next()
 
     def _has_link(self, link_dnt: int, base: int, backlink_dnt: int) -> bool:
         """Check if a specific link exists between two DNTs and a given link base.
@@ -548,16 +544,12 @@ class LinkTable:
         cursor.seek([dnt] if base is None else [dnt, base])
 
         record = cursor.record()
-        while record.get("backlink_DNT") == dnt:
+        while record is not None and record.get("backlink_DNT") == dnt:
             if base is not None and record.get("link_base") != base:
                 break
 
             yield record.get("link_base"), self.db.data.get(record.get("link_DNT"))
-
-            try:
-                record = cursor.next()
-            except IndexError:
-                break
+            record = cursor.next()
 
 
 class SecurityDescriptorTable:

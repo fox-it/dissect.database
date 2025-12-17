@@ -178,7 +178,7 @@ def _process_wildcard_tail(index: Index, filter_value: str) -> Iterator[Record]:
 
     # Yield all records in range
     record = cursor.record()
-    while record != end:
+    while record is not None and record != end:
         yield record
         record = cursor.next()
 
