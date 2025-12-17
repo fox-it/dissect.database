@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any
 
 from dissect.util.ldap import LogicalOperator, SearchFilter
 
-from dissect.database.ese.exception import KeyNotFoundError
 from dissect.database.ese.ntds.util import encode_value
 
 if TYPE_CHECKING:
@@ -85,17 +84,13 @@ class Query:
         if "*" in filter.value:
             # Handle wildcard searches differently
             if filter.value.endswith("*"):
-                yield from _process_wildcard_tail(index, column_name, filter.value)
+                yield from _process_wildcard_tail(index, filter.value)
             else:
                 raise NotImplementedError("Wildcards in the middle or start of the value are not yet supported")
         else:
             # Exact match query
             encoded_value = encode_value(self.db, filter.attribute, filter.value)
-            cursor = index.cursor()
-            try:
-                yield from cursor.find_all(**{column_name: encoded_value})
-            except KeyNotFoundError:
-                log.debug("No record found for filter: %s", filter)
+            yield from index.cursor().find_all(**{column_name: encoded_value})
 
     def _process_and_operation(self, filter: SearchFilter, records: list[Record] | None) -> Iterator[Record]:
         """Process AND logical operation.
@@ -160,12 +155,11 @@ class Query:
                 yield record
 
 
-def _process_wildcard_tail(index: Index, column_name: str, filter_value: str) -> Iterator[Record]:
+def _process_wildcard_tail(index: Index, filter_value: str) -> Iterator[Record]:
     """Handle wildcard queries using range searches.
 
     Args:
         index: The database index to search.
-        column_name: The column name for the search.
         filter_value: The filter value containing wildcards.
 
     Yields:
@@ -175,12 +169,12 @@ def _process_wildcard_tail(index: Index, column_name: str, filter_value: str) ->
 
     # Create search bounds
     value = filter_value.replace("*", "")
-    cursor.seek(**{column_name: _increment_last_char(value)})
+    cursor.seek([_increment_last_char(value)])
     end = cursor.record()
 
     # Seek back to the start
     cursor.reset()
-    cursor.seek(**{column_name: value})
+    cursor.seek([value])
 
     # Yield all records in range
     record = cursor.record()

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from dissect.database.ese.btree import BTree
-from dissect.database.ese.exception import NoNeighbourPageError
+from dissect.database.ese.exception import KeyNotFoundError, NoNeighbourPageError
 from dissect.database.ese.record import Record
 
 if TYPE_CHECKING:
@@ -64,7 +64,28 @@ class Cursor:
         if self._secondary:
             self._secondary.reset()
 
-    def search(self, **kwargs: RecordValue) -> Record:
+    def make_key(self, *args: RecordValue, **kwargs: RecordValue) -> bytes:
+        """Generate a key for this index from the given values.
+
+        Args:
+            *args: The values to generate a key for.
+            **kwargs: The columns and values to generate a key for.
+
+        Returns:
+            The generated key as bytes.
+        """
+        if not args and not kwargs:
+            raise ValueError("At least one value must be provided")
+
+        if args and kwargs:
+            raise ValueError("Cannot mix positional and keyword arguments in make_key")
+
+        if args and not len(args) == 1 and not isinstance(args[0], list):
+            raise ValueError("When using positional arguments, provide a single list of values")
+
+        return self.index.make_key(args[0] if args else kwargs)
+
+    def search(self, *args: RecordValue, **kwargs: RecordValue) -> Record:
         """Search the index for the requested values.
 
         Searching modifies the cursor state. Searching again will search from the current position.
@@ -76,7 +97,7 @@ class Cursor:
         Returns:
             A :class:`~dissect.database.ese.record.Record` object of the found record.
         """
-        key = self.index.make_key(kwargs)
+        key = self.make_key(*args, **kwargs)
         return self.search_key(key, exact=True)
 
     def search_key(self, key: bytes, exact: bool = True) -> Record:
@@ -90,13 +111,13 @@ class Cursor:
         self._primary.search(key, exact)
         return self._record()
 
-    def seek(self, **kwargs: RecordValue) -> None:
+    def seek(self, *args: RecordValue, **kwargs: RecordValue) -> None:
         """Seek to the record with the given values.
 
         Args:
             **kwargs: The columns and values to seek to.
         """
-        key = self.index.make_key(kwargs)
+        key = self.make_key(*args, **kwargs)
         self.search_key(key, exact=False)
 
     def seek_key(self, key: bytes) -> None:
@@ -130,7 +151,10 @@ class Cursor:
         other_columns = kwargs
 
         # We need at least an exact match on the indexed columns
-        self.search(**indexed_columns)
+        try:
+            self.search(**indexed_columns)
+        except KeyNotFoundError:
+            return
 
         current_key = self._primary.node().key
 

@@ -70,7 +70,7 @@ def test_computers(ntds_small: NTDS) -> None:
     assert computer_records[13].name == "SECWWKS1000000"
     assert computer_records[14].name == "TSTWWEBS1000000"
 
-    assert len(list(computer_records[1].groups())) == 3
+    assert len(list(computer_records[1].groups())) == 1
 
 
 def test_group_membership(ntds_small: NTDS) -> None:
@@ -84,7 +84,7 @@ def test_group_membership(ntds_small: NTDS) -> None:
     assert isinstance(ernesto, User)
 
     # Test membership of ERNESTO_RAMOS
-    assert len(list(ernesto.groups())) == 12
+    assert len(list(ernesto.groups())) == 11
     assert sorted([g.sAMAccountName for g in ernesto.groups()]) == [
         "Ad-231085liz-distlist1",
         "Ad-apavad281-distlist1",
@@ -96,11 +96,15 @@ def test_group_membership(ntds_small: NTDS) -> None:
         "Gu-ababariba-distlist1",
         "JO-pec-distlist1",
         "MA-anz-admingroup1",
-        "TSTWWEBS1000000$",
         "Users",
     ]
     assert ernesto.is_member_of(domain_admins)
     assert ernesto.is_member_of(domain_users)
+
+    # Test managed objects by ERNESTO_RAMOS
+    assert len(list(ernesto.managed_objects())) == 1
+    assert isinstance(next(ernesto.managed_objects()), Computer)
+    assert next(next(ernesto.managed_objects()).managed_by()).dnt == ernesto.dnt
 
     # Check the members of the Domain Admins group
     assert len(list(domain_admins.members())) == 4
@@ -166,16 +170,16 @@ def test_object_repr(ntds_small: NTDS) -> None:
     """Test the __repr__ methods of User, Computer, Object and Group classes."""
     user = next(ntds_small.lookup(sAMAccountName="Administrator"))
     assert isinstance(user, User)
-    assert repr(user) == "<User name=Administrator sAMAccountName=Administrator is_machine_account=False>"
+    assert repr(user) == "<User name='Administrator' sAMAccountName='Administrator' is_machine_account=False>"
 
     computer = next(ntds_small.lookup(sAMAccountName="DC*"))
     assert isinstance(computer, Computer)
-    assert repr(computer) == "<Computer name=DC01>"
+    assert repr(computer) == "<Computer name='DC01'>"
 
     group = next(ntds_small.lookup(sAMAccountName="Domain Admins"))
     assert isinstance(group, Group)
-    assert repr(group) == "<Group name=Domain Admins>"
+    assert repr(group) == "<Group name='Domain Admins'>"
 
     object = next(ntds_small.lookup(objectCategory="subSchema"))
     assert isinstance(object, Object)
-    assert repr(object) == "<Object name=Aggregate objectCategory=subSchema objectClass=['subSchema', 'top']>"
+    assert repr(object) == "<Object name='Aggregate' objectCategory=subSchema objectClass=['subSchema', 'top']>"
