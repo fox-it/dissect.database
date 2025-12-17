@@ -33,7 +33,7 @@ def test_oid_to_attrtyp_with_oid_string(ntds_small: NTDS) -> None:
 
     result = _oid_to_attrtyp(ntds_small.db, person_entry.oid)
     assert isinstance(result, int)
-    assert result == person_entry.attrtyp
+    assert result == person_entry.id
 
 
 def test_oid_string_to_attrtyp_with_class_name(ntds_small: NTDS) -> None:
@@ -42,7 +42,7 @@ def test_oid_string_to_attrtyp_with_class_name(ntds_small: NTDS) -> None:
 
     result = _oid_to_attrtyp(ntds_small.db, "person")
     assert isinstance(result, int)
-    assert result == person_entry.attrtyp
+    assert result == person_entry.id
 
 
 def test_get_dnt_coverage(ntds_small: NTDS) -> None:

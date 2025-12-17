@@ -8,7 +8,7 @@ from dissect.database.ese.ntds.database import Database
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from dissect.database.ese.ntds.object import Computer, Group, Object, Server, User
+    from dissect.database.ese.ntds.object import Computer, DomainDNS, Group, Object, Server, User
 
 
 log = logging.getLogger(__name__)
@@ -29,9 +29,13 @@ class NTDS:
     def __init__(self, fh: BinaryIO):
         self.db = Database(fh)
 
-    def top(self) -> Object:
-        """Return the top-level object in the NTDS database."""
-        return self.db.data._lookup_dnt(2)  # DNT 2 is always the top object
+    def root(self) -> Object:
+        """Return the root object of the Active Directory."""
+        return self.db.data.root()
+
+    def root_domain(self) -> DomainDNS:
+        """Return the root domain object of the Active Directory."""
+        return self.db.data.root_domain()
 
     def query(self, query: str, *, optimize: bool = True) -> Iterator[Object]:
         """Execute an LDAP query against the NTDS database.

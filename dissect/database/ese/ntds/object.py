@@ -4,8 +4,7 @@ import struct
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from dissect.database.ese.ntds.schema import FIXED_COLUMN_MAP
-from dissect.database.ese.ntds.util import decode_value
+from dissect.database.ese.ntds.util import InstanceType, SystemFlags, decode_value
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -19,9 +18,14 @@ if TYPE_CHECKING:
 class Object:
     """Base class for all objects in the NTDS database.
 
+    Within NTDS, this would be the "top" class, but we just call it "Object" here for clarity.
+
     Args:
         db: The database instance associated with this object.
         record: The :class:`Record` instance representing this object.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/041c6068-c710-4c74-968f-3040e4208701
     """
 
     __object_class__ = "top"
@@ -48,27 +52,21 @@ class Object:
             db: The database instance associated with this object.
             record: The :class:`Record` instance representing this object.
         """
-        if (object_classes := record.get(FIXED_COLUMN_MAP["objectClass"])) is not None:
-            for obj_cls in decode_value(db, "objectClass", object_classes):
+        if (object_classes := _get_attribute(db, record, "objectClass")) is not None:
+            object_classes = [object_classes] if not isinstance(object_classes, list) else object_classes
+            for obj_cls in object_classes:
                 if (known_cls := cls.__known_classes__.get(obj_cls)) is not None:
                     return known_cls(db, record)
 
         return cls(db, record)
 
-    def get(self, name: str) -> Any:
-        """Get an attribute value by name. Will decode the value based on the schema.
+    def get(self, name: str, *, raw: bool = False) -> Any:
+        """Get an attribute value by name. Decodes the value based on the schema.
 
         Args:
             name: The attribute name to retrieve.
         """
-        if name in self.record:
-            column_name = name
-        elif (entry := self.db.data.schema.lookup(ldap_name=name)) is not None:
-            column_name = entry.column_name
-        else:
-            raise ValueError(f"Attribute {name!r} not found in the NTDS database")
-
-        return decode_value(self.db, name, self.record.get(column_name))
+        return _get_attribute(self.db, self.record, name, raw=raw)
 
     def as_dict(self) -> dict[str, Any]:
         """Return the object's attributes as a dictionary."""
@@ -77,34 +75,40 @@ class Object:
             if (schema_entry := self.db.data.schema.lookup(column_name=key)) is not None:
                 key = schema_entry.ldap_name
             result[key] = decode_value(self.db, key, value)
-
         return result
 
     def parent(self) -> Object | None:
         """Return the parent object of this object, if any."""
-        if (pdnt := self.get("Pdnt")) is not None:
-            return self.db.data._lookup_dnt(pdnt)
-        return None
+        return self.db.data.get(self.pdnt) if self.pdnt != 0 else None
+
+    def partition(self) -> Object | None:
+        """Return the naming context (partition) object of this object, if any."""
+        return self.db.data.get(self.ncdnt) if self.ncdnt is not None else None
 
     def ancestors(self) -> Iterator[Object]:
         """Yield all ancestor objects of this object."""
         for (dnt,) in list(struct.iter_unpack("<I", self.get("Ancestors")))[::-1]:
-            yield self.db.data._lookup_dnt(dnt)
+            yield self.db.data.get(dnt)
+
+    def child(self, name: str) -> Object | None:
+        """Return a child object by name, if it exists.
+
+        Args:
+            name: The name of the child object to retrieve.
+        """
+        return self.db.data.child_of(self.dnt, name)
 
     def children(self) -> Iterator[Object]:
         """Yield all child objects of this object."""
-        # Our query code currently doesn't really work nicely on this specific query, so just do it manually for now
-        cursor = self.db.data.table.index("PDNT_index").cursor()
-        cursor.seek(PDNT_col=self.DNT + 1)
-        end = cursor.record()
+        yield from self.db.data.children_of(self.dnt)
 
-        cursor.reset()
-        cursor.seek(PDNT_col=self.DNT)
+    def links(self) -> Iterator[tuple[str, Object]]:
+        """Yield all objects linked to this object."""
+        yield from self.db.link.all_links(self.dnt)
 
-        record = cursor.record()
-        while record != end:
-            yield Object.from_record(self.db, record)
-            record = cursor.next()
+    def backlinks(self) -> Iterator[tuple[str, Object]]:
+        """Yield all objects that link to this object."""
+        yield from self.db.link.all_backlinks(self.dnt)
 
     # Some commonly used properties, for convenience and type hinting
     @property
@@ -113,14 +117,14 @@ class Object:
         return self.get("DNT")
 
     @property
-    def pdnt(self) -> int | None:
+    def pdnt(self) -> int:
         """Return the object's Parent Directory Number Tag (PDNT)."""
         return self.get("Pdnt")
 
     @property
     def ncdnt(self) -> int | None:
         """Return the object's Naming Context Directory Number Tag (NCDNT)."""
-        return self.get("NCDNT")
+        return self.get("Ncdnt")
 
     @property
     def name(self) -> str | None:
@@ -138,11 +142,29 @@ class Object:
         return self.get("objectGUID")
 
     @property
+    def is_deleted(self) -> bool:
+        """Return whether the object is marked as deleted."""
+        return bool(self.get("isDeleted"))
+
+    @property
+    def instance_type(self) -> InstanceType | None:
+        """Return the object's instance type."""
+        return self.get("instanceType")
+
+    @property
+    def system_flags(self) -> SystemFlags | None:
+        """Return the object's system flags."""
+        return self.get("systemFlags")
+
+    @property
+    def is_head_of_naming_context(self) -> bool:
+        """Return whether the object is a head of naming context."""
+        return self.instance_type is not None and bool(self.instance_type & InstanceType.HeadOfNamingContext)
+
+    @property
     def distinguishedName(self) -> str | None:
         """Return the fully qualified Distinguished Name (DN) for this object."""
-        if (dnt := self.get("DNT")) is not None:
-            return self.db.data._make_dn(dnt)
-        return None
+        return self.db.data._make_dn(self.dnt)
 
     DN = distinguishedName
 
@@ -164,8 +186,89 @@ class Object:
         return self.get("whenChanged")
 
 
+def _get_attribute(db: Database, record: Record, name: str, *, raw: bool = False) -> Any:
+    """Get an attribute value by name. Decodes the value based on the schema.
+
+    Args:
+        db: The database instance.
+        record: The :class:`Record` instance representing the object.
+        name: The attribute name to retrieve.
+        raw: Whether to return the raw value without decoding.
+    """
+    if (entry := db.data.schema.lookup(ldap_name=name)) is not None:
+        column_name = entry.column_name
+    else:
+        raise KeyError(f"Attribute not found: {name!r}")
+
+    value = record.get(column_name)
+
+    if raw:
+        return value
+
+    return decode_value(db, name, value)
+
+
+class ClassSchema(Object):
+    """Represents a class schema object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/6354fe66-74ee-4132-81c6-7d9a9e229070
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/ccd55373-2fa6-4237-9f66-0d90fbd866f5
+    """
+
+    __object_class__ = "classSchema"
+
+    def __repr__(self) -> str:
+        return f"<ClassSchema name={self.name!r}>"
+
+    @property
+    def system_must_contain(self) -> list[str]:
+        """Return a list of LDAP display names of attributes this class system must contain."""
+        if (system_must_contain := self.get("systemMustContain")) is not None:
+            return system_must_contain
+        return []
+
+    @property
+    def system_may_contain(self) -> list[str]:
+        """Return a list of LDAP display names of attributes this class system may contain."""
+        if (system_may_contain := self.get("systemMayContain")) is not None:
+            return system_may_contain
+        return []
+
+    @property
+    def must_contain(self) -> list[str]:
+        """Return a list of LDAP display names of attributes this class must contain."""
+        if (must_contain := self.get("mustContain")) is not None:
+            return must_contain
+        return []
+
+    @property
+    def may_contain(self) -> list[str]:
+        """Return a list of LDAP display names of attributes this class may contain."""
+        if (may_contain := self.get("mayContain")) is not None:
+            return may_contain
+        return []
+
+
+class AttributeSchema(Object):
+    """Represents an attribute schema object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/72960960-8b48-4bf9-b7e4-c6b5ee6fd706
+    """
+
+    __object_class__ = "attributeSchema"
+
+    def __repr__(self) -> str:
+        return f"<AttributeSchema name={self.name!r}>"
+
+
 class Domain(Object):
-    """Represents a domain object in the Active Directory."""
+    """Represents a domain object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/cdd6335e-d3a1-48e4-bbda-d429f645e124
+    """
 
     __object_class__ = "domain"
 
@@ -174,7 +277,11 @@ class Domain(Object):
 
 
 class DomainDNS(Domain):
-    """Represents a domain DNS object in the Active Directory."""
+    """Represents a domain DNS object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/27d3b2b1-63b9-4e3d-b23b-e24c137ef73e
+    """
 
     __object_class__ = "domainDNS"
 
@@ -183,7 +290,11 @@ class DomainDNS(Domain):
 
 
 class BuiltinDomain(Object):
-    """Represents a built-in domain object in the Active Directory."""
+    """Represents a built-in domain object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/662b0c28-589b-431e-9524-9ae3faf365ed
+    """
 
     __object_class__ = "builtinDomain"
 
@@ -192,7 +303,11 @@ class BuiltinDomain(Object):
 
 
 class Configuration(Object):
-    """Represents a configuration object in the Active Directory."""
+    """Represents a configuration object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/1d5bfd62-ee0e-4d43-b222-59e7787d27f0
+    """
 
     __object_class__ = "configuration"
 
@@ -201,7 +316,11 @@ class Configuration(Object):
 
 
 class QuotaContainer(Object):
-    """Represents a quota container object in the Active Directory."""
+    """Represents a quota container object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/2b4fcfbf-747e-4532-a6fc-a20b6ec373b0
+    """
 
     __object_class__ = "msDS-QuotaContainer"
 
@@ -210,7 +329,11 @@ class QuotaContainer(Object):
 
 
 class CrossRefContainer(Object):
-    """Represents a cross-reference container object in the Active Directory."""
+    """Represents a cross-reference container object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/f5167b3d-5692-4c48-b675-f2cd7445bcfd
+    """
 
     __object_class__ = "crossRefContainer"
 
@@ -219,7 +342,11 @@ class CrossRefContainer(Object):
 
 
 class SitesContainer(Object):
-    """Represents a sites container object in the Active Directory."""
+    """Represents a sites container object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/b955bd22-3fc0-4c91-b848-a254133f340f
+    """
 
     __object_class__ = "sitesContainer"
 
@@ -228,7 +355,11 @@ class SitesContainer(Object):
 
 
 class Locality(Object):
-    """Represents a locality object in the Active Directory."""
+    """Represents a locality object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/2b633113-787e-4127-90e9-d38cc7830afa
+    """
 
     __object_class__ = "locality"
 
@@ -237,7 +368,11 @@ class Locality(Object):
 
 
 class PhysicalLocation(Object):
-    """Represents a physical location object in the Active Directory."""
+    """Represents a physical location object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/4fc57ea7-ea66-4337-8c4e-14a00ea6ca61
+    """
 
     __object_class__ = "physicalLocation"
 
@@ -246,7 +381,11 @@ class PhysicalLocation(Object):
 
 
 class Container(Object):
-    """Represents a container object in the Active Directory."""
+    """Represents a container object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/d95e1c0b-0aab-4308-ab09-63058583881c
+    """
 
     __object_class__ = "container"
 
@@ -255,7 +394,11 @@ class Container(Object):
 
 
 class OrganizationalUnit(Object):
-    """Represents an organizational unit object in the Active Directory."""
+    """Represents an organizational unit object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/deb49741-d386-443a-b242-2f914e8f0405
+    """
 
     __object_class__ = "organizationalUnit"
 
@@ -264,7 +407,11 @@ class OrganizationalUnit(Object):
 
 
 class LostAndFound(Object):
-    """Represents a lost and found object in the Active Directory."""
+    """Represents a lost and found object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/2c557634-1cb3-40c9-8722-ef6dbb389aad
+    """
 
     __object_class__ = "lostAndFound"
 
@@ -273,7 +420,11 @@ class LostAndFound(Object):
 
 
 class Group(Object):
-    """Represents a group object in the Active Directory."""
+    """Represents a group object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/2d27d2b1-8820-475b-85fd-c528b6e12a5d
+    """
 
     __object_class__ = "group"
 
@@ -282,10 +433,10 @@ class Group(Object):
 
     def members(self) -> Iterator[User]:
         """Yield all members of this group."""
-        yield from self.db.link.links(self.DNT)
+        yield from self.db.link.links(self.dnt, "member")
 
         # We also need to include users with primaryGroupID matching the group's RID
-        yield from self.db.data.lookup(primaryGroupID=self.objectSid.rsplit("-", 1)[1])
+        yield from self.db.data.lookup(primaryGroupID=self.sid.rsplit("-", 1)[1])
 
     def is_member(self, user: User) -> bool:
         """Return whether the given user is a member of this group.
@@ -293,11 +444,15 @@ class Group(Object):
         Args:
             user: The :class:`User` to check membership for.
         """
-        return any(u.DNT == user.DNT for u in self.members())
+        return any(u.dnt == user.dnt for u in self.members())
 
 
 class Server(Object):
-    """Represents a server object in the Active Directory."""
+    """Represents a server object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/96cab7b4-83eb-4879-b352-56ad8d19f1ac
+    """
 
     __object_class__ = "server"
 
@@ -306,7 +461,11 @@ class Server(Object):
 
 
 class User(Object):
-    """Represents a user object in the Active Directory."""
+    """Represents a user object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/719c0035-2aa4-4ca6-b763-41a758bd2410
+    """
 
     __object_class__ = "user"
 
@@ -322,11 +481,11 @@ class User(Object):
 
     def groups(self) -> Iterator[Group]:
         """Yield all groups this user is a member of."""
-        yield from self.db.link.backlinks(self.DNT)
+        yield from self.db.link.backlinks(self.dnt, "memberOf")
 
         # We also need to include the group with primaryGroupID matching the user's primaryGroupID
         if self.primaryGroupID is not None:
-            yield from self.db.data.lookup(objectSid=f"{self.objectSid.rsplit('-', 1)[0]}-{self.primaryGroupID}")
+            yield from self.db.data.lookup(objectSid=f"{self.sid.rsplit('-', 1)[0]}-{self.primaryGroupID}")
 
     def is_member_of(self, group: Group) -> bool:
         """Return whether the user is a member of the given group.
@@ -334,13 +493,25 @@ class User(Object):
         Args:
             group: The :class:`Group` to check membership for.
         """
-        return any(g.DNT == group.DNT for g in self.groups())
+        return any(g.dnt == group.dnt for g in self.groups())
+
+    def managed_objects(self) -> Iterator[Object]:
+        """Yield all objects managed by this user."""
+        yield from self.db.link.backlinks(self.dnt, "managedObjects")
 
 
 class Computer(User):
-    """Represents a computer object in the Active Directory."""
+    """Represents a computer object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/142185a8-2e23-4628-b002-cf31d57bb37a
+    """
 
     __object_class__ = "computer"
 
     def __repr__(self) -> str:
-        return f"<Computer name={self.name}>"
+        return f"<Computer name={self.name!r}>"
+
+    def managed_by(self) -> Iterator[Object]:
+        """Return the objects that manage this computer."""
+        yield from self.db.link.links(self.dnt, "managedBy")
