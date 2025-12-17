@@ -9,6 +9,8 @@ from dissect.database.ese.record import Record
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from typing_extensions import Self
+
     from dissect.database.ese.index import Index
     from dissect.database.ese.page import Node
     from dissect.database.ese.util import RecordValue
@@ -30,13 +32,10 @@ class Cursor:
         self._secondary = None if index.is_primary else BTree(self.db, self.table.root)
 
     def __iter__(self) -> Iterator[Record]:
-        while True:
-            yield self._record()
-
-            try:
-                self._primary.next()
-            except NoNeighbourPageError:
-                break
+        record = self.record()
+        while record is not None:
+            yield record
+            record = self.next()
 
     def _node(self) -> Node:
         """Return the node the cursor is currently on. Resolves the secondary index if needed.
@@ -50,7 +49,7 @@ class Cursor:
             node = self._secondary.search(node.data.tobytes(), exact=True)
         return node
 
-    def _record(self) -> Record:
+    def record(self) -> Record:
         """Return the record the cursor is currently on.
 
         Returns:
@@ -58,11 +57,40 @@ class Cursor:
         """
         return Record(self.table, self._node())
 
-    def reset(self) -> None:
+    def reset(self) -> Self:
         """Reset the internal state."""
         self._primary.reset()
         if self._secondary:
             self._secondary.reset()
+        return self
+
+    def next(self) -> Record | None:
+        """Move the cursor to the next record and return it.
+
+        Can move the cursor to the next page as a side effect.
+
+        Returns:
+            A :class:`~dissect.database.ese.record.Record` object of the next record.
+        """
+        try:
+            self._primary.next()
+        except NoNeighbourPageError:
+            return None
+        return self.record()
+
+    def prev(self) -> Record | None:
+        """Move the cursor to the previous node and return it.
+
+        Can move the cursor to the previous page as a side effect.
+
+        Returns:
+            A :class:`~dissect.database.ese.record.Record` object of the previous record.
+        """
+        try:
+            self._primary.prev()
+        except NoNeighbourPageError:
+            return None
+        return self.record()
 
     def make_key(self, *args: RecordValue, **kwargs: RecordValue) -> bytes:
         """Generate a key for this index from the given values.
@@ -92,6 +120,7 @@ class Cursor:
         Reset the cursor with :meth:`reset` to start from the beginning.
 
         Args:
+            *args: The values to search for.
             **kwargs: The columns and values to search for.
 
         Returns:
@@ -109,24 +138,27 @@ class Cursor:
                    next record that is greater than or equal to the key.
         """
         self._primary.search(key, exact)
-        return self._record()
+        return self.record()
 
-    def seek(self, *args: RecordValue, **kwargs: RecordValue) -> None:
+    def seek(self, *args: RecordValue, **kwargs: RecordValue) -> Self:
         """Seek to the record with the given values.
 
         Args:
+            *args: The values to seek to.
             **kwargs: The columns and values to seek to.
         """
         key = self.make_key(*args, **kwargs)
         self.search_key(key, exact=False)
+        return self
 
-    def seek_key(self, key: bytes) -> None:
+    def seek_key(self, key: bytes) -> Self:
         """Seek to the record with the given ``key``.
 
         Args:
             key: The key to seek to.
         """
         self._primary.search(key, exact=False)
+        return self
 
     def find(self, **kwargs: RecordValue) -> Record | None:
         """Find a record in the index.
@@ -174,7 +206,7 @@ class Cursor:
             if current_key != self._primary.node().key:
                 break
 
-            record = self._record()
+            record = self.record()
             for k, v in other_columns.items():
                 value = record.get(k)
                 # If the record value is a list, we do a check based on the queried value
@@ -196,39 +228,3 @@ class Cursor:
                 self._primary.next()
             except NoNeighbourPageError:
                 break
-
-    def record(self) -> Record:
-        """Return the record the cursor is currently on.
-
-        Returns:
-            A :class:`~dissect.database.ese.record.Record` object of the current record.
-        """
-        return self._record()
-
-    def next(self) -> Record:
-        """Move the cursor to the next record and return it.
-
-        Can move the cursor to the next page as a side effect.
-
-        Returns:
-            A :class:`~dissect.database.ese.record.Record` object of the next record.
-        """
-        try:
-            self._primary.next()
-        except NoNeighbourPageError:
-            raise IndexError("No next record")
-        return self._record()
-
-    def prev(self) -> Record:
-        """Move the cursor to the previous node and return it.
-
-        Can move the cursor to the previous page as a side effect.
-
-        Returns:
-            A :class:`~dissect.database.ese.record.Record` object of the previous record.
-        """
-        try:
-            self._primary.prev()
-        except NoNeighbourPageError:
-            raise IndexError("No previous record")
-        return self._record()
