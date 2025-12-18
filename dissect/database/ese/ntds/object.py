@@ -4,7 +4,7 @@ import struct
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from dissect.database.ese.ntds.util import InstanceType, SystemFlags, decode_value
+from dissect.database.ese.ntds.util import InstanceType, SystemFlags, UserAccountControl, decode_value
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -53,7 +53,6 @@ class Object:
             record: The :class:`Record` instance representing this object.
         """
         if (object_classes := _get_attribute(db, record, "objectClass")) is not None:
-            object_classes = [object_classes] if not isinstance(object_classes, list) else object_classes
             for obj_cls in object_classes:
                 if (known_cls := cls.__known_classes__.get(obj_cls)) is not None:
                     return known_cls(db, record)
@@ -460,7 +459,33 @@ class Server(Object):
         return f"<Server name={self.name!r}>"
 
 
-class User(Object):
+class Person(Object):
+    """Represents a person object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/3e601b82-f94c-4148-a471-284e695a661e
+    """
+
+    __object_class__ = "person"
+
+    def __repr__(self) -> str:
+        return f"<Person name={self.name!r}>"
+
+
+class OrganizationalPerson(Person):
+    """Represents an organizational person object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/092b4460-3e6f-4ce4-b548-cf81a6876957
+    """
+
+    __object_class__ = "organizationalPerson"
+
+    def __repr__(self) -> str:
+        return f"<OrganizationalPerson name={self.name!r}>"
+
+
+class User(OrganizationalPerson):
     """Represents a user object in the Active Directory.
 
     References:
@@ -471,21 +496,36 @@ class User(Object):
 
     def __repr__(self) -> str:
         return (
-            f"<User name={self.name!r} sAMAccountName={self.sAMAccountName!r} "
+            f"<User name={self.name!r} sAMAccountName={self.sam_account_name!r} "
             f"is_machine_account={self.is_machine_account()}>"
         )
 
+    @property
+    def sam_account_name(self) -> str:
+        """Return the user's sAMAccountName."""
+        return self.get("sAMAccountName")
+
+    @property
+    def primary_group_id(self) -> str | None:
+        """Return the user's primaryGroupID."""
+        return self.get("primaryGroupID")
+
+    @property
+    def user_account_control(self) -> UserAccountControl:
+        """Return the user's userAccountControl flags."""
+        return self.get("userAccountControl")
+
     def is_machine_account(self) -> bool:
         """Return whether this user is a machine account."""
-        return (self.userAccountControl & 0x1000) == 0x1000
+        return UserAccountControl.WORKSTATION_TRUST_ACCOUNT in self.user_account_control
 
     def groups(self) -> Iterator[Group]:
         """Yield all groups this user is a member of."""
         yield from self.db.link.backlinks(self.dnt, "memberOf")
 
         # We also need to include the group with primaryGroupID matching the user's primaryGroupID
-        if self.primaryGroupID is not None:
-            yield from self.db.data.lookup(objectSid=f"{self.sid.rsplit('-', 1)[0]}-{self.primaryGroupID}")
+        if self.primary_group_id is not None:
+            yield from self.db.data.lookup(objectSid=f"{self.sid.rsplit('-', 1)[0]}-{self.primary_group_id}")
 
     def is_member_of(self, group: Group) -> bool:
         """Return whether the user is a member of the given group.

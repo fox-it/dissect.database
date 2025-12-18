@@ -34,23 +34,24 @@ BOOTSTRAP_COLUMNS = [
 # These are required for bootstrapping the schema
 # Most of these will be overwritten when the schema is loaded from the database
 BOOTSTRAP_ATTRIBUTES = [
-    # (lDAPDisplayName, attributeID, attributeSyntax)
+    # (lDAPDisplayName, attributeID, attributeSyntax, isSingleValued)
     # Essential attributes
-    ("objectClass", 0, 0x00080002),  # ATTc0
-    ("cn", 3, 0x0008000C),  # ATTm3
-    ("isDeleted", 131120, 0x00080008),  # ATTi131120
-    ("instanceType", 131073, 0x00080009),  # ATTj131073
-    ("name", 589825, 0x0008000C),  # ATTm589825
+    ("objectClass", 0, 0x00080002, False),  # ATTc0
+    ("cn", 3, 0x0008000C, True),  # ATTm3
+    ("isDeleted", 131120, 0x00080008, True),  # ATTi131120
+    ("instanceType", 131073, 0x00080009, True),  # ATTj131073
+    ("name", 589825, 0x0008000C, True),  # ATTm589825
     # Common schema
-    ("lDAPDisplayName", 131532, 0x0008000C),  # ATTm131532
+    ("lDAPDisplayName", 131532, 0x0008000C, True),  # ATTm131532
     # Attribute schema
-    ("attributeID", 131102, 0x00080002),  # ATTc131102
-    ("attributeSyntax", 131104, 0x00080002),  # ATTc131104
-    ("omSyntax", 131303, 0x00080009),  # ATTj131303
-    ("oMObjectClass", 131290, 0x0008000A),  # ATTk131290
-    ("linkId", 131122, 0x00080009),  # ATTj131122
+    ("attributeID", 131102, 0x00080002, True),  # ATTc131102
+    ("attributeSyntax", 131104, 0x00080002, True),  # ATTc131104
+    ("omSyntax", 131303, 0x00080009, True),  # ATTj131303
+    ("oMObjectClass", 131290, 0x0008000A, True),  # ATTk131290
+    ("isSingleValued", 131105, 0x00080008, True),  # ATTi131105
+    ("linkId", 131122, 0x00080009, True),  # ATTj131122
     # Class schema
-    ("governsID", 131094, 0x00080002),  # ATTc131094
+    ("governsID", 131094, 0x00080002, True),  # ATTc131094
 ]
 
 # For convenience, bootstrap some common object classes
@@ -74,6 +75,7 @@ class AttributeEntry(NamedTuple):
     oid: str
     id: int
     type: str
+    is_single_valued: bool
     link_id: int | None
     ldap_name: str
     column_name: str
@@ -245,6 +247,7 @@ class Schema:
                     oid="",
                     id=-1,
                     type=attrtyp_to_oid(syntax),
+                    is_single_valued=True,
                     link_id=None,
                     ldap_name=ldap_name,
                     column_name=column_name,
@@ -252,11 +255,12 @@ class Schema:
             )
 
         # Bootstrap initial attributes
-        for ldap_name, attribute_id, attribute_syntax in BOOTSTRAP_ATTRIBUTES:
+        for ldap_name, attribute_id, attribute_syntax, is_single_valued in BOOTSTRAP_ATTRIBUTES:
             self._add_attribute(
                 dnt=-1,
                 id=attribute_id,
                 syntax=attribute_syntax,
+                is_single_valued=is_single_valued,
                 link_id=None,
                 ldap_name=ldap_name,
             )
@@ -281,15 +285,16 @@ class Schema:
                 self._add_class(
                     dnt=child.dnt,
                     id=child.get("governsID", raw=True),
-                    ldap_name=child.get("lDAPDisplayName", raw=True),
+                    ldap_name=child.get("lDAPDisplayName"),
                 )
             elif isinstance(child, AttributeSchema):
                 self._add_attribute(
                     dnt=child.dnt,
                     id=child.get("attributeID", raw=True),
                     syntax=child.get("attributeSyntax", raw=True),
-                    link_id=child.get("linkId", raw=True),
-                    ldap_name=child.get("lDAPDisplayName", raw=True),
+                    is_single_valued=child.get("isSingleValued"),
+                    link_id=child.get("linkId"),
+                    ldap_name=child.get("lDAPDisplayName"),
                 )
 
     def _add_class(self, dnt: int, id: int, ldap_name: str) -> None:
@@ -301,13 +306,16 @@ class Schema:
         )
         self._add(entry)
 
-    def _add_attribute(self, dnt: int, id: int, syntax: int, link_id: int | None, ldap_name: str) -> None:
+    def _add_attribute(
+        self, dnt: int, id: int, syntax: int, is_single_valued: bool, link_id: int | None, ldap_name: str
+    ) -> None:
         type_oid = attrtyp_to_oid(syntax)
         entry = AttributeEntry(
             dnt=dnt,
             oid=attrtyp_to_oid(id),
             id=id,
             type=type_oid,
+            is_single_valued=is_single_valued,
             link_id=link_id,
             ldap_name=ldap_name,
             column_name=f"ATT{OID_TO_TYPE[type_oid]}{id}",
