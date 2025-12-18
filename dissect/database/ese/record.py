@@ -296,9 +296,12 @@ class RecordData:
 
             parse_func = parse_func or noop
             if tag_field and tag_field.flags & TAGFLD_HEADER.MultiValues:
-                value = list(map(parse_func, value))
+                value = [parse_func(v) for v in value]
             else:
                 value = parse_func(value)
+
+            if column.is_multivalue and not isinstance(value, list):
+                value = [value]
 
         return value
 

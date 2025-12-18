@@ -299,9 +299,4 @@ def decode_value(db: Database, attribute: str, value: Any) -> Any:
     if decode is None:
         return value
 
-    value = [decode(db, v) for v in value] if isinstance(value, list) else decode(db, value)
-
-    if not schema.is_single_valued and not isinstance(value, list):
-        value = [value]
-
-    return value
+    return [decode(db, v) for v in value] if isinstance(value, list) else decode(db, value)
