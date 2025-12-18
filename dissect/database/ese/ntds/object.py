@@ -71,24 +71,25 @@ class Object:
     def as_dict(self) -> dict[str, Any]:
         """Return the object's attributes as a dictionary."""
         result = {}
-        for key, value in self.record.as_dict().items():
+        for key in self.record.as_dict():
             if (schema_entry := self.db.data.schema.lookup(column_name=key)) is not None:
                 key = schema_entry.ldap_name
-            result[key] = decode_value(self.db, key, value)
+                result[key] = _get_attribute(self.db, self.record, key)
         return result
 
     def parent(self) -> Object | None:
         """Return the parent object of this object, if any."""
-        return self.db.data.get(self.pdnt) if self.pdnt != 0 else None
+        return self.db.data.get(dnt=self.pdnt) if self.pdnt != 0 else None
 
     def partition(self) -> Object | None:
         """Return the naming context (partition) object of this object, if any."""
-        return self.db.data.get(self.ncdnt) if self.ncdnt is not None else None
+        return self.db.data.get(dnt=self.ncdnt) if self.ncdnt is not None else None
 
     def ancestors(self) -> Iterator[Object]:
         """Yield all ancestor objects of this object."""
-        for (dnt,) in list(struct.iter_unpack("<I", self.get("Ancestors")))[::-1]:
-            yield self.db.data.get(dnt)
+        # for (dnt,) in list(struct.iter_unpack("<I", self.get("Ancestors")))[::-1]:
+        for dnt in self.get("Ancestors")[::-1]:
+            yield self.db.data.get(dnt=dnt)
 
     def child(self, name: str) -> Object | None:
         """Return a child object by name, if it exists.
@@ -147,6 +148,16 @@ class Object:
         return bool(self.get("isDeleted"))
 
     @property
+    def when_created(self) -> datetime | None:
+        """Return the object's creation time."""
+        return self.get("whenCreated")
+
+    @property
+    def when_changed(self) -> datetime | None:
+        """Return the object's last modification time."""
+        return self.get("whenChanged")
+
+    @property
     def instance_type(self) -> InstanceType | None:
         """Return the object's instance type."""
         return self.get("instanceType")
@@ -162,11 +173,11 @@ class Object:
         return self.instance_type is not None and bool(self.instance_type & InstanceType.HeadOfNamingContext)
 
     @property
-    def distinguishedName(self) -> str | None:
+    def distinguished_name(self) -> str | None:
         """Return the fully qualified Distinguished Name (DN) for this object."""
         return self.db.data._make_dn(self.dnt)
 
-    DN = distinguishedName
+    DN = distinguished_name
 
     @cached_property
     def sd(self) -> SecurityDescriptor | None:
@@ -175,15 +186,19 @@ class Object:
             return self.db.sd.sd(sd_id)
         return None
 
-    @property
-    def when_created(self) -> datetime | None:
-        """Return the object's creation time."""
-        return self.get("whenCreated")
+    @cached_property
+    def well_known_objects(self) -> list[Object]:
+        """Return the list of well-known objects."""
+        if (wko := self.get("wellKnownObjects")) is not None:
+            return [self.db.data.get(dnt=dnt) for dnt, _ in wko]
+        return []
 
-    @property
-    def when_changed(self) -> datetime | None:
-        """Return the object's last modification time."""
-        return self.get("whenChanged")
+    @cached_property
+    def other_well_known_objects(self) -> list[Object]:
+        """Return the list of other well-known objects."""
+        if (owko := self.get("otherWellKnownObjects")) is not None:
+            return [self.db.data.get(dnt=dnt) for dnt, _ in owko]
+        return []
 
 
 def _get_attribute(db: Database, record: Record, name: str, *, raw: bool = False) -> Any:
@@ -455,7 +470,7 @@ class Group(Object):
         yield from self.db.link.links(self.dnt, "member")
 
         # We also need to include users with primaryGroupID matching the group's RID
-        yield from self.db.data.lookup(primaryGroupID=self.sid.rsplit("-", 1)[1])
+        yield from self.db.data.search(primaryGroupID=self.sid.rsplit("-", 1)[1])
 
     def is_member(self, user: User) -> bool:
         """Return whether the given user is a member of this group.
@@ -549,7 +564,7 @@ class User(OrganizationalPerson):
 
         # We also need to include the group with primaryGroupID matching the user's primaryGroupID
         if self.primary_group_id is not None:
-            yield from self.db.data.lookup(objectSid=f"{self.sid.rsplit('-', 1)[0]}-{self.primary_group_id}")
+            yield from self.db.data.search(objectSid=f"{self.sid.rsplit('-', 1)[0]}-{self.primary_group_id}")
 
     def is_member_of(self, group: Group) -> bool:
         """Return whether the user is a member of the given group.
