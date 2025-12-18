@@ -25,6 +25,7 @@ class Object:
         record: The :class:`Record` instance representing this object.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-top
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/041c6068-c710-4c74-968f-3040e4208701
     """
 
@@ -215,6 +216,7 @@ class ClassSchema(Object):
     """Represents a class schema object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-classschema
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/6354fe66-74ee-4132-81c6-7d9a9e229070
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/ccd55373-2fa6-4237-9f66-0d90fbd866f5
     """
@@ -257,6 +259,7 @@ class AttributeSchema(Object):
     """Represents an attribute schema object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-attributeschema
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/72960960-8b48-4bf9-b7e4-c6b5ee6fd706
     """
 
@@ -270,6 +273,7 @@ class Domain(Object):
     """Represents a domain object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-domain
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/cdd6335e-d3a1-48e4-bbda-d429f645e124
     """
 
@@ -283,6 +287,7 @@ class DomainDNS(Domain):
     """Represents a domain DNS object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-domaindns
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/27d3b2b1-63b9-4e3d-b23b-e24c137ef73e
     """
 
@@ -296,6 +301,7 @@ class BuiltinDomain(Object):
     """Represents a built-in domain object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-buitindomain
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/662b0c28-589b-431e-9524-9ae3faf365ed
     """
 
@@ -309,6 +315,7 @@ class Configuration(Object):
     """Represents a configuration object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-configuration
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/1d5bfd62-ee0e-4d43-b222-59e7787d27f0
     """
 
@@ -322,6 +329,7 @@ class QuotaContainer(Object):
     """Represents a quota container object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-msds-quotacontainer
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/2b4fcfbf-747e-4532-a6fc-a20b6ec373b0
     """
 
@@ -335,6 +343,7 @@ class CrossRefContainer(Object):
     """Represents a cross-reference container object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-crossrefcontainer
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/f5167b3d-5692-4c48-b675-f2cd7445bcfd
     """
 
@@ -348,6 +357,7 @@ class SitesContainer(Object):
     """Represents a sites container object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-sitescontainer
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/b955bd22-3fc0-4c91-b848-a254133f340f
     """
 
@@ -361,6 +371,7 @@ class Locality(Object):
     """Represents a locality object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-locality
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/2b633113-787e-4127-90e9-d38cc7830afa
     """
 
@@ -374,6 +385,7 @@ class PhysicalLocation(Object):
     """Represents a physical location object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-physicallocation
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/4fc57ea7-ea66-4337-8c4e-14a00ea6ca61
     """
 
@@ -387,6 +399,7 @@ class Container(Object):
     """Represents a container object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-container
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/d95e1c0b-0aab-4308-ab09-63058583881c
     """
 
@@ -400,6 +413,7 @@ class OrganizationalUnit(Object):
     """Represents an organizational unit object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-organizationalunit
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/deb49741-d386-443a-b242-2f914e8f0405
     """
 
@@ -413,6 +427,7 @@ class LostAndFound(Object):
     """Represents a lost and found object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-lostandfound
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/2c557634-1cb3-40c9-8722-ef6dbb389aad
     """
 
@@ -426,6 +441,7 @@ class Group(Object):
     """Represents a group object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-group
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/2d27d2b1-8820-475b-85fd-c528b6e12a5d
     """
 
@@ -454,6 +470,7 @@ class Server(Object):
     """Represents a server object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-server
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/96cab7b4-83eb-4879-b352-56ad8d19f1ac
     """
 
@@ -467,6 +484,7 @@ class Person(Object):
     """Represents a person object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-person
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/3e601b82-f94c-4148-a471-284e695a661e
     """
 
@@ -480,6 +498,7 @@ class OrganizationalPerson(Person):
     """Represents an organizational person object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-organizationalperson
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/092b4460-3e6f-4ce4-b548-cf81a6876957
     """
 
@@ -493,6 +512,7 @@ class User(OrganizationalPerson):
     """Represents a user object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-user
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/719c0035-2aa4-4ca6-b763-41a758bd2410
     """
 
@@ -548,6 +568,7 @@ class Computer(User):
     """Represents a computer object in the Active Directory.
 
     References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-computer
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/142185a8-2e23-4628-b002-cf31d57bb37a
     """
 
