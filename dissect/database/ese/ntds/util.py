@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import struct
 from enum import IntFlag
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
@@ -133,17 +134,23 @@ class UserAccountControl(IntFlag):
     TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = 0x01000000
 
 
-ATTRIBUTE_DECODE_MAP: dict[str, Callable[[Database, Any], Any]] = {
-    "instanceType": lambda db, value: InstanceType(int(value)),
-    "systemFlags": lambda db, value: SystemFlags(int(value)),
-    "userAccountControl": lambda db, value: UserAccountControl(int(value)),
-    "objectGUID": lambda db, value: UUID(bytes_le=value),
-    "badPasswordTime": lambda db, value: wintimestamp(int(value)),
-    "lastLogonTimestamp": lambda db, value: wintimestamp(int(value)),
-    "lastLogon": lambda db, value: wintimestamp(int(value)),
-    "lastLogoff": lambda db, value: wintimestamp(int(value)),
-    "pwdLastSet": lambda db, value: wintimestamp(int(value)),
-    "accountExpires": lambda db, value: float("inf") if int(value) == ((1 << 63) - 1) else wintimestamp(int(value)),
+ATTRIBUTE_ENCODE_DECODE_MAP: dict[
+    str, tuple[Callable[[Database, Any], Any] | None, Callable[[Database, Any], Any] | None]
+] = {
+    "Ancestors": (None, lambda db, value: [v[0] for v in struct.iter_unpack("<I", value)]),
+    "instanceType": (lambda db, value: int(value), lambda db, value: InstanceType(int(value))),
+    "systemFlags": (lambda db, value: int(value), lambda db, value: SystemFlags(int(value))),
+    "userAccountControl": (lambda db, value: int(value), lambda db, value: UserAccountControl(int(value))),
+    "objectGUID": (lambda db, value: value.bytes_le, lambda db, value: UUID(bytes_le=value)),
+    "badPasswordTime": (None, lambda db, value: wintimestamp(int(value))),
+    "lastLogonTimestamp": (None, lambda db, value: wintimestamp(int(value))),
+    "lastLogon": (None, lambda db, value: wintimestamp(int(value))),
+    "lastLogoff": (None, lambda db, value: wintimestamp(int(value))),
+    "pwdLastSet": (None, lambda db, value: wintimestamp(int(value))),
+    "accountExpires": (
+        None,
+        lambda db, value: float("inf") if int(value) == ((1 << 63) - 1) else wintimestamp(int(value)),
+    ),
 }
 
 
@@ -210,8 +217,23 @@ def _attrtyp_to_oid(db: Database, value: int) -> str | int:
     return value
 
 
+def _binary_to_dn(db: Database, value: bytes) -> tuple[int, bytes]:
+    """Convert DN-Binary to the separate (DN, binary) tuple.
+
+    Args:
+        value: The binary DN value.
+
+    Returns:
+        A tuple of the DNT and the binary data.
+    """
+    dnt, length = struct.unpack("<II", value[:8])
+    return dnt, value[8 : 8 + length]
+
+
 # To be used when parsing LDAP queries into ESE-compatible data types
-OID_ENCODE_DECODE_MAP: dict[str, tuple[Callable[[NTDS, Any], Any]]] = {
+OID_ENCODE_DECODE_MAP: dict[
+    str, tuple[Callable[[Database, Any], Any] | None, Callable[[Database, Any], Any] | None]
+] = {
     # Object(DN-DN); The fully qualified name of an object
     "2.5.5.1": (_ldapDisplayName_to_DNT, _DNT_to_ldapDisplayName),
     # String(Object-Identifier); The object identifier
@@ -222,8 +244,8 @@ OID_ENCODE_DECODE_MAP: dict[str, tuple[Callable[[NTDS, Any], Any]]] = {
     "2.5.5.5": (None, lambda db, value: str(value)),
     # String(Numeric); A sequence of digits
     "2.5.5.6": (None, str),
-    # TODO: Object(DN-Binary); A distinguished name plus a binary large object
-    "2.5.5.7": (None, None),
+    # Object(DN-Binary); A distinguished name plus a binary large object
+    "2.5.5.7": (None, _binary_to_dn),
     # Boolean; TRUE or FALSE values
     "2.5.5.8": (lambda db, value: bool(value), lambda db, value: bool(value)),
     # Integer, Enumeration; A 32-bit number or enumeration
@@ -260,10 +282,14 @@ def encode_value(db: Database, attribute: str, value: str) -> int | bytes | str:
     Returns:
         The encoded value in the appropriate type for the attribute.
     """
-    if (attr_entry := db.data.schema.lookup(ldap_name=attribute)) is None:
+    if (schema := db.data.schema.lookup(ldap_name=attribute)) is None:
         return value
 
-    encode, _ = OID_ENCODE_DECODE_MAP.get(attr_entry.type, (None, None))
+    # First check the list of deviations
+    encode, _ = ATTRIBUTE_ENCODE_DECODE_MAP.get(attribute, (None, None))
+    if encode is None:
+        encode, _ = OID_ENCODE_DECODE_MAP.get(schema.type, (None, None))
+
     if encode is None:
         return value
 
@@ -283,12 +309,11 @@ def decode_value(db: Database, attribute: str, value: Any) -> Any:
     if value is None:
         return value
 
-    schema = db.data.schema.lookup(ldap_name=attribute)
-
     # First check the list of deviations
-    if (decode := ATTRIBUTE_DECODE_MAP.get(attribute)) is None:
+    _, decode = ATTRIBUTE_ENCODE_DECODE_MAP.get(attribute, (None, None))
+    if decode is None:
         # Next, try it using the regular OID_ENCODE_DECODE_MAP mapping
-        if schema is None:
+        if (schema := db.data.schema.lookup(ldap_name=attribute)) is None:
             return value
 
         if not schema.type:

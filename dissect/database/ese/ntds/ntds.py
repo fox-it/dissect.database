@@ -58,7 +58,7 @@ class NTDS:
         Yields:
             Object instances matching the attribute-value pair.
         """
-        yield from self.db.data.lookup(**kwargs)
+        yield from self.db.data.search(**kwargs)
 
     def groups(self) -> Iterator[Group]:
         """Get all group objects from the database."""

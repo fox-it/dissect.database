@@ -74,16 +74,17 @@ class Index:
         """Create a new cursor for this index."""
         return Cursor(self)
 
-    def search(self, **kwargs) -> Record:
+    def search(self, *args, **kwargs) -> Record:
         """Search the index for the requested values.
 
         Args:
+            *args: The values to search for.
             **kwargs: The columns and values to search for.
 
         Returns:
             A :class:`~dissect.database.ese.record.Record` object of the found record.
         """
-        return self.cursor().search(**kwargs)
+        return self.cursor().search(*args, **kwargs)
 
     def search_key(self, key: bytes) -> Node:
         """Search the index for a specific ``key``.

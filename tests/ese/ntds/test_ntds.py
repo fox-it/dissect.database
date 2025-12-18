@@ -50,12 +50,12 @@ def test_users(ntds_small: NTDS) -> None:
         "henk.devries",
         "krbtgt",
     ]
-    assert user_records[3].distinguishedName == "CN=ERNESTO_RAMOS,OU=TST,OU=PEOPLE,DC=DISSECT,DC=LOCAL"
+    assert user_records[3].distinguished_name == "CN=ERNESTO_RAMOS,OU=TST,OU=PEOPLE,DC=DISSECT,DC=LOCAL"
     assert user_records[3].cn == "ERNESTO_RAMOS"
-    assert user_records[4].distinguishedName == "CN=FORREST_NIXON,OU=GROUPS,OU=AZR,OU=TIER 1,DC=DISSECT,DC=LOCAL"
+    assert user_records[4].distinguished_name == "CN=FORREST_NIXON,OU=GROUPS,OU=AZR,OU=TIER 1,DC=DISSECT,DC=LOCAL"
     assert user_records[12].displayName == "Beau ter Ham"
     assert user_records[12].objectSid == "S-1-5-21-1957882089-4252948412-2360614479-1134"
-    assert user_records[12].distinguishedName == "CN=BEAU TER HAM,OU=TST,OU=PEOPLE,DC=DISSECT,DC=LOCAL"
+    assert user_records[12].distinguished_name == "CN=BEAU TER HAM,OU=TST,OU=PEOPLE,DC=DISSECT,DC=LOCAL"
     assert user_records[12].description == ["My password might be related to the summer"]
     assert user_records[13].displayName == "Henk de Vries"
     assert user_records[13].mail == "henk@henk.com"

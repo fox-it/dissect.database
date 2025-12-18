@@ -9,10 +9,11 @@ from dissect.database.ese.exception import KeyNotFoundError
 from dissect.database.ese.ntds.object import AttributeSchema, ClassSchema, Object
 from dissect.database.ese.ntds.query import Query
 from dissect.database.ese.ntds.sd import ACL, SecurityDescriptor
-from dissect.database.ese.ntds.util import OID_TO_TYPE, attrtyp_to_oid
+from dissect.database.ese.ntds.util import OID_TO_TYPE, attrtyp_to_oid, encode_value
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from uuid import UUID
 
 
 # These are fixed columns in the NTDS database
@@ -29,6 +30,7 @@ BOOTSTRAP_COLUMNS = [
     ("Ncdnt", "NCDNT_col", 0x00080009),
     ("RecycleTime", "recycle_time_col", 0x0008000B),
     ("Ancestors", "Ancestors_col", 0x0008000A),
+    ("IsVisibleInAB", "IsVisibleInAB", 0x00080009),  # TODO: Confirm syntax + what is this?
 ]
 
 # These are required for bootstrapping the schema
@@ -111,15 +113,6 @@ class DataTable:
         self.get = lru_cache(4096)(self.get)
         self._make_dn = lru_cache(4096)(self._make_dn)
 
-    def get(self, dnt: int) -> Object:
-        """Retrieve an object by its Directory Number Tag (DNT) value.
-
-        Args:
-            dnt: The DNT of the object to retrieve.
-        """
-        record = self.table.index("DNT_index").cursor().search(DNT_col=dnt)
-        return Object.from_record(self.db, record)
-
     def root(self) -> Object:
         """Return the top-level object in the NTDS database."""
         if (root := next(self.children_of(0), None)) is None:
@@ -144,6 +137,33 @@ class DataTable:
 
         raise ValueError("No root domain object found")
 
+    def get(self, dnt: int) -> Object:
+        """Retrieve an object by its Directory Number Tag (DNT) value.
+
+        Args:
+            dnt: The DNT of the object to retrieve.
+        """
+        record = self.table.index("DNT_index").search([dnt])
+        return Object.from_record(self.db, record)
+
+    def lookup(self, **kwargs) -> Object:
+        """Retrieve an object by a single indexed attribute.
+
+        Args:
+            **kwargs: Single keyword argument specifying the attribute and value.
+        """
+        if len(kwargs) != 1:
+            raise ValueError("Exactly one keyword argument must be provided")
+
+        ((key, value),) = kwargs.items()
+        # TODO: Check if the attribute is indexed
+        if (schema := self.schema.lookup(ldap_name=key)) is None:
+            raise ValueError(f"Attribute {key!r} is not found in the schema")
+
+        index = self.table.find_index(schema.column_name)
+        record = index.search([encode_value(self.db, key, value)])
+        return Object.from_record(self.db, record)
+
     def query(self, query: str, *, optimize: bool = True) -> Iterator[Object]:
         """Execute an LDAP query against the NTDS database.
 
@@ -157,7 +177,7 @@ class DataTable:
         for record in Query(self.db, query, optimize=optimize).process():
             yield Object.from_record(self.db, record)
 
-    def lookup(self, **kwargs: str) -> Iterator[Object]:
+    def search(self, **kwargs: str) -> Iterator[Object]:
         """Perform an attribute-value query. If multiple attributes are provided, it will be treated as an "AND" query.
 
         Args:
@@ -501,7 +521,7 @@ class LinkTable:
             if base is not None and record.get("link_base") != base:
                 break
 
-            yield record.get("link_base"), self.db.data.get(record.get("backlink_DNT"))
+            yield record.get("link_base"), self.db.data.get(dnt=record.get("backlink_DNT"))
             record = cursor.next()
 
     def _has_link(self, link_dnt: int, base: int, backlink_dnt: int) -> bool:
@@ -556,7 +576,7 @@ class LinkTable:
             if base is not None and record.get("link_base") != base:
                 break
 
-            yield record.get("link_base"), self.db.data.get(record.get("link_DNT"))
+            yield record.get("link_base"), self.db.data.get(dnt=record.get("link_DNT"))
             record = cursor.next()
 
 
