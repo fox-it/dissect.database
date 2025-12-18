@@ -93,7 +93,7 @@ class InstanceType(IntFlag):
     NamingContextDeleting = 0x00000020
 
 
-# https://learn.microsoft.com/en-us/windows/win32/adschema/a-systemflags
+# https://learn.microsoft.com/en-us/windows/win32/adschema/a-useraccountcontrol
 class SystemFlags(IntFlag):
     NotReplicated = 0x00000001
     ReplicatedToGlobalCatalog = 0x00000002
@@ -108,9 +108,35 @@ class SystemFlags(IntFlag):
     CannotBeDeleted = 0x80000000
 
 
+# https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/dd302fd1-0aa7-406b-ad91-2a6b35738557
+class UserAccountControl(IntFlag):
+    SCRIPT = 0x00000001
+    ACCOUNTDISABLE = 0x00000002
+    HOMEDIR_REQUIRED = 0x00000008
+    LOCKOUT = 0x00000010
+    PASSWD_NOTREQD = 0x00000020
+    PASSWD_CANT_CHANGE = 0x00000040
+    ENCRYPTED_TEXT_PASSWORD_ALLOWED = 0x00000080
+    TEMP_DUPLICATE_ACCOUNT = 0x00000100
+    NORMAL_ACCOUNT = 0x00000200
+    INTERDOMAIN_TRUST_ACCOUNT = 0x00000800
+    WORKSTATION_TRUST_ACCOUNT = 0x00001000
+    SERVER_TRUST_ACCOUNT = 0x00002000
+    DONT_EXPIRE_PASSWORD = 0x00010000
+    MNS_LOGON_ACCOUNT = 0x00020000
+    SMARTCARD_REQUIRED = 0x00040000
+    TRUSTED_FOR_DELEGATION = 0x00080000
+    NOT_DELEGATED = 0x00100000
+    USE_DES_KEY_ONLY = 0x00200000
+    DONT_REQUIRE_PREAUTH = 0x00400000
+    PASSWORD_EXPIRED = 0x00800000
+    TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = 0x01000000
+
+
 ATTRIBUTE_DECODE_MAP: dict[str, Callable[[Database, Any], Any]] = {
     "instanceType": lambda db, value: InstanceType(int(value)),
     "systemFlags": lambda db, value: SystemFlags(int(value)),
+    "userAccountControl": lambda db, value: UserAccountControl(int(value)),
     "objectGUID": lambda db, value: UUID(bytes_le=value),
     "badPasswordTime": lambda db, value: wintimestamp(int(value)),
     "lastLogonTimestamp": lambda db, value: wintimestamp(int(value)),
@@ -257,20 +283,25 @@ def decode_value(db: Database, attribute: str, value: Any) -> Any:
     if value is None:
         return value
 
+    schema = db.data.schema.lookup(ldap_name=attribute)
+
     # First check the list of deviations
     if (decode := ATTRIBUTE_DECODE_MAP.get(attribute)) is None:
         # Next, try it using the regular OID_ENCODE_DECODE_MAP mapping
-        if (attr_schema := db.data.schema.lookup(ldap_name=attribute)) is None:
+        if schema is None:
             return value
 
-        if not attr_schema.type:
+        if not schema.type:
             return value
 
-        _, decode = OID_ENCODE_DECODE_MAP.get(attr_schema.type, (None, None))
+        _, decode = OID_ENCODE_DECODE_MAP.get(schema.type, (None, None))
 
     if decode is None:
         return value
 
-    if isinstance(value, list):
-        return [decode(db, v) for v in value]
-    return decode(db, value)
+    value = [decode(db, v) for v in value] if isinstance(value, list) else decode(db, value)
+
+    if not schema.is_single_valued and not isinstance(value, list):
+        value = [value]
+
+    return value
