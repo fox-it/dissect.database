@@ -194,12 +194,16 @@ def _get_attribute(db: Database, record: Record, name: str, *, raw: bool = False
         name: The attribute name to retrieve.
         raw: Whether to return the raw value without decoding.
     """
-    if (entry := db.data.schema.lookup(ldap_name=name)) is not None:
-        column_name = entry.column_name
+    if (schema := db.data.schema.lookup(ldap_name=name)) is not None:
+        column_name = schema.column_name
     else:
         raise KeyError(f"Attribute not found: {name!r}")
 
     value = record.get(column_name)
+
+    if schema.is_single_valued and isinstance(value, list):
+        # There are a few attributes that have the flag IsSingleValued but are marked as MultiValue in ESE
+        value = value[0]
 
     if raw:
         return value
