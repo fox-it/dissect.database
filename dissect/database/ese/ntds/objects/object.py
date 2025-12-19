@@ -39,7 +39,7 @@ class Object:
         cls.__known_classes__[cls.__object_class__] = cls
 
     def __repr__(self) -> str:
-        return f"<Object name={self.name!r} objectCategory={self.objectCategory} objectClass={self.objectClass}>"
+        return f"<Object name={self.name!r} objectCategory={self.object_category!r} objectClass={self.object_class}>"
 
     def __getattr__(self, name: str) -> Any:
         return self.get(name)
@@ -129,6 +129,16 @@ class Object:
     def name(self) -> str | None:
         """Return the object's name."""
         return self.get("name")
+
+    @property
+    def object_category(self) -> str | None:
+        """Return the object's objectCategory."""
+        return self.get("objectCategory")
+
+    @property
+    def object_class(self) -> list[str] | None:
+        """Return the object's objectClass."""
+        return self.get("objectClass")
 
     @property
     def sid(self) -> str | None:
