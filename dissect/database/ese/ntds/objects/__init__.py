@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# Oh god oh why what did I do
+# Is this better than a giant object.py? Who knows, we're rolling with it for now
 from dissect.database.ese.ntds.objects.applicationsettings import ApplicationSettings
 from dissect.database.ese.ntds.objects.attributeschema import AttributeSchema
 from dissect.database.ese.ntds.objects.builtindomain import BuiltinDomain
