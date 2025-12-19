@@ -29,7 +29,7 @@ def test_encode_decode_value(ntds_small: NTDS, attribute: str, decoded: Any, enc
 
 def test_oid_to_attrtyp_with_oid_string(ntds_small: NTDS) -> None:
     """Test ``_oid_to_attrtyp`` with OID string format."""
-    person_entry = ntds_small.db.data.schema.lookup(ldap_name="person")
+    person_entry = ntds_small.db.data.schema.lookup(name="person")
 
     result = _oid_to_attrtyp(ntds_small.db, person_entry.oid)
     assert isinstance(result, int)
@@ -38,7 +38,7 @@ def test_oid_to_attrtyp_with_oid_string(ntds_small: NTDS) -> None:
 
 def test_oid_string_to_attrtyp_with_class_name(ntds_small: NTDS) -> None:
     """Test ``_oid_to_attrtyp`` with class name (normal case)."""
-    person_entry = ntds_small.db.data.schema.lookup(ldap_name="person")
+    person_entry = ntds_small.db.data.schema.lookup(name="person")
 
     result = _oid_to_attrtyp(ntds_small.db, "person")
     assert isinstance(result, int)
