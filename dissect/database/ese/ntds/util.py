@@ -134,12 +134,24 @@ class UserAccountControl(IntFlag):
     TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = 0x01000000
 
 
+class SearchFlags(IntFlag):
+    Indexed = 0x00000001
+    ContainerIndexed = 0x00000002
+    Anr = 0x00000004
+    PreserveTombstone = 0x00000008
+    CopyWithObject = 0x00000010
+    TupleIndexed = 0x00000020
+    VlvIndexed = 0x00000040
+    Confidential = 0x00000080
+
+
 ATTRIBUTE_ENCODE_DECODE_MAP: dict[
     str, tuple[Callable[[Database, Any], Any] | None, Callable[[Database, Any], Any] | None]
 ] = {
     "Ancestors": (None, lambda db, value: [v[0] for v in struct.iter_unpack("<I", value)]),
     "instanceType": (lambda db, value: int(value), lambda db, value: InstanceType(int(value))),
     "systemFlags": (lambda db, value: int(value), lambda db, value: SystemFlags(int(value))),
+    "searchFlags": (lambda db, value: int(value), lambda db, value: SearchFlags(int(value))),
     "userAccountControl": (lambda db, value: int(value), lambda db, value: UserAccountControl(int(value))),
     "objectGUID": (lambda db, value: value.bytes_le, lambda db, value: UUID(bytes_le=value)),
     "badPasswordTime": (None, lambda db, value: wintimestamp(int(value))),
@@ -163,8 +175,8 @@ def _ldapDisplayName_to_DNT(db: Database, value: str) -> int | str:
     Returns:
         The DNT value or the original value if not found.
     """
-    if (entry := db.data.schema.lookup(ldap_name=value)) is not None:
-        return entry.dnt
+    if (schema := db.data.schema.lookup(name=value)) is not None:
+        return schema.dnt
     return value
 
 
@@ -177,10 +189,13 @@ def _DNT_to_ldapDisplayName(db: Database, value: int) -> str | int:
     Returns:
         The LDAP display name or the original value if not found.
     """
-    if (entry := db.data.schema.lookup(dnt=value)) is not None:
-        return entry.ldap_name
+    if (schema := db.data.schema.lookup(dnt=value)) is not None:
+        return schema.name
 
-    return db.data._make_dn(value)
+    try:
+        return db.data._make_dn(value)
+    except Exception:
+        return value
 
 
 def _oid_to_attrtyp(db: Database, value: str) -> int | str:
@@ -197,10 +212,8 @@ def _oid_to_attrtyp(db: Database, value: str) -> int | str:
     Returns:
         ATTRTYP integer value or the original value if not found.
     """
-    if (
-        entry := db.data.schema.lookup(oid=value) if "." in value else db.data.schema.lookup(ldap_name=value)
-    ) is not None:
-        return entry.id
+    if (schema := db.data.schema.lookup(oid=value) if "." in value else db.data.schema.lookup(name=value)) is not None:
+        return schema.id
     return value
 
 
@@ -213,8 +226,8 @@ def _attrtyp_to_oid(db: Database, value: int) -> str | int:
     Returns:
         The OID string or the original value if not found.
     """
-    if (entry := db.data.schema.lookup(attrtyp=value)) is not None:
-        return entry.ldap_name
+    if (schema := db.data.schema.lookup(attrtyp=value)) is not None:
+        return schema.name
     return value
 
 
@@ -283,7 +296,7 @@ def encode_value(db: Database, attribute: str, value: str) -> int | bytes | str:
     Returns:
         The encoded value in the appropriate type for the attribute.
     """
-    if (schema := db.data.schema.lookup(ldap_name=attribute)) is None:
+    if (schema := db.data.schema.lookup_attribute(name=attribute)) is None:
         return value
 
     # First check the list of deviations
@@ -314,7 +327,7 @@ def decode_value(db: Database, attribute: str, value: Any) -> Any:
     _, decode = ATTRIBUTE_ENCODE_DECODE_MAP.get(attribute, (None, None))
     if decode is None:
         # Next, try it using the regular OID_ENCODE_DECODE_MAP mapping
-        if (schema := db.data.schema.lookup(ldap_name=attribute)) is None:
+        if (schema := db.data.schema.lookup_attribute(name=attribute)) is None:
             return value
 
         if not schema.type:

@@ -2,84 +2,20 @@ from __future__ import annotations
 
 from functools import lru_cache
 from io import BytesIO
-from typing import TYPE_CHECKING, BinaryIO, NamedTuple
+from typing import TYPE_CHECKING, BinaryIO
 
 from dissect.database.ese.ese import ESE
 from dissect.database.ese.exception import KeyNotFoundError
-from dissect.database.ese.ntds.objects import AttributeSchema, ClassSchema, Object
+from dissect.database.ese.ntds.objects import Object
 from dissect.database.ese.ntds.query import Query
+from dissect.database.ese.ntds.schema import Schema
 from dissect.database.ese.ntds.sd import ACL, SecurityDescriptor
-from dissect.database.ese.ntds.util import OID_TO_TYPE, attrtyp_to_oid, encode_value
+from dissect.database.ese.ntds.util import SearchFlags, encode_value
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-
-# These are fixed columns in the NTDS database
-# They do not exist in the schema, but are required for basic operation
-BOOTSTRAP_COLUMNS = [
-    # (lDAPDisplayName, column_name, attributeSyntax)
-    ("DNT", "DNT_col", 0x00080009),
-    ("Pdnt", "PDNT_col", 0x00080009),
-    ("Obj", "OBJ_col", 0x00080008),
-    ("RdnType", "RDNtyp_col", 0x00080002),
-    ("CNT", "cnt_col", 0x00080009),
-    ("AB_cnt", "ab_cnt_col", 0x00080009),
-    ("Time", "time_col", 0x0008000B),
-    ("Ncdnt", "NCDNT_col", 0x00080009),
-    ("RecycleTime", "recycle_time_col", 0x0008000B),
-    ("Ancestors", "Ancestors_col", 0x0008000A),
-    ("IsVisibleInAB", "IsVisibleInAB", 0x00080009),  # TODO: Confirm syntax + what is this?
-]
-
-# These are required for bootstrapping the schema
-# Most of these will be overwritten when the schema is loaded from the database
-BOOTSTRAP_ATTRIBUTES = [
-    # (lDAPDisplayName, attributeID, attributeSyntax, isSingleValued)
-    # Essential attributes
-    ("objectClass", 0, 0x00080002, False),  # ATTc0
-    ("cn", 3, 0x0008000C, True),  # ATTm3
-    ("isDeleted", 131120, 0x00080008, True),  # ATTi131120
-    ("instanceType", 131073, 0x00080009, True),  # ATTj131073
-    ("name", 589825, 0x0008000C, True),  # ATTm589825
-    # Common schema
-    ("lDAPDisplayName", 131532, 0x0008000C, True),  # ATTm131532
-    # Attribute schema
-    ("attributeID", 131102, 0x00080002, True),  # ATTc131102
-    ("attributeSyntax", 131104, 0x00080002, True),  # ATTc131104
-    ("omSyntax", 131303, 0x00080009, True),  # ATTj131303
-    ("oMObjectClass", 131290, 0x0008000A, True),  # ATTk131290
-    ("isSingleValued", 131105, 0x00080008, True),  # ATTi131105
-    ("linkId", 131122, 0x00080009, True),  # ATTj131122
-    # Class schema
-    ("governsID", 131094, 0x00080002, True),  # ATTc131094
-]
-
-# For convenience, bootstrap some common object classes
-# These will also be overwritten when the schema is loaded from the database
-BOOTSTRAP_OBJECT_CLASSES = {
-    "top": 0x00010000,
-    "classSchema": 0x0003000D,
-    "attributeSchema": 0x0003000E,
-}
-
-
-class ClassEntry(NamedTuple):
-    dnt: int
-    oid: str
-    id: int
-    ldap_name: str
-
-
-class AttributeEntry(NamedTuple):
-    dnt: int
-    oid: str
-    id: int
-    type: str
-    is_single_valued: bool
-    link_id: int | None
-    ldap_name: str
-    column_name: str
+    from dissect.database.ese.index import Index
 
 
 class Database:
@@ -164,11 +100,11 @@ class DataTable:
             raise ValueError("Exactly one keyword argument must be provided")
 
         ((key, value),) = kwargs.items()
-        # TODO: Check if the attribute is indexed
-        if (schema := self.schema.lookup(ldap_name=key)) is None:
+        # TODO: Check if the attribute is indexed, use (and expand) _get_index
+        if (schema := self.schema.lookup_attribute(name=key)) is None:
             raise ValueError(f"Attribute {key!r} is not found in the schema")
 
-        index = self.table.find_index(schema.column_name)
+        index = self.table.find_index(schema.column)
         record = index.search([encode_value(self.db, key, value)])
         return Object.from_record(self.db, record)
 
@@ -246,191 +182,27 @@ class DataTable:
         parent_dn = self._make_dn(obj.pdnt)
         return f"{rdn_key}={rdn_value}".upper() + (f",{parent_dn}" if parent_dn else "")
 
-
-class Schema:
-    """An index for schema entries providing fast lookups by various keys.
-
-    Provides efficient lookups for schema entries by DNT, OID, ATTRTYP, LDAP display name, and column name.
-    """
-
-    def __init__(self):
-        self._dnt_index: dict[int, ClassEntry | AttributeEntry] = {}
-        self._oid_index: dict[str, ClassEntry | AttributeEntry] = {}
-
-        self._attrtyp_index: dict[int, ClassEntry | AttributeEntry] = {}
-        self._class_id_index: dict[int, ClassEntry] = {}
-        self._attribute_id_index: dict[int, AttributeEntry] = {}
-
-        self._link_id_index: dict[int, AttributeEntry] = {}
-        self._link_name_index: dict[str, AttributeEntry] = {}
-
-        self._ldap_name_index: dict[str, ClassEntry | AttributeEntry] = {}
-        self._column_name_index: dict[str, AttributeEntry] = {}
-
-        # Bootstrap fixed database columns (these do not exist in the schema)
-        for ldap_name, column_name, syntax in BOOTSTRAP_COLUMNS:
-            self._add(
-                AttributeEntry(
-                    dnt=-1,
-                    oid="",
-                    id=-1,
-                    type=attrtyp_to_oid(syntax),
-                    is_single_valued=True,
-                    link_id=None,
-                    ldap_name=ldap_name,
-                    column_name=column_name,
-                )
-            )
-
-        # Bootstrap initial attributes
-        for ldap_name, attribute_id, attribute_syntax, is_single_valued in BOOTSTRAP_ATTRIBUTES:
-            self._add_attribute(
-                dnt=-1,
-                id=attribute_id,
-                syntax=attribute_syntax,
-                is_single_valued=is_single_valued,
-                link_id=None,
-                ldap_name=ldap_name,
-            )
-
-        # Bootstrap initial object classes
-        for ldap_name, class_id in BOOTSTRAP_OBJECT_CLASSES.items():
-            self._add_class(
-                dnt=-1,
-                id=class_id,
-                ldap_name=ldap_name,
-            )
-
-    def load(self, db: Database) -> None:
-        """Load the classes and attributes from the database into the schema index.
+    def _get_index(self, attribute: str) -> Index:
+        """Get the index for a given attribute name.
 
         Args:
-            db: The database instance to load the schema from.
+            attribute: The attribute name to get the index for.
         """
-        root_domain = db.data.root_domain()
-        for child in root_domain.child("Configuration").child("Schema").children():
-            if isinstance(child, ClassSchema):
-                self._add_class(
-                    dnt=child.dnt,
-                    id=child.get("governsID", raw=True),
-                    ldap_name=child.get("lDAPDisplayName"),
-                )
-            elif isinstance(child, AttributeSchema):
-                self._add_attribute(
-                    dnt=child.dnt,
-                    id=child.get("attributeID", raw=True),
-                    syntax=child.get("attributeSyntax", raw=True),
-                    is_single_valued=child.get("isSingleValued"),
-                    link_id=child.get("linkId"),
-                    ldap_name=child.get("lDAPDisplayName"),
-                )
+        if (schema := self.schema.lookup_attribute(name=attribute)) is None:
+            raise ValueError(f"Attribute not found in schema: {attribute!r}")
 
-    def _add_class(self, dnt: int, id: int, ldap_name: str) -> None:
-        entry = ClassEntry(
-            dnt=dnt,
-            oid=attrtyp_to_oid(id),
-            id=id,
-            ldap_name=ldap_name,
-        )
-        self._add(entry)
+        if schema.search_flags is None:
+            raise ValueError(f"Attribute is not indexed: {attribute!r}")
 
-    def _add_attribute(
-        self, dnt: int, id: int, syntax: int, is_single_valued: bool, link_id: int | None, ldap_name: str
-    ) -> None:
-        type_oid = attrtyp_to_oid(syntax)
-        entry = AttributeEntry(
-            dnt=dnt,
-            oid=attrtyp_to_oid(id),
-            id=id,
-            type=type_oid,
-            is_single_valued=is_single_valued,
-            link_id=link_id,
-            ldap_name=ldap_name,
-            column_name=f"ATT{OID_TO_TYPE[type_oid]}{id}",
-        )
-        self._add(entry)
+        if SearchFlags.Indexed in schema.search_flags:
+            name = f"INDEX_{schema.id:08x}"
+        elif SearchFlags.TupleIndexed in schema.search_flags:
+            name = f"INDEX_T_{schema.id:08x}"
+        else:
+            # TODO add ContainerIndexed
+            raise ValueError(f"Attribute is not indexed: {attribute!r}")
 
-    def _add(self, entry: ClassEntry | AttributeEntry) -> None:
-        if entry.dnt != -1:
-            self._dnt_index[entry.dnt] = entry
-        if entry.oid != "":
-            self._oid_index[entry.oid] = entry
-        if entry.id != -1:
-            self._attrtyp_index[entry.id] = entry
-
-        if isinstance(entry, ClassEntry) and entry.id != -1:
-            self._class_id_index[entry.id] = entry
-
-        if isinstance(entry, AttributeEntry):
-            if entry.id != -1:
-                self._attribute_id_index[entry.id] = entry
-
-            self._column_name_index[entry.column_name] = entry
-
-            if entry.link_id is not None:
-                self._link_id_index[entry.link_id] = entry
-
-        self._ldap_name_index[entry.ldap_name] = entry
-
-    def lookup(
-        self,
-        *,
-        dnt: int | None = None,
-        oid: str | None = None,
-        attrtyp: int | None = None,
-        class_id: int | None = None,
-        attribute_id: int | None = None,
-        link_id: int | None = None,
-        ldap_name: str | None = None,
-        column_name: str | None = None,
-    ) -> ClassEntry | AttributeEntry | None:
-        """Lookup a schema entry by an indexed field.
-
-        Args:
-            dnt: The DNT (Distinguished Name Tag) of the schema entry to look up.
-            oid: The OID (Object Identifier) of the schema entry to look up.
-            attrtyp: The ATTRTYP (attribute type) of the schema entry to look up.
-            class_id: The class ID of the schema entry to look up.
-            attribute_id: The attribute ID of the schema entry to look up.
-            link_id: The link ID of the schema entry to look up.
-            ldap_name: The LDAP display name of the schema entry to look up.
-            column_name: The column name of the schema entry to look up.
-
-        Returns:
-            The matching schema entry or ``None`` if not found.
-        """
-        # Ensure exactly one lookup key is provided
-        if (
-            sum(key is not None for key in [dnt, oid, attrtyp, class_id, attribute_id, link_id, ldap_name, column_name])
-            != 1
-        ):
-            raise ValueError("Exactly one lookup key must be provided")
-
-        if dnt is not None:
-            return self._dnt_index.get(dnt)
-
-        if oid is not None:
-            return self._oid_index.get(oid)
-
-        if attrtyp is not None:
-            return self._attrtyp_index.get(attrtyp)
-
-        if class_id is not None:
-            return self._class_id_index.get(class_id)
-
-        if attribute_id is not None:
-            return self._attribute_id_index.get(attribute_id)
-
-        if link_id is not None:
-            return self._link_id_index.get(link_id)
-
-        if ldap_name is not None:
-            return self._ldap_name_index.get(ldap_name)
-
-        if column_name is not None:
-            return self._column_name_index.get(column_name)
-
-        return None
+        return self.table.index(name)
 
 
 class LinkTable:
@@ -459,8 +231,8 @@ class LinkTable:
             dnt: The DNT to retrieve linked objects for.
         """
         for base, obj in self._links(dnt):
-            if (entry := self.db.data.schema.lookup(link_id=base * 2)) is not None:
-                yield entry.ldap_name, obj
+            if (schema := self.db.data.schema.lookup_attribute(link_id=base * 2)) is not None:
+                yield schema.name, obj
 
     def backlinks(self, dnt: int, name: str | None = None) -> Iterator[Object]:
         """Get all backlink objects for a given Directory Number Tag (DNT).
@@ -478,8 +250,8 @@ class LinkTable:
             dnt: The DNT to retrieve backlink objects for.
         """
         for base, obj in self._backlinks(dnt):
-            if (entry := self.db.data.schema.lookup(link_id=base * 2)) is not None:
-                yield entry.ldap_name, obj
+            if (schema := self.db.data.schema.lookup_attribute(link_id=(base * 2) + 1)) is not None:
+                yield schema.name, obj
 
     def has_link(self, link_dnt: int, name: str, backlink_dnt: int) -> bool:
         """Check if a specific link exists between two DNTs and a given link name.
@@ -507,9 +279,9 @@ class LinkTable:
         Args:
             name: The link name to retrieve the link ID for.
         """
-        if (entry := self.db.data.schema.lookup(ldap_name=name)) is None:
+        if (schema := self.db.data.schema.lookup_attribute(name=name)) is None:
             raise ValueError(f"Link name '{name}' not found in schema")
-        return entry.link_id // 2
+        return schema.link_id // 2
 
     def _links(self, dnt: int, base: int | None = None) -> Iterator[tuple[int, Object]]:
         """Get all linked objects for a given Directory Number Tag (DNT).

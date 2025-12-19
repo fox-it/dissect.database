@@ -71,15 +71,12 @@ class Query:
             Records matching the filter.
         """
         # Validate attribute exists and get column mapping
-        if (attr_entry := self.db.data.schema.lookup(ldap_name=filter.attribute)) is None:
+        if (schema := self.db.data.schema.lookup_attribute(name=filter.attribute)) is None:
             raise ValueError(f"Attribute {filter.attribute!r} not found in the NTDS database")
 
-        if (column_name := attr_entry.column_name) is None:
-            raise ValueError(f"No column mapping found for attribute {filter.attribute!r}")
-
         # Get the database index for this attribute
-        if (index := self.db.data.table.find_index([column_name])) is None:
-            raise ValueError(f"Index for attribute {column_name!r} not found in the NTDS database")
+        if (index := self.db.data.table.find_index([schema.column])) is None:
+            raise ValueError(f"Index for attribute {schema.column!r} not found in the NTDS database")
 
         if "*" in filter.value:
             # Handle wildcard searches differently
@@ -90,7 +87,7 @@ class Query:
         else:
             # Exact match query
             encoded_value = encode_value(self.db, filter.attribute, filter.value)
-            yield from index.cursor().find_all(**{column_name: encoded_value})
+            yield from index.cursor().find_all(**{schema.column: encoded_value})
 
     def _process_and_operation(self, filter: SearchFilter, records: list[Record] | None) -> Iterator[Record]:
         """Process AND logical operation.
@@ -139,17 +136,16 @@ class Query:
             Records that match the filter criteria.
         """
         encoded_value = encode_value(self.db, filter.attribute, filter.value)
-        attr_entry = self.db.data.schema.lookup(ldap_name=filter.attribute)
+        schema = self.db.data.schema.lookup_attribute(name=filter.attribute)
 
-        if attr_entry is None or attr_entry.column_name is None:
+        if schema is None:
             return
 
-        column_name = attr_entry.column_name
         has_wildcard = "*" in filter.value
         wildcard_prefix = filter.value.replace("*", "").lower() if has_wildcard else None
 
         for record in records:
-            record_value = record.get(column_name)
+            record_value = record.get(schema.column)
 
             if _value_matches_filter(record_value, encoded_value, has_wildcard, wildcard_prefix):
                 yield record

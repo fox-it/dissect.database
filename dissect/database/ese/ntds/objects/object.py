@@ -71,8 +71,8 @@ class Object:
         """Return the object's attributes as a dictionary."""
         result = {}
         for key in self.record.as_dict():
-            if (schema_entry := self.db.data.schema.lookup(column_name=key)) is not None:
-                key = schema_entry.ldap_name
+            if (schema := self.db.data.schema.lookup_attribute(column=key)) is not None:
+                key = schema.name
                 result[key] = _get_attribute(self.db, self.record, key)
         return result
 
@@ -219,12 +219,10 @@ def _get_attribute(db: Database, record: Record, name: str, *, raw: bool = False
         name: The attribute name to retrieve.
         raw: Whether to return the raw value without decoding.
     """
-    if (schema := db.data.schema.lookup(ldap_name=name)) is not None:
-        column_name = schema.column_name
-    else:
+    if (schema := db.data.schema.lookup_attribute(name=name)) is None:
         raise KeyError(f"Attribute not found: {name!r}")
 
-    value = record.get(column_name)
+    value = record.get(schema.column)
 
     if schema.is_single_valued and isinstance(value, list):
         # There are a few attributes that have the flag IsSingleValued but are marked as MultiValue in ESE

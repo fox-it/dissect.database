@@ -11,6 +11,6 @@ if TYPE_CHECKING:
 def test_lookup_multiple_keys(ntds_small: NTDS) -> None:
     """Test error handling in schema index lookup with multiple keys."""
     with pytest.raises(ValueError, match="Exactly one lookup key must be provided"):
-        ntds_small.db.data.schema.lookup(ldap_name="person", attrtyp=1234)
+        ntds_small.db.data.schema.lookup(name="person", attrtyp=1234)
 
-    ntds_small.db.data.schema.lookup(ldap_name="person")  # This should work without error
+    ntds_small.db.data.schema.lookup(name="person")  # This should work without error
