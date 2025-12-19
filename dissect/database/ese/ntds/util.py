@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from dissect.database.ese.ntds.database import Database
-    from dissect.database.ese.ntds.ntds import NTDS
 
 
 # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/7cda533e-d7a4-4aec-a517-91d02ff4a1aa
