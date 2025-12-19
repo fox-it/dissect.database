@@ -74,16 +74,17 @@ class Index:
         """Create a new cursor for this index."""
         return Cursor(self)
 
-    def search(self, **kwargs) -> Record:
+    def search(self, *args, **kwargs) -> Record:
         """Search the index for the requested values.
 
         Args:
+            *args: The values to search for.
             **kwargs: The columns and values to search for.
 
         Returns:
             A :class:`~dissect.database.ese.record.Record` object of the found record.
         """
-        return self.cursor().search(**kwargs)
+        return self.cursor().search(*args, **kwargs)
 
     def search_key(self, key: bytes) -> Node:
         """Search the index for a specific ``key``.
@@ -105,20 +106,27 @@ class Index:
         values = {c.name: record[c.name] for c in self.columns}
         return self.make_key(values)
 
-    def make_key(self, values: dict[str, RecordValue]) -> bytes:
+    def make_key(self, values: list[RecordValue] | dict[str, RecordValue]) -> bytes:
         """Generate a key out of the given values.
 
         Args:
-            values: A map of the column names and values to generate a key for.
+            values: A map of the column names and values to generate a key for, or a list of values in the order of the
+                    index columns.
         """
         key_buf = []
         key_remaining = self._key_most
 
-        for column in self.columns:
-            if column.name not in values:
-                break
+        if isinstance(values, dict):
+            tmp = []
+            for column in self.columns:
+                if column.name not in values:
+                    break
+                tmp.append(values[column.name])
 
-            key_part = encode_key(self, column, values[column.name], self._var_seg_mac)
+            values = tmp
+
+        for column, value in zip(self.columns, values, strict=False):
+            key_part = encode_key(self, column, value, self._var_seg_mac)
             key_buf.append(key_part)
             key_remaining -= len(key_part)
 

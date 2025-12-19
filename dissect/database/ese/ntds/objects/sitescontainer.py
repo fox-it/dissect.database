@@ -1,0 +1,16 @@
+from __future__ import annotations
+
+from dissect.database.ese.ntds.objects.top import Top
+
+
+class SitesContainer(Top):
+    """Represents a sites container object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-sitescontainer
+    """
+
+    __object_class__ = "sitesContainer"
+
+    def __repr__(self) -> str:
+        return f"<SitesContainer name={self.name!r}>"

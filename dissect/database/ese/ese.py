@@ -36,6 +36,7 @@ class ESE:
         self.fh = fh
         self.impacket_compat = impacket_compat
 
+        self.fh.seek(0)
         self.header = c_ese.DBFILEHDR(fh)
         if self.header.ulMagic != ulDAEMagic:
             raise InvalidDatabase("invalid file header signature")
