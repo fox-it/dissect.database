@@ -179,7 +179,8 @@ def _DNT_to_ldapDisplayName(db: Database, value: int) -> str | int:
     """
     if (entry := db.data.schema.lookup(dnt=value)) is not None:
         return entry.ldap_name
-    return value
+
+    return db.data._make_dn(value)
 
 
 def _oid_to_attrtyp(db: Database, value: str) -> int | str:
@@ -224,10 +225,10 @@ def _binary_to_dn(db: Database, value: bytes) -> tuple[int, bytes]:
         value: The binary DN value.
 
     Returns:
-        A tuple of the DNT and the binary data.
+        A tuple of the DNT and the binary data as hex.
     """
     dnt, length = struct.unpack("<II", value[:8])
-    return dnt, value[8 : 8 + length]
+    return dnt, value[8 : 8 + length].hex()
 
 
 # To be used when parsing LDAP queries into ESE-compatible data types
