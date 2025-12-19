@@ -76,12 +76,12 @@ def test_computers(ntds_small: NTDS) -> None:
 
 def test_group_membership(ntds_small: NTDS) -> None:
     # Prepare objects
-    domain_admins = next(ntds_small.lookup(sAMAccountName="Domain Admins"))
-    domain_users = next(ntds_small.lookup(sAMAccountName="Domain Users"))
+    domain_admins = next(ntds_small.search(sAMAccountName="Domain Admins"))
+    domain_users = next(ntds_small.search(sAMAccountName="Domain Users"))
     assert isinstance(domain_admins, Group)
     assert isinstance(domain_users, Group)
 
-    ernesto = next(ntds_small.lookup(sAMAccountName="ERNESTO_RAMOS"))
+    ernesto = next(ntds_small.search(sAMAccountName="ERNESTO_RAMOS"))
     assert isinstance(ernesto, User)
 
     # Test membership of ERNESTO_RAMOS
@@ -136,7 +136,7 @@ def test_group_membership(ntds_small: NTDS) -> None:
         "krbtgt",
     ]
     assert domain_users.is_member(ernesto)
-    assert not domain_users.is_member(next(ntds_small.lookup(sAMAccountName="Guest")))
+    assert not domain_users.is_member(next(ntds_small.search(sAMAccountName="Guest")))
 
 
 def test_query_specific_users(ntds_small: NTDS) -> None:
@@ -162,25 +162,25 @@ def test_record_to_object_coverage(ntds_small: NTDS) -> None:
 def test_sid_lookup(ntds_small: NTDS) -> None:
     """Test SID lookup functionality."""
     sid_str = "S-1-5-21-1957882089-4252948412-2360614479-1134"
-    user = next(ntds_small.lookup(objectSid=sid_str))
+    user = next(ntds_small.search(objectSid=sid_str))
     assert isinstance(user, User)
     assert user.sAMAccountName == "beau.terham"
 
 
 def test_object_repr(ntds_small: NTDS) -> None:
     """Test the __repr__ methods of User, Computer, Object and Group classes."""
-    user = next(ntds_small.lookup(sAMAccountName="Administrator"))
+    user = next(ntds_small.search(sAMAccountName="Administrator"))
     assert isinstance(user, User)
     assert repr(user) == "<User name='Administrator' sAMAccountName='Administrator' is_machine_account=False>"
 
-    computer = next(ntds_small.lookup(sAMAccountName="DC*"))
+    computer = next(ntds_small.search(sAMAccountName="DC*"))
     assert isinstance(computer, Computer)
     assert repr(computer) == "<Computer name='DC01'>"
 
-    group = next(ntds_small.lookup(sAMAccountName="Domain Admins"))
+    group = next(ntds_small.search(sAMAccountName="Domain Admins"))
     assert isinstance(group, Group)
     assert repr(group) == "<Group name='Domain Admins'>"
 
-    object = next(ntds_small.lookup(objectCategory="subSchema"))
+    object = next(ntds_small.search(objectCategory="subSchema"))
     assert isinstance(object, SubSchema)
     assert repr(object) == "<SubSchema name='Aggregate'>"

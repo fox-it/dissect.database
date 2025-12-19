@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, BinaryIO
 
 from dissect.database.ese.ntds.database import Database
@@ -9,9 +8,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from dissect.database.ese.ntds.objects import Computer, DomainDNS, Group, Object, Server, User
-
-
-log = logging.getLogger(__name__)
+    from dissect.database.ese.ntds.objects.trusteddomain import TrustedDomain
 
 
 class NTDS:
@@ -53,7 +50,7 @@ class NTDS:
         """
         yield from self.db.data.query(query, optimize=optimize)
 
-    def lookup(self, **kwargs: str) -> Iterator[Object]:
+    def search(self, **kwargs: str) -> Iterator[Object]:
         """Perform an attribute-value query. If multiple attributes are provided, it will be treated as an "AND" query.
 
         Args:
@@ -66,16 +63,20 @@ class NTDS:
 
     def groups(self) -> Iterator[Group]:
         """Get all group objects from the database."""
-        yield from self.lookup(objectCategory="group")
+        yield from self.search(objectCategory="group")
 
     def servers(self) -> Iterator[Server]:
         """Get all server objects from the database."""
-        yield from self.lookup(objectCategory="server")
+        yield from self.search(objectCategory="server")
 
     def users(self) -> Iterator[User]:
         """Get all user objects from the database."""
-        yield from self.lookup(objectCategory="person")
+        yield from self.search(objectCategory="person")
 
     def computers(self) -> Iterator[Computer]:
         """Get all computer objects from the database."""
-        yield from self.lookup(objectCategory="computer")
+        yield from self.search(objectCategory="computer")
+
+    def trusts(self) -> Iterator[TrustedDomain]:
+        """Get all trust objects from the database."""
+        yield from self.search(objectClass="trustedDomain")
