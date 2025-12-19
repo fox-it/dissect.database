@@ -330,9 +330,7 @@ def decode_value(db: Database, attribute: str, value: Any) -> Any:
         if (schema := db.data.schema.lookup_attribute(name=attribute)) is None:
             return value
 
-        if not schema.type:
-            return value
-
+        # TODO: handle oMSyntax/oMObjectClass deviations?
         _, decode = OID_ENCODE_DECODE_MAP.get(schema.type, (None, None))
 
     if decode is None:

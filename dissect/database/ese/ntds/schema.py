@@ -42,7 +42,7 @@ BOOTSTRAP_ATTRIBUTES = [
     # Attribute schema
     ("attributeID", 131102, 0x00080002, True),  # ATTc131102
     ("attributeSyntax", 131104, 0x00080002, True),  # ATTc131104
-    ("omSyntax", 131303, 0x00080009, True),  # ATTj131303
+    ("oMSyntax", 131303, 0x00080009, True),  # ATTj131303
     ("oMObjectClass", 131290, 0x0008000A, True),  # ATTk131290
     ("isSingleValued", 131105, 0x00080008, True),  # ATTi131105
     ("linkId", 131122, 0x00080009, True),  # ATTj131122
@@ -74,7 +74,8 @@ class AttributeEntry(NamedTuple):
     name: str
     column: str
     type: str
-    om_syntax: int
+    om_syntax: int | None
+    om_object_class: bytes | None
     is_single_valued: bool
     link_id: int | None
     search_flags: SearchFlags | None
@@ -113,6 +114,7 @@ class Schema:
                     column=column_name,
                     type=attrtyp_to_oid(syntax),
                     om_syntax=None,
+                    om_object_class=None,
                     is_single_valued=True,
                     link_id=None,
                     search_flags=None,
@@ -127,6 +129,7 @@ class Schema:
                 name=name,
                 syntax=attribute_syntax,
                 om_syntax=None,
+                om_object_class=None,
                 is_single_valued=is_single_valued,
                 link_id=None,
                 search_flags=None,
@@ -160,7 +163,8 @@ class Schema:
                     id=child.get("attributeID", raw=True),
                     name=child.get("lDAPDisplayName"),
                     syntax=child.get("attributeSyntax", raw=True),
-                    om_syntax=child.get("omSyntax"),
+                    om_syntax=child.get("oMSyntax"),
+                    om_object_class=child.get("oMObjectClass"),
                     is_single_valued=child.get("isSingleValued"),
                     link_id=child.get("linkId"),
                     search_flags=child.get("searchFlags"),
@@ -181,7 +185,8 @@ class Schema:
         id: int,
         name: str,
         syntax: int,
-        om_syntax: int,
+        om_syntax: int | None,
+        om_object_class: bytes | None,
         is_single_valued: bool,
         link_id: int | None,
         search_flags: int | None,
@@ -195,6 +200,7 @@ class Schema:
             column=f"ATT{OID_TO_TYPE[type_oid]}{id}",
             type=type_oid,
             om_syntax=om_syntax,
+            om_object_class=om_object_class,
             is_single_valued=is_single_valued,
             link_id=link_id,
             search_flags=search_flags,
