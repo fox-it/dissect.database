@@ -331,6 +331,7 @@ def decode_value(db: Database, attribute: str, value: Any) -> Any:
             return value
 
         # TODO: handle oMSyntax/oMObjectClass deviations?
+        # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/7cda533e-d7a4-4aec-a517-91d02ff4a1aa
         _, decode = OID_ENCODE_DECODE_MAP.get(schema.type, (None, None))
 
     if decode is None:
