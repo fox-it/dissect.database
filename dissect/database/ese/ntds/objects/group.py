@@ -1,0 +1,38 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from dissect.database.ese.ntds.objects.top import Top
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from dissect.database.ese.ntds.object import User
+
+
+class Group(Top):
+    """Represents a group object in the Active Directory.
+
+    References:
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-group
+    """
+
+    __object_class__ = "group"
+
+    def __repr__(self) -> str:
+        return f"<Group name={self.sAMAccountName!r}>"
+
+    def members(self) -> Iterator[User]:
+        """Yield all members of this group."""
+        yield from self.db.link.links(self.dnt, "member")
+
+        # We also need to include users with primaryGroupID matching the group's RID
+        yield from self.db.data.search(primaryGroupID=self.sid.rsplit("-", 1)[1])
+
+    def is_member(self, user: User) -> bool:
+        """Return whether the given user is a member of this group.
+
+        Args:
+            user: The :class:`User` to check membership for.
+        """
+        return any(u.dnt == user.dnt for u in self.members())

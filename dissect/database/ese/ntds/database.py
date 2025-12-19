@@ -6,14 +6,13 @@ from typing import TYPE_CHECKING, BinaryIO, NamedTuple
 
 from dissect.database.ese.ese import ESE
 from dissect.database.ese.exception import KeyNotFoundError
-from dissect.database.ese.ntds.object import AttributeSchema, ClassSchema, Object
+from dissect.database.ese.ntds.objects import AttributeSchema, ClassSchema, Object
 from dissect.database.ese.ntds.query import Query
 from dissect.database.ese.ntds.sd import ACL, SecurityDescriptor
 from dissect.database.ese.ntds.util import OID_TO_TYPE, attrtyp_to_oid, encode_value
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-    from uuid import UUID
 
 
 # These are fixed columns in the NTDS database
@@ -136,6 +135,15 @@ class DataTable:
                 break
 
         raise ValueError("No root domain object found")
+
+    def walk(self) -> Iterator[Object]:
+        """Walk through all objects in the NTDS database."""
+        stack = [self.root()]
+        while stack:
+            yield (obj := stack.pop())
+            for child in obj.children():
+                yield child
+                stack.append(child)
 
     def get(self, dnt: int) -> Object:
         """Retrieve an object by its Directory Number Tag (DNT) value.

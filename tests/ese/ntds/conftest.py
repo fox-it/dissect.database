@@ -14,13 +14,13 @@ if TYPE_CHECKING:
 
 @pytest.fixture(scope="module")
 def ntds_small() -> Iterator[NTDS]:
-    for fh in open_file_gz("_data/ese/ntds/small/NTDS.dit.gz"):
+    for fh in open_file_gz("_data/ese/ntds/small/ntds.dit.gz"):
         yield NTDS(fh)
 
 
 @pytest.fixture(scope="module")
 def ntds_large() -> Iterator[NTDS]:
-    for fh in open_file_gz("_data/ese/ntds/large/NTDS.dit.gz"):
+    for fh in open_file_gz("_data/ese/ntds/large/ntds.dit.gz"):
         # Keep this one decompressed in memory (~110MB) as it is a large file,
         # and performing I/O through the gzip layer is too slow
         yield NTDS(BytesIO(fh.read()))

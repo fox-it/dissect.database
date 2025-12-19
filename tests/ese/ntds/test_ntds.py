@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dissect.database.ese.ntds import NTDS, Computer, Group, User
-from dissect.database.ese.ntds.object import Object, Server
+from dissect.database.ese.ntds.objects import Server
+from dissect.database.ese.ntds.objects.subschema import SubSchema
 
 
 def test_groups(ntds_small: NTDS) -> None:
@@ -181,5 +182,5 @@ def test_object_repr(ntds_small: NTDS) -> None:
     assert repr(group) == "<Group name='Domain Admins'>"
 
     object = next(ntds_small.lookup(objectCategory="subSchema"))
-    assert isinstance(object, Object)
-    assert repr(object) == "<Object name='Aggregate' objectCategory=subSchema objectClass=['subSchema', 'top']>"
+    assert isinstance(object, SubSchema)
+    assert repr(object) == "<SubSchema name='Aggregate'>"

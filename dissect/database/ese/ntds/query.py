@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
     from dissect.database.ese.index import Index
     from dissect.database.ese.ntds.database import Database
-    from dissect.database.ese.ntds.object import Object
+    from dissect.database.ese.ntds.objects import Object
     from dissect.database.ese.record import Record
 
 
