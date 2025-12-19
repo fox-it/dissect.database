@@ -19,6 +19,9 @@ class NTDS:
     Allows convenient querying and extraction of data from an NTDS.dit file, including users, computers, groups,
     and their relationships.
 
+    If you're a brave soul reading this code, you're about to go past the LDAP fairy tale
+    and into the "ntds internals are cursed" zone.
+
     Args:
         fh: A file-like object of the NTDS.dit database.
     """
