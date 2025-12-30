@@ -1,77 +1,115 @@
 from __future__ import annotations
 
-from dissect.database.ese.ntds import NTDS, Computer, Group, User
-from dissect.database.ese.ntds.objects import Server
-from dissect.database.ese.ntds.objects.subschema import SubSchema
+from typing import TYPE_CHECKING
+
+from dissect.database.ese.ntds.objects import Computer, Group, Server, SubSchema, User
+
+if TYPE_CHECKING:
+    from dissect.database.ese.ntds import NTDS
 
 
-def test_groups(ntds_small: NTDS) -> None:
-    groups = sorted(ntds_small.groups(), key=lambda x: x.sAMAccountName)
-    assert len(groups) == 54
+def test_groups(goad: NTDS) -> None:
+    groups = sorted(goad.groups(), key=lambda x: x.distinguished_name)
+
+    assert len(groups) == 102
     assert isinstance(groups[0], Group)
     assert all(isinstance(x, Group) for x in groups)
 
-    domain_admins = next(x for x in groups if x.sAMAccountName == "Domain Admins")
-    assert isinstance(domain_admins, Group)
-    assert sorted([x.sAMAccountName for x in domain_admins.members()]) == [
+    north_domain_admins = next(
+        x for x in groups if x.distinguished_name == "CN=DOMAIN ADMINS,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL"
+    )
+    assert isinstance(north_domain_admins, Group)
+    # TODO this doesn't work yet?
+    assert sorted([x.sam_account_name for x in north_domain_admins.members()]) == [
         "Administrator",
-        "ERNESTO_RAMOS",
-        "Guest",
-        "OTTO_STEELE",
+        "eddard.stark",
+    ]
+
+    domain_admins = next(x for x in groups if x.distinguished_name == "CN=DOMAIN ADMINS,CN=USERS,DC=DISSECT,DC=LOCAL")
+    assert isinstance(domain_admins, Group)
+    assert sorted([x.sam_account_name for x in domain_admins.members()]) == [
+        "Administrator",
+        "cersei.lannister",
     ]
 
 
-def test_servers(ntds_small: NTDS) -> None:
-    servers = sorted(ntds_small.servers(), key=lambda x: x.name)
-    assert len(servers) == 1
+def test_servers(goad: NTDS) -> None:
+    servers = sorted(goad.servers(), key=lambda x: x.name)
+    assert len(servers) == 2
     assert isinstance(servers[0], Server)
     assert [x.name for x in servers] == [
-        "DC01",
+        "KINGSLANDING",
+        "WINTERFELL",
     ]
 
 
-def test_users(ntds_small: NTDS) -> None:
-    user_records = sorted(ntds_small.users(), key=lambda x: x.sAMAccountName)
-    assert len(user_records) == 15
-    assert isinstance(user_records[0], User)
-    assert [x.sAMAccountName for x in user_records] == [
-        "Administrator",
-        "BRANDY_CALDERON",
-        "CORRINE_GARRISON",
-        "ERNESTO_RAMOS",
-        "FORREST_NIXON",
-        "Guest",
-        "JERI_KEMP",
-        "JOCELYN_MCMAHON",
-        "JUDY_RICH",
-        "MALINDA_PATE",
-        "OTTO_STEELE",
-        "RACHELLE_LYNN",
-        "beau.terham",
-        "henk.devries",
-        "krbtgt",
+def test_users(goad: NTDS) -> None:
+    users: list[User] = sorted(goad.users(), key=lambda x: x.distinguished_name)
+    assert len(users) == 33
+    assert isinstance(users[0], User)
+    assert [x.distinguished_name for x in users] == [
+        "CN=ADMINISTRATOR,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=ADMINISTRATOR,CN=USERS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=ARYA.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=BRANDON.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=CATELYN.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=CERSEI.LANNISTER,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=EDDARD.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=ESSOS$,CN=USERS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=GUEST,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=GUEST,CN=USERS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=HODOR,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=JAIME.LANNISTER,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=JEOR.MORMONT,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=JOFFREY.BARATHEON,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=JON.SNOW,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=KRBTGT,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=KRBTGT,CN=USERS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=LORD.VARYS,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=MAESTER.PYCELLE,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=NORTH$,CN=USERS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=PETYER.BAELISH,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=RENLY.BARATHEON,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=RICKON.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=ROBB.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=SAMWELL.TARLY,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=SANSA.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=SEVENKINGDOMS$,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=SQL_SVC,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=STANNIS.BARATHEON,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=TYRON.LANNISTER,OU=WESTERLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=TYWIN.LANNISTER,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=VAGRANT,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=VAGRANT,CN=USERS,DC=SEVENKINGDOMS,DC=LOCAL",
     ]
-    assert user_records[3].distinguished_name == "CN=ERNESTO_RAMOS,OU=TST,OU=PEOPLE,DC=DISSECT,DC=LOCAL"
-    assert user_records[3].cn == "ERNESTO_RAMOS"
-    assert user_records[4].distinguished_name == "CN=FORREST_NIXON,OU=GROUPS,OU=AZR,OU=TIER 1,DC=DISSECT,DC=LOCAL"
-    assert user_records[12].displayName == "Beau ter Ham"
-    assert user_records[12].objectSid == "S-1-5-21-1957882089-4252948412-2360614479-1134"
-    assert user_records[12].distinguished_name == "CN=BEAU TER HAM,OU=TST,OU=PEOPLE,DC=DISSECT,DC=LOCAL"
-    assert user_records[12].description == ["My password might be related to the summer"]
-    assert user_records[13].displayName == "Henk de Vries"
-    assert user_records[13].mail == "henk@henk.com"
-    assert user_records[13].description == ["Da real Dissect MVP"]
+
+    assert users[3].distinguished_name == "CN=BRANDON.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL"
+    assert users[3].cn == "brandon.stark"
+    assert users[3].city == "Winterfell"
+
+    assert users[4].distinguished_name == "CN=CATELYN.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL"
+
+    assert users[-1].displayName == "Vagrant"
+
+    assert users[12].objectSid == "S-1-5-21-459184689-3312531310-188885708-1120"
+    assert users[12].distinguished_name == "CN=JEOR.MORMONT,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL"
+    assert users[12].description == ["Jeor Mormont"]
+
+    assert users[10].description == ["Brainless Giant"]
 
 
-def test_computers(ntds_small: NTDS) -> None:
-    computer_records = sorted(ntds_small.computers(), key=lambda x: x.name)
-    assert len(computer_records) == 15
-    assert computer_records[0].name == "AZRWAPPS1000000"
-    assert computer_records[1].name == "DC01"
-    assert computer_records[13].name == "SECWWKS1000000"
-    assert computer_records[14].name == "TSTWWEBS1000000"
+def test_computers(goad: NTDS) -> None:
+    computers: list[Computer] = sorted(goad.computers(), key=lambda x: x.name)
+    assert len(computers) == 3
+    assert computers[0].name == "CASTELBLACK"
+    assert computers[1].name == "KINGSLANDING"
+    assert computers[2].name == "WINTERFELL"
 
-    assert len(list(computer_records[1].groups())) == 1
+    assert [g.name for g in computers[1].groups()] == [
+        "Cert Publishers",
+        "Pre-Windows 2000 Compatible Access",
+        "Domain Controllers",
+    ]
 
 
 def test_group_membership(ntds_small: NTDS) -> None:

@@ -12,5 +12,10 @@ class OrganizationalPerson(Person):
 
     __object_class__ = "organizationalPerson"
 
+    @property
+    def city(self) -> str:
+        """Return the city (l) of this organizational person."""
+        return self.get("l")
+
     def __repr__(self) -> str:
         return f"<OrganizationalPerson name={self.name!r}>"

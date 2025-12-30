@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
-from typing import TYPE_CHECKING, BinaryIO
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -13,19 +13,22 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture(scope="module")
-def ntds_small() -> Iterator[NTDS]:
-    for fh in open_file_gz("_data/ese/ntds/small/ntds.dit.gz"):
+def goad() -> Iterator[NTDS]:
+    """NTDS file from a GOAD lab environment.
+
+    Notes:
+        - robert.baratheon was deleted BEFORE the recycle bin was enabled
+        - IronIslands OA was deleted AFTER the recycle bin was enabled
+        - stannis.baratheon has password history and is disabled
+        - robb.stark has password history
+    """
+    for fh in open_file_gz("_data/ese/ntds/goad/ntds.dit.gz"):
         yield NTDS(fh)
 
 
 @pytest.fixture(scope="module")
-def ntds_large() -> Iterator[NTDS]:
+def large() -> Iterator[NTDS]:
     for fh in open_file_gz("_data/ese/ntds/large/ntds.dit.gz"):
         # Keep this one decompressed in memory (~110MB) as it is a large file,
         # and performing I/O through the gzip layer is too slow
         yield NTDS(BytesIO(fh.read()))
-
-
-@pytest.fixture
-def system_hive() -> Iterator[BinaryIO]:
-    yield from open_file_gz("_data/ese/ntds/SYSTEM.gz")
