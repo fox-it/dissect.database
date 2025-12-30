@@ -7,7 +7,7 @@ from dissect.database.ese.ntds.objects.top import Top
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from dissect.database.ese.ntds.object import User
+    from dissect.database.ese.ntds.objects import User
 
 
 class Group(Top):
@@ -20,7 +20,12 @@ class Group(Top):
     __object_class__ = "group"
 
     def __repr__(self) -> str:
-        return f"<Group name={self.sAMAccountName!r}>"
+        return f"<Group name={self.sam_account_name!r}>"
+
+    @property
+    def sam_account_name(self) -> str:
+        """Return the group's sAMAccountName."""
+        return self.get("sAMAccountName")
 
     def members(self) -> Iterator[User]:
         """Yield all members of this group."""
