@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from dissect.database.ese.ntds.objects.locality import Locality
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from dissect.database.ese.ntds.objects import Object
 
 
 class PhysicalLocation(Locality):
@@ -14,3 +21,7 @@ class PhysicalLocation(Locality):
 
     def __repr__(self) -> str:
         return f"<PhysicalLocation name={self.name!r}>"
+
+    def managed_by(self) -> Iterator[Object]:
+        """Return the objects that manage this physical location."""
+        yield from self.db.link.links(self.dnt, "managedBy")

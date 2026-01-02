@@ -21,38 +21,38 @@ if TYPE_CHECKING:
         ),
     ],
 )
-def test_encode_decode_value(ntds_small: NTDS, attribute: str, decoded: Any, encoded: Any) -> None:
+def test_encode_decode_value(goad: NTDS, attribute: str, decoded: Any, encoded: Any) -> None:
     """Test ``encode_value`` and ``decode_value`` coverage."""
-    assert encode_value(ntds_small.db, attribute, decoded) == encoded
-    assert decode_value(ntds_small.db, attribute, encoded) == decoded
+    assert encode_value(goad.db, attribute, decoded) == encoded
+    assert decode_value(goad.db, attribute, encoded) == decoded
 
 
-def test_oid_to_attrtyp_with_oid_string(ntds_small: NTDS) -> None:
+def test_oid_to_attrtyp_with_oid_string(goad: NTDS) -> None:
     """Test ``_oid_to_attrtyp`` with OID string format."""
-    person_entry = ntds_small.db.data.schema.lookup(name="person")
+    person_entry = goad.db.data.schema.lookup(name="person")
 
-    result = _oid_to_attrtyp(ntds_small.db, person_entry.oid)
+    result = _oid_to_attrtyp(goad.db, person_entry.oid)
     assert isinstance(result, int)
     assert result == person_entry.id
 
 
-def test_oid_string_to_attrtyp_with_class_name(ntds_small: NTDS) -> None:
+def test_oid_string_to_attrtyp_with_class_name(goad: NTDS) -> None:
     """Test ``_oid_to_attrtyp`` with class name (normal case)."""
-    person_entry = ntds_small.db.data.schema.lookup(name="person")
+    person_entry = goad.db.data.schema.lookup(name="person")
 
-    result = _oid_to_attrtyp(ntds_small.db, "person")
+    result = _oid_to_attrtyp(goad.db, "person")
     assert isinstance(result, int)
     assert result == person_entry.id
 
 
-def test_get_dnt_coverage(ntds_small: NTDS) -> None:
+def test_get_dnt_coverage(goad: NTDS) -> None:
     """Test _get_DNT method coverage."""
     # Test with an attribute
-    dnt = _ldapDisplayName_to_DNT(ntds_small.db, "cn")
+    dnt = _ldapDisplayName_to_DNT(goad.db, "cn")
     assert isinstance(dnt, int)
     assert dnt == 132
 
     # Test with a class
-    dnt = _ldapDisplayName_to_DNT(ntds_small.db, "person")
+    dnt = _ldapDisplayName_to_DNT(goad.db, "person")
     assert isinstance(dnt, int)
     assert dnt == 1554
