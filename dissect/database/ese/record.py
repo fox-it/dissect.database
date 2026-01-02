@@ -61,6 +61,9 @@ class Record:
         except KeyError:
             return object.__getattribute__(self, attr)
 
+    def __contains__(self, attr: str) -> bool:
+        return attr in self._table._column_name_map
+
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Record):
             return False
@@ -293,9 +296,12 @@ class RecordData:
 
             parse_func = parse_func or noop
             if tag_field and tag_field.flags & TAGFLD_HEADER.MultiValues:
-                value = list(map(parse_func, value))
+                value = [parse_func(v) for v in value]
             else:
                 value = parse_func(value)
+
+            if column.is_multivalue and not isinstance(value, list):
+                value = [value]
 
         return value
 

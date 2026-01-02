@@ -26,7 +26,7 @@ classifiers = [
 ]
 dependencies = [
     "dissect.cstruct>=4,<5",
-    "dissect.util>=3.5,<4",
+    "dissect.util>=3.24.dev1,<4",  # TODO: update on release!
 ]
 dynamic = ["version"]
 
@@ -38,7 +38,7 @@ repository = "https://github.com/fox-it/dissect.database"
 [project.optional-dependencies]
 dev = [
     "dissect.cstruct>=4.0.dev,<5.0.dev",
-    "dissect.util>=3.5.dev,<4.0.dev",
+    "dissect.util>=3.24.dev,<4.0.dev",
 ]
 
 [dependency-groups]
@@ -48,6 +48,7 @@ test = [
 lint = [
     "ruff==0.13.1",
     "vermin",
+    "typing_extensions",
 ]
 build = [
     "build",

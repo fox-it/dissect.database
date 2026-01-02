@@ -231,7 +231,7 @@ struct DBFILEHDR {
     BKINFOTYPE  bkinfoTypeCopyPrev;                 //  Type of Last successful Incremental backup
     BKINFOTYPE  bkinfoTypeDiffPrev;                 //  Type of Last successful Differential backup
 
-// 476 bytes
+//  476 bytes
     ULONG       ulIncrementalReseedCount;           //  number of times incremental reseed has been initiated on this database
     LOGTIME     logtimeIncrementalReseed;           //  the date of the last time that incremental reseed was initiated on this database
     ULONG       ulIncrementalReseedCountOld;        //  number of times incremental reseed was initiated on this database before the last defrag
@@ -240,7 +240,7 @@ struct DBFILEHDR {
     LOGTIME     logtimePagePatch;                   //  the date of the last time that a page was patched as a part of incremental reseed
     ULONG       ulPagePatchCountOld;                //  number of pages patched in the database as a part of incremental reseed before the last defrag
 
-// 508 bytes
+//  508 bytes
     QWORD       qwSortVersion;                      // DEPRECATED: In old versions had "default" (?English?) LCID version, in new versions has 0xFFFFFFFFFFFF.
 
 //  516 bytes                                       // checksum during recovery state
@@ -399,6 +399,22 @@ flag TAGFLD_HEADER : uint8 {
     Encrypted               = 0x40,                 // fEncrypted
 };
 
+flag FIELDFLAG : uint16 {
+    NotNull                 = 0x0001,               // NULL values not allowed
+    Version                 = 0x0002,               // Version field
+    Autoincrement           = 0x0004,               // Autoincrement field
+    Multivalued             = 0x0008,               // Multi-valued column
+    Default                 = 0x0010,               // Column has ISAM default value
+    EscrowUpdate            = 0x0020,               // Escrow updated column
+    Finalize                = 0x0040,               // Finalizable column
+    UserDefinedDefault      = 0x0080,               // The default value is generated through a callback
+    TemplateColumnESE98     = 0x0100,               // Template table column created in ESE98 (ie. fDerived bit will be set in TAGFLD of records of derived tables)
+    DeleteOnZero            = 0x0200,               // DeleteOnZero column
+    PrimaryIndexPlaceholder = 0x0800,               // Field is no longer in primary index, but must be retained as a placeholder
+    Compressed              = 0x1000,               // Data stored in the column should be compressed
+    Encrypted               = 0x2000,               // Data stored in the column is encrypted
+};
+
 flag JET_bitIndex : uint32 {
     Unique                  = 0x00000001,
     Primary                 = 0x00000002,
@@ -467,5 +483,6 @@ TAG_FLAG = c_ese.TAG_FLAG
 TAGFLD_HEADER = c_ese.TAGFLD_HEADER
 CODEPAGE = c_ese.CODEPAGE
 COMPRESSION_SCHEME = c_ese.COMPRESSION_SCHEME
+FIELDFLAG = c_ese.FIELDFLAG
 IDBFLAG = c_ese.IDBFLAG
 IDXFLAG = c_ese.IDXFLAG
