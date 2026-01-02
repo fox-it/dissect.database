@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import TYPE_CHECKING, BinaryIO
 
 from dissect.database.ese.ntds.database import Database
@@ -9,6 +10,7 @@ if TYPE_CHECKING:
 
     from dissect.database.ese.ntds.objects import Computer, DomainDNS, Group, Object, Server, User
     from dissect.database.ese.ntds.objects.trusteddomain import TrustedDomain
+    from dissect.database.ese.ntds.pek import PEK
 
 
 class NTDS:
@@ -36,6 +38,11 @@ class NTDS:
     def root_domain(self) -> DomainDNS:
         """Return the root domain object of the Active Directory."""
         return self.db.data.root_domain()
+
+    @cached_property
+    def pek(self) -> PEK:
+        """Return the PEK associated with the root domain."""
+        return self.root_domain().pek
 
     def walk(self) -> Iterator[Object]:
         """Walk through all objects in the NTDS database."""
