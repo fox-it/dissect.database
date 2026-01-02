@@ -7,7 +7,7 @@ from dissect.database.ese.ntds.objects.top import Top
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from dissect.database.ese.ntds.objects import User
+    from dissect.database.ese.ntds.objects import Object, User
 
 
 class Group(Top):
@@ -26,6 +26,10 @@ class Group(Top):
     def sam_account_name(self) -> str:
         """Return the group's sAMAccountName."""
         return self.get("sAMAccountName")
+
+    def managed_by(self) -> Iterator[Object]:
+        """Return the objects that manage this group."""
+        yield from self.db.link.links(self.dnt, "managedBy")
 
     def members(self) -> Iterator[User]:
         """Yield all members of this group."""

@@ -7,7 +7,7 @@ from dissect.database.ese.ntds.objects.user import User
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from dissect.database.ese.ntds.objects.object import Object
+    from dissect.database.ese.ntds.objects import Object
 
 
 class Computer(User):

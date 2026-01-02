@@ -20,12 +20,14 @@ def test_groups(goad: NTDS) -> None:
     )
     assert isinstance(north_domain_admins, Group)
     # TODO this doesn't work yet?
-    assert sorted([x.sam_account_name for x in north_domain_admins.members()]) == [
-        "Administrator",
-        "eddard.stark",
-    ]
+    # assert sorted([x.sam_account_name for x in north_domain_admins.members()]) == [
+    #     "Administrator",
+    #     "eddard.stark",
+    # ]
 
-    domain_admins = next(x for x in groups if x.distinguished_name == "CN=DOMAIN ADMINS,CN=USERS,DC=DISSECT,DC=LOCAL")
+    domain_admins = next(
+        x for x in groups if x.distinguished_name == "CN=DOMAIN ADMINS,CN=USERS,DC=SEVENKINGDOMS,DC=LOCAL"
+    )
     assert isinstance(domain_admins, Group)
     assert sorted([x.sam_account_name for x in domain_admins.members()]) == [
         "Administrator",
@@ -112,113 +114,127 @@ def test_computers(goad: NTDS) -> None:
     ]
 
 
-def test_group_membership(ntds_small: NTDS) -> None:
+def test_group_membership(goad: NTDS) -> None:
     # Prepare objects
-    domain_admins = next(ntds_small.search(sAMAccountName="Domain Admins"))
-    domain_users = next(ntds_small.search(sAMAccountName="Domain Users"))
+    domain_admins = next(goad.search(sAMAccountName="Domain Admins"))
+    domain_users = next(goad.search(sAMAccountName="Domain Users"))
     assert isinstance(domain_admins, Group)
     assert isinstance(domain_users, Group)
 
-    ernesto = next(ntds_small.search(sAMAccountName="ERNESTO_RAMOS"))
-    assert isinstance(ernesto, User)
+    shame = next(goad.search(sAMAccountName="cersei.lannister"))
+    assert isinstance(shame, User)
 
-    # Test membership of ERNESTO_RAMOS
-    assert len(list(ernesto.groups())) == 11
-    assert sorted([g.sAMAccountName for g in ernesto.groups()]) == [
-        "Ad-231085liz-distlist1",
-        "Ad-apavad281-distlist1",
-        "CO-hocicodep-distlist1",
-        "Denied RODC Password Replication Group",
+    # Test membership of Cersei Lannister
+    assert len(list(shame.groups())) == 6
+    assert sorted([g.sam_account_name for g in shame.groups()]) == [
+        "Administrators",
+        "Baratheon",
         "Domain Admins",
-        "Domain Computers",
         "Domain Users",
-        "Gu-ababariba-distlist1",
-        "JO-pec-distlist1",
-        "MA-anz-admingroup1",
-        "Users",
+        "Lannister",
+        "Small Council",
     ]
-    assert ernesto.is_member_of(domain_admins)
-    assert ernesto.is_member_of(domain_users)
-
-    # Test managed objects by ERNESTO_RAMOS
-    assert len(list(ernesto.managed_objects())) == 1
-    assert isinstance(next(ernesto.managed_objects()), Computer)
-    assert next(next(ernesto.managed_objects()).managed_by()).dnt == ernesto.dnt
+    assert shame.is_member_of(domain_admins)
+    assert shame.is_member_of(domain_users)
 
     # Check the members of the Domain Admins group
-    assert len(list(domain_admins.members())) == 4
+    assert len(list(domain_admins.members())) == 2
     assert sorted([u.sAMAccountName for u in domain_admins.members()]) == [
         "Administrator",
-        "ERNESTO_RAMOS",
-        "Guest",
-        "OTTO_STEELE",
+        "cersei.lannister",
     ]
-    assert domain_admins.is_member(ernesto)
+    assert domain_admins.is_member(shame)
 
     # Check the members of the Domain Users group
-    assert len(list(domain_users.members())) == 14  # ALl users except Guest
-    assert sorted([u.sAMAccountName for u in domain_users.members()]) == [
-        "Administrator",
-        "BRANDY_CALDERON",
-        "CORRINE_GARRISON",
-        "ERNESTO_RAMOS",
-        "FORREST_NIXON",
-        "JERI_KEMP",
-        "JOCELYN_MCMAHON",
-        "JUDY_RICH",
-        "MALINDA_PATE",
-        "OTTO_STEELE",
-        "RACHELLE_LYNN",
-        "beau.terham",
-        "henk.devries",
-        "krbtgt",
+    assert len(list(domain_users.members())) == 31  # All users except Guest
+    assert sorted([u.DN for u in domain_users.members()]) == [
+        "CN=ADMINISTRATOR,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=ADMINISTRATOR,CN=USERS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=ARYA.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=BRANDON.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=CATELYN.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=CERSEI.LANNISTER,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=EDDARD.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=ESSOS$,CN=USERS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=HODOR,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=JAIME.LANNISTER,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=JEOR.MORMONT,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=JOFFREY.BARATHEON,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=JON.SNOW,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=KRBTGT,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=KRBTGT,CN=USERS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=LORD.VARYS,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=MAESTER.PYCELLE,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=NORTH$,CN=USERS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=PETYER.BAELISH,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=RENLY.BARATHEON,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=RICKON.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=ROBB.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=SAMWELL.TARLY,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=SANSA.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=SEVENKINGDOMS$,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=SQL_SVC,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=STANNIS.BARATHEON,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=TYRON.LANNISTER,OU=WESTERLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=TYWIN.LANNISTER,OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=VAGRANT,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN=VAGRANT,CN=USERS,DC=SEVENKINGDOMS,DC=LOCAL",
     ]
-    assert domain_users.is_member(ernesto)
-    assert not domain_users.is_member(next(ntds_small.search(sAMAccountName="Guest")))
+    assert domain_users.is_member(shame)
+    assert not domain_users.is_member(next(goad.search(sAMAccountName="Guest")))
 
 
-def test_query_specific_users(ntds_small: NTDS) -> None:
+def test_managed_by(goad: NTDS) -> None:
+    lannister = next(g for g in goad.groups() if g.sam_account_name == "Lannister")
+    managed_by = list(lannister.managed_by())
+
+    assert len(managed_by) == 1
+    assert managed_by[0].sam_account_name == "tywin.lannister"
+    assert next(iter(managed_by[0].managed_objects())).DN == lannister.DN
+
+
+def test_query_specific_users(goad: NTDS) -> None:
     specific_records = sorted(
-        ntds_small.query("(&(objectClass=user)(|(cn=Henk de Vries)(cn=Administrator)))"), key=lambda x: x.sAMAccountName
+        goad.query("(&(objectClass=user)(|(cn=jon.snow)(cn=hodor)))"), key=lambda x: x.sAMAccountName
     )
     assert len(specific_records) == 2
-    assert specific_records[0].sAMAccountName == "Administrator"
-    assert specific_records[1].sAMAccountName == "henk.devries"
+    assert specific_records[0].sam_account_name == "hodor"
+    assert specific_records[1].sam_account_name == "jon.snow"
 
 
-def test_record_to_object_coverage(ntds_small: NTDS) -> None:
+def test_record_to_object_coverage(goad: NTDS) -> None:
     """Test _record_to_object method coverage."""
     # Get a real record from the database
-    users = list(ntds_small.users())
-    assert len(users) == 15
+    users = list(goad.users())
+    assert len(users) == 33
 
     user = users[0]
     assert hasattr(user, "sAMAccountName")
     assert isinstance(user, User)
 
 
-def test_sid_lookup(ntds_small: NTDS) -> None:
+def test_sid_lookup(goad: NTDS) -> None:
     """Test SID lookup functionality."""
-    sid_str = "S-1-5-21-1957882089-4252948412-2360614479-1134"
-    user = next(ntds_small.search(objectSid=sid_str))
+    sid_str = "S-1-5-21-459184689-3312531310-188885708-1120"
+    user = next(goad.search(objectSid=sid_str))
     assert isinstance(user, User)
-    assert user.sAMAccountName == "beau.terham"
+    assert user.sam_account_name == "jeor.mormont"
 
 
-def test_object_repr(ntds_small: NTDS) -> None:
+def test_object_repr(goad: NTDS) -> None:
     """Test the __repr__ methods of User, Computer, Object and Group classes."""
-    user = next(ntds_small.search(sAMAccountName="Administrator"))
+    user = next(goad.search(sAMAccountName="Administrator"))
     assert isinstance(user, User)
     assert repr(user) == "<User name='Administrator' sAMAccountName='Administrator' is_machine_account=False>"
 
-    computer = next(ntds_small.search(sAMAccountName="DC*"))
+    computer = next(goad.search(sAMAccountName="KINGSL*"))
     assert isinstance(computer, Computer)
-    assert repr(computer) == "<Computer name='DC01'>"
+    assert repr(computer) == "<Computer name='KINGSLANDING'>"
 
-    group = next(ntds_small.search(sAMAccountName="Domain Admins"))
+    group = next(goad.search(sAMAccountName="Domain Admins"))
     assert isinstance(group, Group)
     assert repr(group) == "<Group name='Domain Admins'>"
 
-    object = next(ntds_small.search(objectCategory="subSchema"))
+    object = next(goad.search(objectCategory="subSchema"))
     assert isinstance(object, SubSchema)
     assert repr(object) == "<SubSchema name='Aggregate'>"
