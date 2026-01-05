@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from dissect.database.ese.ntds.util import InstanceType, SystemFlags, decode_value
+from dissect.database.ese.ntds.util import DN, InstanceType, SystemFlags, decode_value
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -181,12 +181,11 @@ class Object:
         return self.instance_type is not None and bool(self.instance_type & InstanceType.HeadOfNamingContext)
 
     @property
-    def distinguished_name(self) -> str | None:
+    def distinguished_name(self) -> DN | None:
         """Return the fully qualified Distinguished Name (DN) for this object."""
-        # return self.db.data._make_dn(self.dnt)
         return self.get("distinguishedName")
 
-    DN = distinguished_name
+    dn = distinguished_name
 
     @cached_property
     def sd(self) -> SecurityDescriptor | None:

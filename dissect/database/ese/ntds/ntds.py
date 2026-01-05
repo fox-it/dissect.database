@@ -39,10 +39,10 @@ class NTDS:
         """Return the root domain object of the Active Directory."""
         return self.db.data.root_domain()
 
-    @cached_property
+    @property
     def pek(self) -> PEK:
         """Return the PEK associated with the root domain."""
-        return self.root_domain().pek
+        return self.db.data.pek
 
     def walk(self) -> Iterator[Object]:
         """Walk through all objects in the NTDS database."""

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from io import BytesIO
 from typing import TYPE_CHECKING, BinaryIO
 
@@ -10,12 +10,14 @@ from dissect.database.ese.ntds.objects import Object
 from dissect.database.ese.ntds.query import Query
 from dissect.database.ese.ntds.schema import Schema
 from dissect.database.ese.ntds.sd import ACL, SecurityDescriptor
-from dissect.database.ese.ntds.util import SearchFlags, encode_value
+from dissect.database.ese.ntds.util import DN, SearchFlags, encode_value
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from dissect.database.ese.index import Index
+    from dissect.database.ese.ntds.objects import DomainDNS, Top
+    from dissect.database.ese.ntds.pek import PEK
 
 
 class Database:
@@ -48,13 +50,13 @@ class DataTable:
         self.get = lru_cache(4096)(self.get)
         self._make_dn = lru_cache(4096)(self._make_dn)
 
-    def root(self) -> Object:
+    def root(self) -> Top:
         """Return the top-level object in the NTDS database."""
         if (root := next(self.children_of(0), None)) is None:
             raise ValueError("No root object found")
         return root
 
-    def root_domain(self) -> Object:
+    def root_domain(self) -> DomainDNS:
         """Return the root domain object in the NTDS database."""
         obj = self.root()
         while True:
@@ -71,6 +73,11 @@ class DataTable:
                 break
 
         raise ValueError("No root domain object found")
+
+    @cached_property
+    def pek(self) -> PEK:
+        """Return the PEK associated with the root domain."""
+        return self.root_domain().pek
 
     def walk(self) -> Iterator[Object]:
         """Walk through all objects in the NTDS database."""
@@ -161,7 +168,7 @@ class DataTable:
             yield Object.from_record(self.db, record)
             record = cursor.next()
 
-    def _make_dn(self, dnt: int) -> str:
+    def _make_dn(self, dnt: int) -> DN:
         """Construct Distinguished Name (DN) from a Directory Number Tag (DNT) value.
 
         This method walks up the parent hierarchy to build the full DN path.
@@ -180,7 +187,9 @@ class DataTable:
             return ""
 
         parent_dn = self._make_dn(obj.pdnt)
-        return f"{rdn_key}={rdn_value}".upper() + (f",{parent_dn}" if parent_dn else "")
+        dn = f"{rdn_key}={rdn_value}".upper() + (f",{parent_dn}" if parent_dn else "")
+
+        return DN(dn, obj, parent_dn if parent_dn else None)
 
     def _get_index(self, attribute: str) -> Index:
         """Get the index for a given attribute name.

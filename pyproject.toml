@@ -36,6 +36,9 @@ documentation = "https://docs.dissect.tools/en/latest/projects/dissect.database"
 repository = "https://github.com/fox-it/dissect.database"
 
 [project.optional-dependencies]
+full = [
+    "pycryptodome"
+]
 dev = [
     "dissect.cstruct>=4.0.dev,<5.0.dev",
     "dissect.util>=3.24.dev,<4.0.dev",

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from dissect.database.ese.ntds.database import Database
+    from dissect.database.ese.ntds.objects import Object
 
 
 # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/7cda533e-d7a4-4aec-a517-91d02ff4a1aa
@@ -144,6 +145,21 @@ class SearchFlags(IntFlag):
     Confidential = 0x00000080
 
 
+def _pek_decrypt(db: Database, value: bytes) -> bytes:
+    """Decrypt a PEK-encrypted blob using the database's PEK, if it's unlocked.
+
+    Args:
+        value: The PEK-encrypted data blob.
+
+    Returns:
+        The decrypted data blob.
+    """
+    if not db.data.pek.unlocked:
+        return value
+
+    return db.data.pek.decrypt(value)
+
+
 ATTRIBUTE_ENCODE_DECODE_MAP: dict[
     str, tuple[Callable[[Database, Any], Any] | None, Callable[[Database, Any], Any] | None]
 ] = {
@@ -162,7 +178,22 @@ ATTRIBUTE_ENCODE_DECODE_MAP: dict[
         None,
         lambda db, value: float("inf") if int(value) == ((1 << 63) - 1) else wintimestamp(int(value)),
     ),
+    # Protected attributes
+    "unicodePwd": (None, _pek_decrypt),
+    "dBCSPwd": (None, _pek_decrypt),
+    "ntPwdHistory": (None, _pek_decrypt),
+    "lmPwdHistory": (None, _pek_decrypt),
+    "supplementalCredentials": (None, _pek_decrypt),
+    "currentValue": (None, _pek_decrypt),
+    "priorValue": (None, _pek_decrypt),
+    "initialAuthIncoming": (None, _pek_decrypt),
+    "initialAuthOutgoing": (None, _pek_decrypt),
+    "trustAuthIncoming": (None, _pek_decrypt),
+    "trustAuthOutgoing": (None, _pek_decrypt),
+    "msDS-ExecuteScriptPassword": (None, _pek_decrypt),
 }
+
+# TODO add for protected attributes
 
 
 def _ldapDisplayName_to_DNT(db: Database, value: str) -> int | str:
@@ -179,8 +210,10 @@ def _ldapDisplayName_to_DNT(db: Database, value: str) -> int | str:
     return value
 
 
-def _DNT_to_ldapDisplayName(db: Database, value: int) -> str | int:
-    """Convert a DNT value to its corresponding LDAP display name.
+def _DNT_to_ldapDisplayName(db: Database, value: int) -> str | DN | int:
+    """Convert a DNT value to its corresponding LDAP display name or distinguished name.
+
+    For attributes and classes, the LDAP display name is returned. For objects, the distinguished name is returned.
 
     Args:
         value: The Directory Number Tag to look up.
@@ -195,6 +228,18 @@ def _DNT_to_ldapDisplayName(db: Database, value: int) -> str | int:
         return db.data._make_dn(value)
     except Exception:
         return value
+
+
+class DN(str):
+    """A distinguished name (DN) string wrapper. Presents the DN as a string but also retains the underlying object."""
+
+    __slots__ = ("object", "parent")
+
+    def __new__(cls, value: str, object: Object, parent: DN | None = None):
+        instance = super().__new__(cls, value)
+        instance.object = object
+        instance.parent = parent
+        return instance
 
 
 def _oid_to_attrtyp(db: Database, value: str) -> int | str:
