@@ -11,6 +11,3 @@ class NTDSConnection(Leaf):
     """
 
     __object_class__ = "nTDSConnection"
-
-    def __repr__(self) -> str:
-        return f"<NTDSConnection name={self.name!r}>"

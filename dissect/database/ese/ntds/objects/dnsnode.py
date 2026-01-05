@@ -11,6 +11,3 @@ class DnsNode(Top):
     """
 
     __object_class__ = "dnsNode"
-
-    def __repr__(self) -> str:
-        return f"<DnsNode name={self.name!r}>"

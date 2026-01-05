@@ -11,6 +11,3 @@ class MSSPPActivationObjectsContainer(Top):
     """
 
     __object_class__ = "msSPP-ActivationObjectsContainer"
-
-    def __repr__(self) -> str:
-        return f"<MSSPPAActivationObjectsContainer name={self.name!r}>"

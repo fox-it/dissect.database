@@ -21,11 +21,8 @@ class User(OrganizationalPerson):
 
     __object_class__ = "user"
 
-    def __repr__(self) -> str:
-        return (
-            f"<User name={self.name!r} sAMAccountName={self.sam_account_name!r} "
-            f"is_machine_account={self.is_machine_account()}>"
-        )
+    def __repr_body__(self) -> str:
+        return f"name={self.name!r} sam_account_name={self.sam_account_name!r} is_machine_account={self.is_machine_account()}"  # noqa: E501
 
     @property
     def sam_account_name(self) -> str:

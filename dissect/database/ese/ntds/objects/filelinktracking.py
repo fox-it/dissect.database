@@ -11,6 +11,3 @@ class FileLinkTracking(Top):
     """
 
     __object_class__ = "fileLinkTracking"
-
-    def __repr__(self) -> str:
-        return f"<FileLinkTracking name={self.name!r}>"

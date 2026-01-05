@@ -11,6 +11,3 @@ class CrossRef(Top):
     """
 
     __object_class__ = "crossRef"
-
-    def __repr__(self) -> str:
-        return f"<CrossRef name={self.name!r}>"

@@ -11,6 +11,3 @@ class MSDNSServerSettings(Top):
     """
 
     __object_class__ = "msDNS-ServerSettings"
-
-    def __repr__(self) -> str:
-        return f"<MSDNSServerSettings name={self.name!r}>"

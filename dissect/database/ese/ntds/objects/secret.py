@@ -11,6 +11,3 @@ class Secret(Leaf):
     """
 
     __object_class__ = "secret"
-
-    def __repr__(self) -> str:
-        return f"<Secret name={self.name!r}>"

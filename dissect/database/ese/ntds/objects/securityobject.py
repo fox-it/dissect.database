@@ -11,6 +11,3 @@ class SecurityObject(Top):
     """
 
     __object_class__ = "securityObject"
-
-    def __repr__(self) -> str:
-        return f"<SecurityObject name={self.name!r}>"

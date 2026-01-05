@@ -11,6 +11,3 @@ class IpsecPolicy(IpsecBase):
     """
 
     __object_class__ = "ipsecPolicy"
-
-    def __repr__(self) -> str:
-        return f"<IpsecPolicy name={self.name!r}>"

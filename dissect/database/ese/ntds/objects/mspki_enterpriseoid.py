@@ -11,6 +11,3 @@ class MSPKIEnterpriseOID(Top):
     """
 
     __object_class__ = "msPKI-Enterprise-Oid"
-
-    def __repr__(self) -> str:
-        return f"<MSPKIEnterpriseOID name={self.name!r}>"

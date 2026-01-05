@@ -11,6 +11,3 @@ class SiteLink(Top):
     """
 
     __object_class__ = "siteLink"
-
-    def __repr__(self) -> str:
-        return f"<SiteLink name={self.name!r}>"

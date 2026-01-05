@@ -11,6 +11,3 @@ class ApplicationSettings(Top):
     """
 
     __object_class__ = "applicationSettings"
-
-    def __repr__(self) -> str:
-        return f"<ApplicationSettings name={self.name!r}>"

@@ -11,6 +11,3 @@ class RIDManager(Top):
     """
 
     __object_class__ = "rIDManager"
-
-    def __repr__(self) -> str:
-        return f"<RIDManager name={self.name!r}>"

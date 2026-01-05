@@ -11,6 +11,3 @@ class MSDSPasswordSettingsContainer(Top):
     """
 
     __object_class__ = "msDS-PasswordSettingsContainer"
-
-    def __repr__(self) -> str:
-        return f"<MSDSPasswordSettingsContainer name={self.name!r}>"

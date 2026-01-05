@@ -11,6 +11,3 @@ class MSPKIPrivateKeyRecoveryAgent(Top):
     """
 
     __object_class__ = "msPKI-PrivateKeyRecoveryAgent"
-
-    def __repr__(self) -> str:
-        return f"<MSPKIPrivateKeyRecoveryAgent name={self.name!r}>"

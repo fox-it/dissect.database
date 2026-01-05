@@ -11,6 +11,3 @@ class MSDSAuthNPolicySilos(Top):
     """
 
     __object_class__ = "msDS-AuthNPolicySilos"
-
-    def __repr__(self) -> str:
-        return f"<MSDSAuthNPolicySilos name={self.name!r}>"

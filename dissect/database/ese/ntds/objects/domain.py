@@ -11,6 +11,3 @@ class Domain(Top):
     """
 
     __object_class__ = "domain"
-
-    def __repr__(self) -> str:
-        return f"<Domain name={self.name!r}>"

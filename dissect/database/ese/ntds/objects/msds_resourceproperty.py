@@ -11,6 +11,3 @@ class MSDSResourceProperty(MSDSClaimTypePropertyBase):
     """
 
     __object_class__ = "msDS-ResourceProperty"
-
-    def __repr__(self) -> str:
-        return f"<DSResourceProperty name={self.name!r}>"

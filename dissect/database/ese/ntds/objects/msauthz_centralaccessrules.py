@@ -11,6 +11,3 @@ class MSAuthzCentralAccessRules(Top):
     """
 
     __object_class__ = "msAuthz-CentralAccessRules"
-
-    def __repr__(self) -> str:
-        return f"<MSAuthzCentralAccessPolicies name={self.name!r}>"

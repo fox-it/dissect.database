@@ -19,9 +19,6 @@ class NTDSSiteSettings(Top):
 
     __object_class__ = "nTDSSiteSettings"
 
-    def __repr__(self) -> str:
-        return f"<NTDSSiteSettings name={self.name!r}>"
-
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this NTDS-Site-Settings object."""
         self._assert_local()

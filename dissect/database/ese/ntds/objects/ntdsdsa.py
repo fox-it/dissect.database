@@ -19,9 +19,6 @@ class NTDSDSA(ApplicationSettings):
 
     __object_class__ = "nTDSDSA"
 
-    def __repr__(self) -> str:
-        return f"<NTDSDSA name={self.name!r}>"
-
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this NTDS DSA object."""
         self._assert_local()

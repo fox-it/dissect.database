@@ -11,6 +11,3 @@ class MSDSQuotaContainer(Top):
     """
 
     __object_class__ = "msDS-QuotaContainer"
-
-    def __repr__(self) -> str:
-        return f"<MSDSQuotaContainer name={self.name!r}>"

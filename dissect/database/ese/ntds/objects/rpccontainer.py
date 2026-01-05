@@ -11,6 +11,3 @@ class RpcContainer(Top):
     """
 
     __object_class__ = "rpcContainer"
-
-    def __repr__(self) -> str:
-        return f"<RpcContainer name={self.name!r}>"

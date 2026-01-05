@@ -11,6 +11,3 @@ class Person(Top):
     """
 
     __object_class__ = "person"
-
-    def __repr__(self) -> str:
-        return f"<Person name={self.name!r}>"

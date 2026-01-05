@@ -11,6 +11,3 @@ class Container(Top):
     """
 
     __object_class__ = "container"
-
-    def __repr__(self) -> str:
-        return f"<Container name={self.name!r}>"

@@ -11,6 +11,3 @@ class GroupPolicyContainer(Container):
     """
 
     __object_class__ = "groupPolicyContainer"
-
-    def __repr__(self) -> str:
-        return f"<GroupPolicyContainer name={self.name!r}>"

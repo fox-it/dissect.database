@@ -11,6 +11,3 @@ class AttributeSchema(Top):
     """
 
     __object_class__ = "attributeSchema"
-
-    def __repr__(self) -> str:
-        return f"<AttributeSchema name={self.name!r}>"

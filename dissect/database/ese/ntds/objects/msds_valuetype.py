@@ -11,6 +11,3 @@ class MSDSValueType(Top):
     """
 
     __object_class__ = "msDS-ValueType"
-
-    def __repr__(self) -> str:
-        return f"<MSDSValueType name={self.name!r}>"

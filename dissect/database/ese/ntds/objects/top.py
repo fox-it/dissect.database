@@ -12,5 +12,5 @@ class Top(Object):
 
     __object_class__ = "top"
 
-    def __repr__(self) -> str:
-        return f"<Top name={self.name!r}>"
+    def __repr_body__(self) -> str:
+        return f"name={self.name!r}"

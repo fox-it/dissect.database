@@ -11,6 +11,3 @@ class ClassStore(Top):
     """
 
     __object_class__ = "classStore"
-
-    def __repr__(self) -> str:
-        return f"<ClassStore name={self.name!r}>"

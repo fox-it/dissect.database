@@ -11,6 +11,3 @@ class MSDFSRLocalSettings(Top):
     """
 
     __object_class__ = "msDFSR-LocalSettings"
-
-    def __repr__(self) -> str:
-        return f"<MSDFSRLocalSettings name={self.name!r}>"

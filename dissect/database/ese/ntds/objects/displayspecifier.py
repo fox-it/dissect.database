@@ -11,6 +11,3 @@ class DisplaySpecifier(Top):
     """
 
     __object_class__ = "displaySpecifier"
-
-    def __repr__(self) -> str:
-        return f"<DisplaySpecifier name={self.name!r}>"

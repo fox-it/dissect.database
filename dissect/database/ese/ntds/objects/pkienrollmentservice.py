@@ -11,6 +11,3 @@ class PKIEnrollmentService(Top):
     """
 
     __object_class__ = "pKIEnrollmentService"
-
-    def __repr__(self) -> str:
-        return f"<PKIEnrollmentService name={self.name!r}>"

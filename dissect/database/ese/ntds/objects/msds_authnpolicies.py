@@ -11,6 +11,3 @@ class MSDSAuthNPolicies(Top):
     """
 
     __object_class__ = "msDS-AuthNPolicies"
-
-    def __repr__(self) -> str:
-        return f"<MSDSAuthNPolicies name={self.name!r}>"

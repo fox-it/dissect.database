@@ -11,6 +11,3 @@ class PKICertificateTemplate(Top):
     """
 
     __object_class__ = "pKICertificateTemplate"
-
-    def __repr__(self) -> str:
-        return f"<PKICertificateTemplate name={self.name!r}>"

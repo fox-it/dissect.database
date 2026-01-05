@@ -11,6 +11,3 @@ class RRASAdministrationDictionary(Top):
     """
 
     __object_class__ = "rRASAdministrationDictionary"
-
-    def __repr__(self) -> str:
-        return f"<RRASAdministrationDictionary name={self.name!r}>"

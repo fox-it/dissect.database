@@ -11,6 +11,3 @@ class LinkTrackVolumeTable(FileLinkTracking):
     """
 
     __object_class__ = "linkTrackVolumeTable"
-
-    def __repr__(self) -> str:
-        return f"<LinkTrackVolumeTable name={self.name!r}>"

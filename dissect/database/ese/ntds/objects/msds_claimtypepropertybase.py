@@ -11,6 +11,3 @@ class MSDSClaimTypePropertyBase(Top):
     """
 
     __object_class__ = "msDS-ClaimTypePropertyBase"
-
-    def __repr__(self) -> str:
-        return f"<MSDSClaimTypePropertyBase name={self.name!r}>"

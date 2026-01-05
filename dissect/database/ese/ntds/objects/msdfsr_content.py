@@ -11,6 +11,3 @@ class MSDFSRContent(Top):
     """
 
     __object_class__ = "msDFSR-Content"
-
-    def __repr__(self) -> str:
-        return f"<MSDFSRContent name={self.name!r}>"

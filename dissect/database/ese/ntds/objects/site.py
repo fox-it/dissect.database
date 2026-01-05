@@ -19,9 +19,6 @@ class Site(Top):
 
     __object_class__ = "site"
 
-    def __repr__(self) -> str:
-        return f"<Site name={self.name!r}>"
-
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this site."""
         self._assert_local()

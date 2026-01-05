@@ -19,9 +19,6 @@ class Server(Top):
 
     __object_class__ = "server"
 
-    def __repr__(self) -> str:
-        return f"<Server name={self.name!r}>"
-
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this server."""
         self._assert_local()

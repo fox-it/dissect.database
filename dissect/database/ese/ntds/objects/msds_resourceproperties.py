@@ -11,6 +11,3 @@ class MSDSResourceProperties(Top):
     """
 
     __object_class__ = "msDS-ResourceProperties"
-
-    def __repr__(self) -> str:
-        return f"<MSDSResourceProperties name={self.name!r}>"

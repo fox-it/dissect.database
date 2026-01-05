@@ -11,6 +11,3 @@ class SubSchema(Top):
     """
 
     __object_class__ = "subSchema"
-
-    def __repr__(self) -> str:
-        return f"<SubSchema name={self.name!r}>"

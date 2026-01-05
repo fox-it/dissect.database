@@ -11,6 +11,3 @@ class IpsecNFA(IpsecBase):
     """
 
     __object_class__ = "ipsecNFA"
-
-    def __repr__(self) -> str:
-        return f"<IpsecNFA name={self.name!r}>"

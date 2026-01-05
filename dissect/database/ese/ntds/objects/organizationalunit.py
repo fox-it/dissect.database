@@ -19,9 +19,6 @@ class OrganizationalUnit(Top):
 
     __object_class__ = "organizationalUnit"
 
-    def __repr__(self) -> str:
-        return f"<OrganizationalUnit name={self.name!r}>"
-
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this organizational unit."""
         self._assert_local()

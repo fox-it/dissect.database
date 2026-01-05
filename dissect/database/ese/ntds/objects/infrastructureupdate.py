@@ -11,6 +11,3 @@ class InfrastructureUpdate(Top):
     """
 
     __object_class__ = "infrastructureUpdate"
-
-    def __repr__(self) -> str:
-        return f"<InfrastructureUpdate name={self.name!r}>"

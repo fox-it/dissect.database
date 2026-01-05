@@ -39,7 +39,19 @@ class Object:
         cls.__known_classes__[cls.__object_class__] = cls
 
     def __repr__(self) -> str:
-        return f"<Object name={self.name!r} objectCategory={self.object_category!r} objectClass={self.object_class}>"
+        suffix = self.__repr_suffix__()
+        return f"<{self.__class__.__name__} {self.__repr_body__()}{' ' + suffix if suffix else ''}>"
+
+    def __repr_body__(self) -> str:
+        return f"name={self.name!r} objectCategory={self.object_category!r} objectClass={self.object_class}"
+
+    def __repr_suffix__(self) -> str:
+        suffix = []
+        if self.is_deleted:
+            suffix.append("(deleted)")
+        if self.is_phantom:
+            suffix.append("(phantom)")
+        return " ".join(suffix)
 
     def __getattr__(self, name: str) -> Any:
         return self.get(name)

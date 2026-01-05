@@ -11,6 +11,3 @@ class Leaf(Top):
     """
 
     __object_class__ = "leaf"
-
-    def __repr__(self) -> str:
-        return f"<Leaf name={self.name!r}>"

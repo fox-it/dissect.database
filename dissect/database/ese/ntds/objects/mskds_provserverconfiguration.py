@@ -11,6 +11,3 @@ class MSKDSProvServerConfiguration(Top):
     """
 
     __object_class__ = "msKds-ProvServerConfiguration"
-
-    def __repr__(self) -> str:
-        return f"<MSKDSProvServerConfiguration name={self.name!r}>"

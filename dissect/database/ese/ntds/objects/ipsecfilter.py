@@ -11,6 +11,3 @@ class IpsecFilter(IpsecBase):
     """
 
     __object_class__ = "ipsecFilter"
-
-    def __repr__(self) -> str:
-        return f"<IpsecFilter name={self.name!r}>"

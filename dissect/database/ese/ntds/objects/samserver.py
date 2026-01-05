@@ -11,6 +11,3 @@ class SamServer(SecurityObject):
     """
 
     __object_class__ = "samServer"
-
-    def __repr__(self) -> str:
-        return f"<SamServer name={self.name!r}>"

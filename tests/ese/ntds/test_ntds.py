@@ -223,19 +223,32 @@ def test_sid_lookup(goad: NTDS) -> None:
 
 
 def test_object_repr(goad: NTDS) -> None:
-    """Test the __repr__ methods of User, Computer, Object and Group classes."""
-    user = next(goad.search(sAMAccountName="Administrator"))
-    assert isinstance(user, User)
-    assert repr(user) == "<User name='Administrator' sAMAccountName='Administrator' is_machine_account=False>"
+    """Test the ``__repr__`` methods of User, Computer, Object and Group classes."""
+    object = next(goad.search(sAMAccountName="Administrator"))
+    assert isinstance(object, User)
+    assert repr(object) == "<User name='Administrator' sam_account_name='Administrator' is_machine_account=False>"
 
-    computer = next(goad.search(sAMAccountName="KINGSL*"))
-    assert isinstance(computer, Computer)
-    assert repr(computer) == "<Computer name='KINGSLANDING'>"
+    object = next(goad.search(sAMAccountName="KINGSL*"))
+    assert isinstance(object, Computer)
+    assert repr(object) == "<Computer name='KINGSLANDING'>"
 
-    group = next(goad.search(sAMAccountName="Domain Admins"))
-    assert isinstance(group, Group)
-    assert repr(group) == "<Group name='Domain Admins'>"
+    object = next(goad.search(sAMAccountName="Domain Admins"))
+    assert isinstance(object, Group)
+    assert repr(object) == "<Group name='Domain Admins'>"
 
     object = next(goad.search(objectCategory="subSchema"))
     assert isinstance(object, SubSchema)
     assert repr(object) == "<SubSchema name='Aggregate'>"
+
+    object = next(goad.search(sAMAccountName="eddard.stark"))
+    assert isinstance(object, User)
+    assert (
+        repr(object) == "<User name='eddard.stark' sam_account_name='eddard.stark' is_machine_account=False (phantom)>"
+    )
+
+    object = next(goad.search(sAMAccountName="robert.baratheon"))
+    assert isinstance(object, User)
+    assert (
+        repr(object)
+        == "<User name='robert.baratheon\\nDEL:dbe3c0f1-88dc-4355-b2b0-78499dbd4522' sam_account_name='robert.baratheon' is_machine_account=False (deleted)>"
+    )

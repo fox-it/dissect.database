@@ -19,9 +19,6 @@ class DnsZone(Top):
 
     __object_class__ = "dnsZone"
 
-    def __repr__(self) -> str:
-        return f"<DnsZone name={self.name!r}>"
-
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this DNS zone."""
         self._assert_local()

@@ -11,6 +11,3 @@ class CertificationAuthority(Top):
     """
 
     __object_class__ = "certificationAuthority"
-
-    def __repr__(self) -> str:
-        return f"<CertificationAuthority name={self.name!r}>"

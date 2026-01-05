@@ -11,6 +11,3 @@ class MSMQEnterpriseSettings(Top):
     """
 
     __object_class__ = "mSMQEnterpriseSettings"
-
-    def __repr__(self) -> str:
-        return f"<MSMQEnterpriseSettings name={self.name!r}>"

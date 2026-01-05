@@ -11,6 +11,3 @@ class MSDFSRTopology(Top):
     """
 
     __object_class__ = "msDFSR-Topology"
-
-    def __repr__(self) -> str:
-        return f"<MSDFSRTopology name={self.name!r}>"

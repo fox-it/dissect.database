@@ -11,6 +11,3 @@ class InterSiteTransport(Top):
     """
 
     __object_class__ = "interSiteTransport"
-
-    def __repr__(self) -> str:
-        return f"<InterSiteTransport name={self.name!r}>"

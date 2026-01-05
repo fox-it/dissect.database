@@ -11,6 +11,3 @@ class MSDFSRSubscriber(Top):
     """
 
     __object_class__ = "msDFSR-Subscriber"
-
-    def __repr__(self) -> str:
-        return f"<MSDFSRSubscriber name={self.name!r}>"

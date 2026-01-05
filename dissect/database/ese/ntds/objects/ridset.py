@@ -11,6 +11,3 @@ class RIDSet(Top):
     """
 
     __object_class__ = "rIDSet"
-
-    def __repr__(self) -> str:
-        return f"<RIDSet name={self.name!r}>"

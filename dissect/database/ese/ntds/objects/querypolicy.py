@@ -11,6 +11,3 @@ class QueryPolicy(Top):
     """
 
     __object_class__ = "queryPolicy"
-
-    def __repr__(self) -> str:
-        return f"<QueryPolicy name={self.name!r}>"

@@ -11,6 +11,3 @@ class LostAndFound(Top):
     """
 
     __object_class__ = "lostAndFound"
-
-    def __repr__(self) -> str:
-        return f"<LostAndFound name={self.name!r}>"

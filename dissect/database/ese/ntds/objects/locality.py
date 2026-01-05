@@ -11,6 +11,3 @@ class Locality(Top):
     """
 
     __object_class__ = "locality"
-
-    def __repr__(self) -> str:
-        return f"<Locality name={self.name!r}>"

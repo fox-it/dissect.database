@@ -11,6 +11,3 @@ class DfsConfiguration(Top):
     """
 
     __object_class__ = "dfsConfiguration"
-
-    def __repr__(self) -> str:
-        return f"<DfsConfiguration name={self.name!r}>"

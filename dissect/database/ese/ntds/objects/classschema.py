@@ -13,9 +13,6 @@ class ClassSchema(Top):
 
     __object_class__ = "classSchema"
 
-    def __repr__(self) -> str:
-        return f"<ClassSchema name={self.name!r}>"
-
     @property
     def system_must_contain(self) -> list[str]:
         """Return a list of LDAP display names of attributes this class system must contain."""

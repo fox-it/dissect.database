@@ -11,6 +11,3 @@ class MSDSClaimsTransformationPolicies(Top):
     """
 
     __object_class__ = "msDS-ClaimsTransformationPolicies"
-
-    def __repr__(self) -> str:
-        return f"<MSDSClaimsTransformationPolicies name={self.name!r}>"

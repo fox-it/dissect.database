@@ -11,6 +11,3 @@ class SubnetContainer(Top):
     """
 
     __object_class__ = "subnetContainer"
-
-    def __repr__(self) -> str:
-        return f"<SubnetContainer name={self.name!r}>"

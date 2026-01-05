@@ -11,6 +11,3 @@ class ForeignSecurityPrincipal(Top):
     """
 
     __object_class__ = "foreignSecurityPrincipal"
-
-    def __repr__(self) -> str:
-        return f"<ForeignSecurityPrincipal name={self.name!r}>"

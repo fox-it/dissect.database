@@ -19,8 +19,8 @@ class Computer(User):
 
     __object_class__ = "computer"
 
-    def __repr__(self) -> str:
-        return f"<Computer name={self.name!r}>"
+    def __repr_body__(self) -> str:
+        return f"name={self.name!r}"
 
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this computer."""

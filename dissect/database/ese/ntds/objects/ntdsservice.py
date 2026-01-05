@@ -11,6 +11,3 @@ class NTDSService(Top):
     """
 
     __object_class__ = "nTDSService"
-
-    def __repr__(self) -> str:
-        return f"<NTDSService name={self.name!r}>"

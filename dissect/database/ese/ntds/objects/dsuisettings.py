@@ -11,6 +11,3 @@ class DSUISettings(Top):
     """
 
     __object_class__ = "dSUISettings"
-
-    def __repr__(self) -> str:
-        return f"<DSUISettings name={self.name!r}>"

@@ -19,9 +19,6 @@ class NTRFSSettings(ApplicationSettings):
 
     __object_class__ = "nTFRSSettings"
 
-    def __repr__(self) -> str:
-        return f"<NTRFSSettings name={self.name!r}>"
-
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this NTFRS settings object."""
         self._assert_local()

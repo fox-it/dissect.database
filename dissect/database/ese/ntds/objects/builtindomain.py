@@ -11,6 +11,3 @@ class BuiltinDomain(Top):
     """
 
     __object_class__ = "builtinDomain"
-
-    def __repr__(self) -> str:
-        return f"<BuiltinDomain name={self.name!r}>"

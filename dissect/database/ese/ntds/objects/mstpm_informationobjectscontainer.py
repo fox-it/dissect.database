@@ -11,6 +11,3 @@ class MSTPMInformationObjectsContainer(Top):
     """
 
     __object_class__ = "msTPM-InformationObjectsContainer"
-
-    def __repr__(self) -> str:
-        return f"<MSTPMInformationObjectsContainer name={self.name!r}>"

@@ -11,6 +11,3 @@ class DMD(Top):
     """
 
     __object_class__ = "dMD"
-
-    def __repr__(self) -> str:
-        return f"<DMD name={self.name!r}>"

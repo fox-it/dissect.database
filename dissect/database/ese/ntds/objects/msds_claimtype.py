@@ -11,6 +11,3 @@ class MSDSClaimType(MSDSClaimTypePropertyBase):
     """
 
     __object_class__ = "msDS-ClaimType"
-
-    def __repr__(self) -> str:
-        return f"<MSDSClaimType name={self.name!r}>"

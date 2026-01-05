@@ -11,6 +11,3 @@ class MSDSOptionalFeature(Top):
     """
 
     __object_class__ = "msDS-OptionalFeature"
-
-    def __repr__(self) -> str:
-        return f"<MSDSOptionalFeature name={self.name!r}>"

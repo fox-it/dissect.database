@@ -11,6 +11,3 @@ class MSDFSRReplicationGroup(Top):
     """
 
     __object_class__ = "msDFSR-ReplicationGroup"
-
-    def __repr__(self) -> str:
-        return f"<MSDFSRReplicationGroup name={self.name!r}>"

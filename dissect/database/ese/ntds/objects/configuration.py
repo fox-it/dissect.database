@@ -11,6 +11,3 @@ class Configuration(Top):
     """
 
     __object_class__ = "configuration"
-
-    def __repr__(self) -> str:
-        return f"<Configuration name={self.name!r}>"

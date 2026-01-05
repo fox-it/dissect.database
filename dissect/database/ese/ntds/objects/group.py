@@ -19,9 +19,6 @@ class Group(Top):
 
     __object_class__ = "group"
 
-    def __repr__(self) -> str:
-        return f"<Group name={self.sam_account_name!r}>"
-
     @property
     def sam_account_name(self) -> str:
         """Return the group's sAMAccountName."""

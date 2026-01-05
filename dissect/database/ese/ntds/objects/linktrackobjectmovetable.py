@@ -11,6 +11,3 @@ class LinkTrackObjectMoveTable(FileLinkTracking):
     """
 
     __object_class__ = "linkTrackObjectMoveTable"
-
-    def __repr__(self) -> str:
-        return f"<LinkTrackObjectMoveTable name={self.name!r}>"

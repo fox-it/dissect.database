@@ -11,6 +11,3 @@ class TrustedDomain(Leaf):
     """
 
     __object_class__ = "trustedDomain"
-
-    def __repr__(self) -> str:
-        return f"<TrustedDomain name={self.name!r}>"

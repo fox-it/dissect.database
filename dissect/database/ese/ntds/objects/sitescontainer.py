@@ -11,6 +11,3 @@ class SitesContainer(Top):
     """
 
     __object_class__ = "sitesContainer"
-
-    def __repr__(self) -> str:
-        return f"<SitesContainer name={self.name!r}>"

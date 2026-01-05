@@ -11,6 +11,3 @@ class MSImagingPSPs(Top):
     """
 
     __object_class__ = "msImaging-PSPs"
-
-    def __repr__(self) -> str:
-        return f"<MSImagingPSPs name={self.name!r}>"

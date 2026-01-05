@@ -19,9 +19,6 @@ class PhysicalLocation(Locality):
 
     __object_class__ = "physicalLocation"
 
-    def __repr__(self) -> str:
-        return f"<PhysicalLocation name={self.name!r}>"
-
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this physical location."""
         self._assert_local()

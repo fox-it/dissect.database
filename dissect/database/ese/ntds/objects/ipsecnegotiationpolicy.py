@@ -11,6 +11,3 @@ class IpsecNegotiationPolicy(IpsecBase):
     """
 
     __object_class__ = "ipsecNegotiationPolicy"
-
-    def __repr__(self) -> str:
-        return f"<IpsecNegotiationPolicy name={self.name!r}>"

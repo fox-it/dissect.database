@@ -11,6 +11,3 @@ class CRLDistributionPoint(Top):
     """
 
     __object_class__ = "cRLDistributionPoint"
-
-    def __repr__(self) -> str:
-        return f"<CRLDistributionPoint name={self.name!r}>"

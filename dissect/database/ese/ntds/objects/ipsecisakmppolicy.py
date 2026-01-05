@@ -11,6 +11,3 @@ class IpsecISAKMPPolicy(IpsecBase):
     """
 
     __object_class__ = "ipsecISAKMPPolicy"
-
-    def __repr__(self) -> str:
-        return f"<IpsecISAKMPPolicy name={self.name!r}>"

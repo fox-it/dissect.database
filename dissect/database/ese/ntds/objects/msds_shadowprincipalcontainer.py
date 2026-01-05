@@ -11,6 +11,3 @@ class MSDSShadowPrincipalContainer(Top):
     """
 
     __object_class__ = "msDS-ShadowPrincipalContainer"
-
-    def __repr__(self) -> str:
-        return f"<MSDSShadowPrincipalContainer name={self.name!r}>"

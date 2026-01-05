@@ -19,9 +19,6 @@ class DomainPolicy(Leaf):
 
     __object_class__ = "domainPolicy"
 
-    def __repr__(self) -> str:
-        return f"<DomainPolicy name={self.name!r}>"
-
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this domain policy."""
         self._assert_local()

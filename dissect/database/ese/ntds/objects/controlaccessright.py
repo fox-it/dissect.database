@@ -11,6 +11,3 @@ class ControlAccessRight(Top):
     """
 
     __object_class__ = "controlAccessRight"
-
-    def __repr__(self) -> str:
-        return f"<ControlAccessRight name={self.name!r}>"

@@ -13,9 +13,6 @@ class DomainDNS(Domain):
 
     __object_class__ = "domainDNS"
 
-    def __repr__(self) -> str:
-        return f"<DomainDNS name={self.name!r}>"
-
     @property
     def pek(self) -> PEK | None:
         """The PEK list associated with this domain DNS object, if any."""

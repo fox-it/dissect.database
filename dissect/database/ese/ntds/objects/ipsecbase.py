@@ -11,6 +11,3 @@ class IpsecBase(Top):
     """
 
     __object_class__ = "ipsecBase"
-
-    def __repr__(self) -> str:
-        return f"<IpsecBase name={self.name!r}>"
