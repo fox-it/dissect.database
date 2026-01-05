@@ -29,10 +29,14 @@ class Group(Top):
 
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this group."""
+        self._assert_local()
+
         yield from self.db.link.links(self.dnt, "managedBy")
 
     def members(self) -> Iterator[User]:
         """Yield all members of this group."""
+        self._assert_local()
+
         yield from self.db.link.links(self.dnt, "member")
 
         # We also need to include users with primaryGroupID matching the group's RID

@@ -156,6 +156,21 @@ class Object:
         return bool(self.get("isDeleted"))
 
     @property
+    def is_local(self) -> bool:
+        """Return whether the object is local to this domain."""
+        return self.instance_type is not None and InstanceType.Writable in self.instance_type
+
+    @property
+    def is_phantom(self) -> bool:
+        """Return whether the object is a phantom (cross-domain reference)."""
+        return not self.is_local
+
+    def _assert_local(self) -> None:
+        """Raise an error if the object is a phantom."""
+        if self.is_phantom:
+            raise ValueError("Operation not supported for phantom (non-local) objects")
+
+    @property
     def when_created(self) -> datetime | None:
         """Return the object's creation time."""
         return self.get("whenCreated")

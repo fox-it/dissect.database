@@ -48,6 +48,8 @@ class User(OrganizationalPerson):
 
     def groups(self) -> Iterator[Group]:
         """Yield all groups this user is a member of."""
+        self._assert_local()
+
         yield from self.db.link.backlinks(self.dnt, "memberOf")
 
         # We also need to include the group with primaryGroupID matching the user's primaryGroupID
@@ -64,4 +66,6 @@ class User(OrganizationalPerson):
 
     def managed_objects(self) -> Iterator[Object]:
         """Yield all objects managed by this user."""
+        self._assert_local()
+
         yield from self.db.link.backlinks(self.dnt, "managedObjects")

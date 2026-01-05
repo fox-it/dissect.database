@@ -24,4 +24,6 @@ class DomainPolicy(Leaf):
 
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this domain policy."""
+        self._assert_local()
+
         yield from self.db.link.links(self.dnt, "managedBy")

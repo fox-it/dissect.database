@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from dissect.database.ese.ntds.objects import Computer, Group, Server, SubSchema, User
 
 if TYPE_CHECKING:
@@ -19,11 +21,10 @@ def test_groups(goad: NTDS) -> None:
         x for x in groups if x.distinguished_name == "CN=DOMAIN ADMINS,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL"
     )
     assert isinstance(north_domain_admins, Group)
-    # TODO this doesn't work yet?
-    # assert sorted([x.sam_account_name for x in north_domain_admins.members()]) == [
-    #     "Administrator",
-    #     "eddard.stark",
-    # ]
+
+    assert north_domain_admins.is_phantom
+    with pytest.raises(ValueError, match="Operation not supported for phantom \\(non-local\\) objects"):
+        list(north_domain_admins.members())
 
     domain_admins = next(
         x for x in groups if x.distinguished_name == "CN=DOMAIN ADMINS,CN=USERS,DC=SEVENKINGDOMS,DC=LOCAL"
@@ -147,7 +148,7 @@ def test_group_membership(goad: NTDS) -> None:
 
     # Check the members of the Domain Users group
     assert len(list(domain_users.members())) == 31  # All users except Guest
-    assert sorted([u.DN for u in domain_users.members()]) == [
+    assert sorted([u.dn for u in domain_users.members()]) == [
         "CN=ADMINISTRATOR,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
         "CN=ADMINISTRATOR,CN=USERS,DC=SEVENKINGDOMS,DC=LOCAL",
         "CN=ARYA.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
@@ -190,7 +191,7 @@ def test_managed_by(goad: NTDS) -> None:
 
     assert len(managed_by) == 1
     assert managed_by[0].sam_account_name == "tywin.lannister"
-    assert next(iter(managed_by[0].managed_objects())).DN == lannister.DN
+    assert next(iter(managed_by[0].managed_objects())).dn == lannister.dn
 
 
 def test_query_specific_users(goad: NTDS) -> None:

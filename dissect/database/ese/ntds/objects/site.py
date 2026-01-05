@@ -24,4 +24,6 @@ class Site(Top):
 
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this site."""
+        self._assert_local()
+
         yield from self.db.link.links(self.dnt, "managedBy")

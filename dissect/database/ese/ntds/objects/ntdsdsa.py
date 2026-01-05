@@ -24,4 +24,6 @@ class NTDSDSA(ApplicationSettings):
 
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this NTDS DSA object."""
+        self._assert_local()
+
         yield from self.db.link.links(self.dnt, "managedBy")
