@@ -18,6 +18,12 @@ AUTHENTICATOR = UUID("4881d956-91ec-11d1-905a-00c04fc2d4cf")
 
 
 class PEK:
+    """Password Encryption Key (PEK) handler.
+
+    Args:
+        pek: The raw PEK blob from the NTDS database.
+    """
+
     def __init__(self, pek: bytes):
         self.pek = pek
         self.encrypted = c_pek.ENCRYPTED_PEK_LIST(pek)
@@ -95,6 +101,14 @@ class PEK:
 
 
 def _rc4_decrypt(data: bytes, key: bytes, salt: bytes | None, iterations: int) -> bytes:
+    """Decrypt data using RC4.
+
+    Args:
+        data: Encrypted data.
+        key: RC4 encryption key.
+        salt: Optional salt to use in key derivation.
+        iterations: Number of hash iterations to perform if salt is provided.
+    """
     ctx = hashlib.md5(key)
     if salt is not None:
         for _ in range(iterations):
@@ -108,9 +122,9 @@ def _aes_decrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
     """Decrypt data using AES-CBC.
 
     Args:
+        data: Encrypted data.
         key: AES encryption key.
         iv: Initialization vector.
-        data: Encrypted data.
     """
     cipher = AES.new(key, AES.MODE_CBC, iv)
     if (align := -len(data) % 16) != 0:
