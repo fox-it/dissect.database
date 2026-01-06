@@ -37,7 +37,7 @@ class Group(Top):
         yield from self.db.link.links(self.dnt, "member")
 
         # We also need to include users with primaryGroupID matching the group's RID
-        yield from self.db.data.search(primaryGroupID=self.sid.rsplit("-", 1)[1])
+        yield from self.db.data.search(primaryGroupID=self.rid)
 
     def is_member(self, user: User) -> bool:
         """Return whether the given user is a member of this group.

@@ -180,7 +180,7 @@ def _decode_supplemental_credentials(db: Database, value: bytes) -> dict[str, by
     result = {}
     for prop in properties.UserProperties:
         prop_name = prop.PropertyName
-        prop_value = bytes.fromhex(prop.PropertyValue)
+        prop_value = bytes.fromhex(prop.PropertyValue.decode())
 
         if prop_name == "Packages":
             prop_value = prop_value.decode("utf-16-le").split("\x00")

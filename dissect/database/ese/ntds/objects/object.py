@@ -158,6 +158,13 @@ class Object:
         return self.get("objectSid")
 
     @property
+    def rid(self) -> int | None:
+        """Return the object's Relative Identifier (RID)."""
+        if (sid := self.sid) is not None:
+            return int(sid.rsplit("-", 1)[-1])
+        return None
+
+    @property
     def guid(self) -> str | None:
         """Return the object's GUID."""
         return self.get("objectGUID")
