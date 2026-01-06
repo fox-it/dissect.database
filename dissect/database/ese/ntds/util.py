@@ -8,6 +8,8 @@ from uuid import UUID
 from dissect.util.sid import read_sid, write_sid
 from dissect.util.ts import wintimestamp
 
+from dissect.database.ese.ntds.c_ds import c_ds
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -152,12 +154,100 @@ def _pek_decrypt(db: Database, value: bytes) -> bytes:
         value: The PEK-encrypted data blob.
 
     Returns:
-        The decrypted data blob.
+        The decrypted data blob, or the original value if the PEK is locked.
     """
     if not db.data.pek.unlocked:
         return value
 
     return db.data.pek.decrypt(value)
+
+
+def _decode_supplemental_credentials(db: Database, value: bytes) -> dict[str, bytes] | bytes:
+    """Decode the ``supplementalCredentials`` attribute.
+
+    Args:
+        value: The raw bytes of the ``supplementalCredentials`` attribute.
+
+    Returns:
+        A dictionary mapping credential types to their data blobs, or the original value if the PEK is locked.
+    """
+    if not db.data.pek.unlocked:
+        return value
+
+    value = db.data.pek.decrypt(value)
+    properties = c_ds.USER_PROPERTIES(value)
+
+    result = {}
+    for prop in properties.UserProperties:
+        prop_name = prop.PropertyName
+        prop_value = bytes.fromhex(prop.PropertyValue)
+
+        if prop_name == "Packages":
+            prop_value = prop_value.decode("utf-16-le").split("\x00")
+        elif prop_name == "Primary:CLEARTEXT":
+            prop_value = prop_value.decode("utf-16-le")
+        elif prop_name == "Primary:Kerberos":
+            parsed = c_ds.KERB_STORED_CREDENTIAL(prop_value)
+            prop_value = {
+                "DefaultSalt": prop_value[
+                    parsed.DefaultSaltOffset : parsed.DefaultSaltOffset + parsed.DefaultSaltLength
+                ],
+                "Credentials": [
+                    {"KeyType": cred.KeyType, "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength]}
+                    for cred in parsed.Credentials
+                ],
+                "OldCredentials": [
+                    {"KeyType": cred.KeyType, "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength]}
+                    for cred in parsed.OldCredentials
+                ],
+            }
+        elif prop_name == "Primary:Kerberos-Newer-Keys":
+            parsed = c_ds.KERB_STORED_CREDENTIAL_NEW(prop_value)
+            prop_value = {
+                "DefaultSalt": prop_value[
+                    parsed.DefaultSaltOffset : parsed.DefaultSaltOffset + parsed.DefaultSaltLength
+                ],
+                "DefaultIterationCount": parsed.DefaultIterationCount,
+                "Credentials": [
+                    {
+                        "KeyType": cred.KeyType,
+                        "IterationCount": cred.IterationCount,
+                        "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength],
+                    }
+                    for cred in parsed.Credentials
+                ],
+                "ServiceCredentials": [
+                    {
+                        "KeyType": cred.KeyType,
+                        "IterationCount": cred.IterationCount,
+                        "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength],
+                    }
+                    for cred in parsed.ServiceCredentials
+                ],
+                "OldCredentials": [
+                    {
+                        "KeyType": cred.KeyType,
+                        "IterationCount": cred.IterationCount,
+                        "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength],
+                    }
+                    for cred in parsed.OldCredentials
+                ],
+                "OlderCredentials": [
+                    {
+                        "KeyType": cred.KeyType,
+                        "IterationCount": cred.IterationCount,
+                        "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength],
+                    }
+                    for cred in parsed.OlderCredentials
+                ],
+            }
+        elif prop_name == "Primary:WDigest":
+            parsed = c_ds.WDIGEST_CREDENTIALS(prop_value)
+            prop_value = list(parsed.Hash)
+
+        result[prop_name] = prop_value
+
+    return result
 
 
 ATTRIBUTE_ENCODE_DECODE_MAP: dict[
@@ -183,7 +273,7 @@ ATTRIBUTE_ENCODE_DECODE_MAP: dict[
     "dBCSPwd": (None, _pek_decrypt),
     "ntPwdHistory": (None, _pek_decrypt),
     "lmPwdHistory": (None, _pek_decrypt),
-    "supplementalCredentials": (None, _pek_decrypt),
+    "supplementalCredentials": (None, _decode_supplemental_credentials),
     "currentValue": (None, _pek_decrypt),
     "priorValue": (None, _pek_decrypt),
     "initialAuthIncoming": (None, _pek_decrypt),
@@ -192,8 +282,6 @@ ATTRIBUTE_ENCODE_DECODE_MAP: dict[
     "trustAuthOutgoing": (None, _pek_decrypt),
     "msDS-ExecuteScriptPassword": (None, _pek_decrypt),
 }
-
-# TODO add for protected attributes
 
 
 def _ldapDisplayName_to_DNT(db: Database, value: str) -> int | str:

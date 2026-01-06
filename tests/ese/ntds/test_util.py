@@ -46,7 +46,7 @@ def test_oid_string_to_attrtyp_with_class_name(goad: NTDS) -> None:
 
 
 def test_get_dnt_coverage(goad: NTDS) -> None:
-    """Test _get_DNT method coverage."""
+    """Test DNT method coverage."""
     # Test with an attribute
     dnt = _ldapDisplayName_to_DNT(goad.db, "cn")
     assert isinstance(dnt, int)
@@ -56,3 +56,43 @@ def test_get_dnt_coverage(goad: NTDS) -> None:
     dnt = _ldapDisplayName_to_DNT(goad.db, "person")
     assert isinstance(dnt, int)
     assert dnt == 1554
+
+
+def test_supplemental_credentials(goad: NTDS) -> None:
+    """Test decoding of supplementalCredentials attribute."""
+    user = next(u for u in goad.users() if u.name == "maester.pycelle")
+
+    assert isinstance(user.get("supplementalCredentials")[0], bytes)
+
+    syskey = bytes.fromhex("079f95655b66f16deb28aa1ab3a81eb0")
+    goad.pek.unlock(syskey)
+
+    value = user.get("supplementalCredentials")[0]
+    assert isinstance(value, dict)
+
+    assert value["Packages"] == ["NTLM-Strong-NTOWF", "Kerberos-Newer-Keys", "Kerberos", "WDigest"]
+
+    assert value["Primary:NTLM-Strong-NTOWF"].hex() == "c63d40b2713f0c0916eeab6e522abef5"
+
+    assert len(value["Primary:WDigest"]) == 29
+
+    assert value["Primary:Kerberos"]["DefaultSalt"] == "SEVENKINGDOMS.LOCALmaester.pycelle".encode("utf-16-le")
+    assert value["Primary:Kerberos"]["Credentials"][0]["KeyType"] == 3
+    assert value["Primary:Kerberos"]["Credentials"][0]["Key"].hex() == "89379167f87f0b5b"
+
+    assert value["Primary:Kerberos-Newer-Keys"]["DefaultSalt"] == "SEVENKINGDOMS.LOCALmaester.pycelle".encode(
+        "utf-16-le"
+    )
+    assert value["Primary:Kerberos-Newer-Keys"]["DefaultIterationCount"] == 4096
+    assert value["Primary:Kerberos-Newer-Keys"]["Credentials"][0]["KeyType"] == 18
+    assert value["Primary:Kerberos-Newer-Keys"]["Credentials"][0]["IterationCount"] == 4096
+    assert (
+        value["Primary:Kerberos-Newer-Keys"]["Credentials"][0]["Key"].hex()
+        == "25370ba431b262bdf7ca279e88d824cd59b4ce280bbef537a96fe51c8d790042"
+    )
+    assert value["Primary:Kerberos-Newer-Keys"]["Credentials"][1]["KeyType"] == 17
+    assert value["Primary:Kerberos-Newer-Keys"]["Credentials"][1]["IterationCount"] == 4096
+    assert value["Primary:Kerberos-Newer-Keys"]["Credentials"][1]["Key"].hex() == "7d375f265062643302a4827719ea541d"
+    assert value["Primary:Kerberos-Newer-Keys"]["Credentials"][2]["KeyType"] == 3
+    assert value["Primary:Kerberos-Newer-Keys"]["Credentials"][2]["IterationCount"] == 4096
+    assert value["Primary:Kerberos-Newer-Keys"]["Credentials"][2]["Key"].hex() == "89379167f87f0b5b"
