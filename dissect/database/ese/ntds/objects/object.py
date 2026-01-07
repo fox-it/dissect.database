@@ -182,7 +182,7 @@ class Object:
     @property
     def is_phantom(self) -> bool:
         """Return whether the object is a phantom (cross-domain reference)."""
-        return not self.is_local
+        return self.instance_type is not None and InstanceType.Writable not in self.instance_type
 
     def _assert_local(self) -> None:
         """Raise an error if the object is a phantom."""

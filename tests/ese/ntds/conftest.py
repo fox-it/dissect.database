@@ -27,6 +27,13 @@ def goad() -> Iterator[NTDS]:
 
 
 @pytest.fixture(scope="module")
+def adam() -> Iterator[NTDS]:
+    """AD LDS NTDS.dit file."""
+    for fh in open_file_gz("_data/ese/ntds/adam/adamntds.dit.gz"):
+        yield NTDS(fh)
+
+
+@pytest.fixture(scope="module")
 def large() -> Iterator[NTDS]:
     for fh in open_file_gz("_data/ese/ntds/large/ntds.dit.gz"):
         # Keep this one decompressed in memory (~110MB) as it is a large file,

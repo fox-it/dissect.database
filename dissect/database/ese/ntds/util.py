@@ -156,7 +156,7 @@ def _pek_decrypt(db: Database, value: bytes) -> bytes:
     Returns:
         The decrypted data blob, or the original value if the PEK is locked.
     """
-    if not db.data.pek.unlocked:
+    if db.data.pek is None or not db.data.pek.unlocked:
         return value
 
     return db.data.pek.decrypt(value)
@@ -171,81 +171,96 @@ def _decode_supplemental_credentials(db: Database, value: bytes) -> dict[str, by
     Returns:
         A dictionary mapping credential types to their data blobs, or the original value if the PEK is locked.
     """
-    if not db.data.pek.unlocked:
+    if db.data.pek is None or not db.data.pek.unlocked:
         return value
 
     value = db.data.pek.decrypt(value)
-    properties = c_ds.USER_PROPERTIES(value)
+    header = c_ds.USER_PROPERTIES_HEADER(value)
 
     result = {}
-    for prop in properties.UserProperties:
-        prop_name = prop.PropertyName
-        prop_value = bytes.fromhex(prop.PropertyValue.decode())
+    if header.PropertySignature == 0x50:  # 'P' as WORD in UTF-16-LE
+        for prop in c_ds.USER_PROPERTY[header.PropertyCount](value[len(header) :]):
+            prop_name = prop.PropertyName
+            prop_value = bytes.fromhex(prop.PropertyValue.decode())
 
-        if prop_name == "Packages":
-            prop_value = prop_value.decode("utf-16-le").split("\x00")
-        elif prop_name == "Primary:CLEARTEXT":
-            prop_value = prop_value.decode("utf-16-le")
-        elif prop_name == "Primary:Kerberos":
-            parsed = c_ds.KERB_STORED_CREDENTIAL(prop_value)
-            prop_value = {
-                "DefaultSalt": prop_value[
-                    parsed.DefaultSaltOffset : parsed.DefaultSaltOffset + parsed.DefaultSaltLength
-                ],
-                "Credentials": [
-                    {"KeyType": cred.KeyType, "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength]}
-                    for cred in parsed.Credentials
-                ],
-                "OldCredentials": [
-                    {"KeyType": cred.KeyType, "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength]}
-                    for cred in parsed.OldCredentials
-                ],
-            }
-        elif prop_name == "Primary:Kerberos-Newer-Keys":
-            parsed = c_ds.KERB_STORED_CREDENTIAL_NEW(prop_value)
-            prop_value = {
-                "DefaultSalt": prop_value[
-                    parsed.DefaultSaltOffset : parsed.DefaultSaltOffset + parsed.DefaultSaltLength
-                ],
-                "DefaultIterationCount": parsed.DefaultIterationCount,
-                "Credentials": [
-                    {
-                        "KeyType": cred.KeyType,
-                        "IterationCount": cred.IterationCount,
-                        "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength],
-                    }
-                    for cred in parsed.Credentials
-                ],
-                "ServiceCredentials": [
-                    {
-                        "KeyType": cred.KeyType,
-                        "IterationCount": cred.IterationCount,
-                        "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength],
-                    }
-                    for cred in parsed.ServiceCredentials
-                ],
-                "OldCredentials": [
-                    {
-                        "KeyType": cred.KeyType,
-                        "IterationCount": cred.IterationCount,
-                        "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength],
-                    }
-                    for cred in parsed.OldCredentials
-                ],
-                "OlderCredentials": [
-                    {
-                        "KeyType": cred.KeyType,
-                        "IterationCount": cred.IterationCount,
-                        "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength],
-                    }
-                    for cred in parsed.OlderCredentials
-                ],
-            }
-        elif prop_name == "Primary:WDigest":
-            parsed = c_ds.WDIGEST_CREDENTIALS(prop_value)
-            prop_value = list(parsed.Hash)
+            if prop_name == "Packages":
+                prop_value = prop_value.decode("utf-16-le").split("\x00")
+            elif prop_name == "Primary:CLEARTEXT":
+                prop_value = prop_value.decode("utf-16-le")
+            elif prop_name == "Primary:Kerberos":
+                parsed = c_ds.KERB_STORED_CREDENTIAL(prop_value)
+                prop_value = {
+                    "DefaultSalt": prop_value[
+                        parsed.DefaultSaltOffset : parsed.DefaultSaltOffset + parsed.DefaultSaltLength
+                    ],
+                    "Credentials": [
+                        {"KeyType": cred.KeyType, "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength]}
+                        for cred in parsed.Credentials
+                    ],
+                    "OldCredentials": [
+                        {"KeyType": cred.KeyType, "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength]}
+                        for cred in parsed.OldCredentials
+                    ],
+                }
+            elif prop_name == "Primary:Kerberos-Newer-Keys":
+                parsed = c_ds.KERB_STORED_CREDENTIAL_NEW(prop_value)
+                prop_value = {
+                    "DefaultSalt": prop_value[
+                        parsed.DefaultSaltOffset : parsed.DefaultSaltOffset + parsed.DefaultSaltLength
+                    ],
+                    "DefaultIterationCount": parsed.DefaultIterationCount,
+                    "Credentials": [
+                        {
+                            "KeyType": cred.KeyType,
+                            "IterationCount": cred.IterationCount,
+                            "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength],
+                        }
+                        for cred in parsed.Credentials
+                    ],
+                    "ServiceCredentials": [
+                        {
+                            "KeyType": cred.KeyType,
+                            "IterationCount": cred.IterationCount,
+                            "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength],
+                        }
+                        for cred in parsed.ServiceCredentials
+                    ],
+                    "OldCredentials": [
+                        {
+                            "KeyType": cred.KeyType,
+                            "IterationCount": cred.IterationCount,
+                            "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength],
+                        }
+                        for cred in parsed.OldCredentials
+                    ],
+                    "OlderCredentials": [
+                        {
+                            "KeyType": cred.KeyType,
+                            "IterationCount": cred.IterationCount,
+                            "Key": prop_value[cred.KeyOffset : cred.KeyOffset + cred.KeyLength],
+                        }
+                        for cred in parsed.OlderCredentials
+                    ],
+                }
+            elif prop_name == "Primary:WDigest":
+                parsed = c_ds.WDIGEST_CREDENTIALS(prop_value)
+                prop_value = list(parsed.Hash)
 
-        result[prop_name] = prop_value
+            result[prop_name] = prop_value
+    else:
+        # Probably AD LDS format, check some heuristics
+        # TODO: Properly research AD LDS supplementalCredentials format
+        header = c_ds.ADAM_PROPERTIES_HEADER(value)
+        if header.Reserved6 == len(value) - len(header) and header.Reserved3 == len(value) - len(header) + 8:
+            # Looks like AD LDS format
+            parsed = c_ds.WDIGEST_CREDENTIALS(value[len(header) :])
+
+            # Make up some keys to match the other result
+            result["Packages"] = ["WDigest"]
+            result["Primary:WDigest"] = list(parsed.Hash)
+        else:
+            # Bail out, unknown format
+            return value
 
     return result
 
@@ -342,11 +357,12 @@ def _oid_to_attrtyp(db: Database, value: str) -> int | str:
         value: Either an OID string (contains dots) or LDAP display name.
 
     Returns:
-        ATTRTYP integer value or the original value if not found.
+        ATTRTYP integer value.
     """
     if (schema := db.data.schema.lookup(oid=value) if "." in value else db.data.schema.lookup(name=value)) is not None:
         return schema.id
-    return value
+
+    raise ValueError(f"Attribute or class not found for value: {value!r}")
 
 
 def _attrtyp_to_oid(db: Database, value: int) -> str | int:

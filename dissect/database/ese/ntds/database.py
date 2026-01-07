@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING, BinaryIO
 
 from dissect.database.ese.ese import ESE
 from dissect.database.ese.exception import KeyNotFoundError
-from dissect.database.ese.ntds.objects import Object
+from dissect.database.ese.ntds.objects import DomainDNS, Object
+from dissect.database.ese.ntds.pek import PEK
 from dissect.database.ese.ntds.query import Query
 from dissect.database.ese.ntds.schema import Schema
 from dissect.database.ese.ntds.sd import ACL, SecurityDescriptor
@@ -16,8 +17,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from dissect.database.ese.index import Index
-    from dissect.database.ese.ntds.objects import DomainDNS, Top
-    from dissect.database.ese.ntds.pek import PEK
+    from dissect.database.ese.ntds.objects import Top
 
 
 class Database:
@@ -56,15 +56,15 @@ class DataTable:
             raise ValueError("No root object found")
         return root
 
-    def root_domain(self) -> DomainDNS:
-        """Return the root domain object in the NTDS database."""
+    def root_domain(self) -> DomainDNS | None:
+        """Return the root domain object in the NTDS database. For AD LDS, this will return ``None``."""
         obj = self.root()
         while True:
             for child in obj.children():
                 if child.is_deleted:
                     continue
 
-                if child.is_head_of_naming_context:
+                if isinstance(child, DomainDNS) and child.is_head_of_naming_context:
                     return child
 
                 obj = child
@@ -72,12 +72,29 @@ class DataTable:
             else:
                 break
 
-        raise ValueError("No root domain object found")
+        return None
 
     @cached_property
-    def pek(self) -> PEK:
-        """Return the PEK associated with the root domain."""
-        return self.root_domain().pek
+    def pek(self) -> PEK | None:
+        """Return the PEK."""
+        if (root_domain := self.root_domain()) is None:
+            # Maybe this is an AD LDS database
+            if (root_pek := self.root().get("pekList")) is None:
+                # It's not
+                return None
+
+            # Lookup the schema pek and permutate the boot key
+            schema_pek = self.lookup(objectClass="dMD").get("pekList")
+            boot_key = bytes(
+                [root_pek[i] for i in [2, 4, 25, 9, 7, 27, 5, 11]]
+                + [schema_pek[i] for i in [37, 2, 17, 36, 20, 11, 22, 7]]
+            )
+
+            # Lookup the actual PEK and unlock it
+            pek = PEK(self.lookup(objectClass="configuration").get("pekList"))
+            pek.unlock(boot_key)
+            return pek
+        return root_domain.pek
 
     def walk(self) -> Iterator[Object]:
         """Walk through all objects in the NTDS database."""
@@ -87,6 +104,11 @@ class DataTable:
             for child in obj.children():
                 yield child
                 stack.append(child)
+
+    def iter(self) -> Iterator[Object]:
+        """Iterate over all objects in the NTDS database."""
+        for record in self.table.records():
+            yield Object.from_record(self.db, record)
 
     def get(self, dnt: int) -> Object:
         """Retrieve an object by its Directory Number Tag (DNT) value.
@@ -157,8 +179,7 @@ class DataTable:
             dnt: The DNT to retrieve child objects for.
         """
         cursor = self.db.data.table.index("PDNT_index").cursor()
-        cursor.seek([dnt + 1])
-        end = cursor.record()
+        end = cursor.seek([dnt + 1]).record()
 
         cursor.reset()
         cursor.seek([dnt])

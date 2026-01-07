@@ -23,7 +23,7 @@ class _c_ds(__cs__.cstruct):
         def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
 
     USER_PROPERTY: TypeAlias = _USER_PROPERTY
-    class _USER_PROPERTIES(__cs__.Structure):
+    class _USER_PROPERTIES_HEADER(__cs__.Structure):
         Reserved1: _c_ds.uint32
         Length: _c_ds.uint32
         Reserved2: _c_ds.uint16
@@ -31,25 +31,6 @@ class _c_ds(__cs__.cstruct):
         Reserved4: __cs__.CharArray
         PropertySignature: _c_ds.uint16
         PropertyCount: _c_ds.uint16
-        class _USER_PROPERTY(__cs__.Structure):
-            NameLength: _c_ds.uint16
-            ValueLength: _c_ds.uint16
-            PropertyFlag: _c_ds.uint16
-            PropertyName: __cs__.WcharArray
-            PropertyValue: __cs__.CharArray
-            @overload
-            def __init__(
-                self,
-                NameLength: _c_ds.uint16 | None = ...,
-                ValueLength: _c_ds.uint16 | None = ...,
-                PropertyFlag: _c_ds.uint16 | None = ...,
-                PropertyName: __cs__.WcharArray | None = ...,
-                PropertyValue: __cs__.CharArray | None = ...,
-            ): ...
-            @overload
-            def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
-
-        UserProperties: __cs__.Array[_USER_PROPERTY]
         @overload
         def __init__(
             self,
@@ -60,12 +41,32 @@ class _c_ds(__cs__.cstruct):
             Reserved4: __cs__.CharArray | None = ...,
             PropertySignature: _c_ds.uint16 | None = ...,
             PropertyCount: _c_ds.uint16 | None = ...,
-            UserProperties: __cs__.Array[_USER_PROPERTY] | None = ...,
         ): ...
         @overload
         def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
 
-    USER_PROPERTIES: TypeAlias = _USER_PROPERTIES
+    USER_PROPERTIES_HEADER: TypeAlias = _USER_PROPERTIES_HEADER
+    class _ADAM_PROPERTIES_HEADER(__cs__.Structure):
+        Reserved1: _c_ds.uint32
+        Reserved2: _c_ds.uint32
+        Reserved3: _c_ds.uint32
+        Reserved4: _c_ds.uint32
+        Reserved5: _c_ds.uint32
+        Reserved6: _c_ds.uint32
+        @overload
+        def __init__(
+            self,
+            Reserved1: _c_ds.uint32 | None = ...,
+            Reserved2: _c_ds.uint32 | None = ...,
+            Reserved3: _c_ds.uint32 | None = ...,
+            Reserved4: _c_ds.uint32 | None = ...,
+            Reserved5: _c_ds.uint32 | None = ...,
+            Reserved6: _c_ds.uint32 | None = ...,
+        ): ...
+        @overload
+        def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
+
+    ADAM_PROPERTIES_HEADER: TypeAlias = _ADAM_PROPERTIES_HEADER
     class _KERB_KEY_DATA(__cs__.Structure):
         Reserved1: _c_ds.uint16
         Reserved2: _c_ds.uint16

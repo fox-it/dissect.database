@@ -95,7 +95,9 @@ class PEK:
 
         if encrypted_data.AlgorithmId == c_pek.PEK_ENCRYPTION_WITH_AES:
             encrypted_data_aes = c_pek.ENCRYPTED_DATA_WITH_AES(data)
-            return _aes_decrypt(encrypted_data_aes.EncryptedData, key, encrypted_data_aes.IV)
+            return _aes_decrypt(encrypted_data_aes.EncryptedData, key, encrypted_data_aes.IV)[
+                : encrypted_data_aes.Length
+            ]
 
         raise NotImplementedError(f"Unsupported PEK encryption algorithm: {encrypted_data.AlgorithmId}")
 

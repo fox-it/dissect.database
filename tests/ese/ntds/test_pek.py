@@ -23,8 +23,15 @@ def test_pek(goad: NTDS) -> None:
     assert goad.pek.unlocked
 
     # Test decryption of the user's password
-    assert goad.pek.decrypt(encrypted) == bytes.fromhex(
-        "06bb564317712dc60761a32914e4048c10101010101010101010101010101010"
-    )
+    assert goad.pek.decrypt(encrypted) == bytes.fromhex("06bb564317712dc60761a32914e4048c")
     # Should work transparently now too
-    assert user.unicodePwd == bytes.fromhex("06bb564317712dc60761a32914e4048c10101010101010101010101010101010")
+    assert user.unicodePwd == bytes.fromhex("06bb564317712dc60761a32914e4048c")
+
+
+def test_pek_adam(adam: NTDS) -> None:
+    """Test PEK unlocking and decryption for AD LDS NTDS.dit."""
+    # The PEK in AD LDS is derived within the database itself
+    assert adam.pek.unlocked
+
+    user = next(adam.users(), None)
+    assert user.unicodePwd == bytes.fromhex("8846f7eaee8fb117ad06bdd830b7586c")

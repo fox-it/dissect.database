@@ -104,7 +104,7 @@ class _c_pek(__cs__.cstruct):
         Flags: _c_pek.uint16
         KeyId: _c_pek.uint32
         IV: __cs__.CharArray
-        BlockSize: _c_pek.uint32
+        Length: _c_pek.uint32
         EncryptedData: __cs__.CharArray
         @overload
         def __init__(
@@ -113,7 +113,7 @@ class _c_pek(__cs__.cstruct):
             Flags: _c_pek.uint16 | None = ...,
             KeyId: _c_pek.uint32 | None = ...,
             IV: __cs__.CharArray | None = ...,
-            BlockSize: _c_pek.uint32 | None = ...,
+            Length: _c_pek.uint32 | None = ...,
             EncryptedData: __cs__.CharArray | None = ...,
         ): ...
         @overload

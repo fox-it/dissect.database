@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, NamedTuple
 
-from dissect.database.ese.ntds.objects.attributeschema import AttributeSchema
-from dissect.database.ese.ntds.objects.classschema import ClassSchema
+from dissect.database.ese.ntds.objects.object import Object
 from dissect.database.ese.ntds.util import OID_TO_TYPE, attrtyp_to_oid
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from dissect.database.ese.ntds.database import Database
     from dissect.database.ese.ntds.util import SearchFlags
 
@@ -149,26 +150,44 @@ class Schema:
         Args:
             db: The database instance to load the schema from.
         """
-        root_domain = db.data.root_domain()
-        for child in root_domain.child("Configuration").child("Schema").children():
-            if isinstance(child, ClassSchema):
-                self._add_class(
-                    dnt=child.dnt,
-                    id=child.get("governsID", raw=True),
-                    name=child.get("lDAPDisplayName"),
-                )
-            elif isinstance(child, AttributeSchema):
-                self._add_attribute(
-                    dnt=child.dnt,
-                    id=child.get("attributeID", raw=True),
-                    name=child.get("lDAPDisplayName"),
-                    syntax=child.get("attributeSyntax", raw=True),
-                    om_syntax=child.get("oMSyntax"),
-                    om_object_class=child.get("oMObjectClass"),
-                    is_single_valued=child.get("isSingleValued"),
-                    link_id=child.get("linkId"),
-                    search_flags=child.get("searchFlags"),
-                )
+
+        def _iter(id: int) -> Iterator[Object]:
+            # Use the ATTc0 (objectClass) index to iterate over all objects of the given objectClass
+            # TODO: In the future, maybe use `DataTable._get_index`, but that's not fully implemented yet
+            cursor = db.data.table.index("INDEX_00000000").cursor()
+            end = cursor.seek([id + 1]).record()
+
+            cursor.reset()
+            cursor.seek([id])
+
+            record = cursor.record()
+            while record is not None and record != end:
+                yield Object.from_record(db, record)
+                record = cursor.next()
+
+        # We bootstrapped these earlier
+        attribute_schema = self.lookup_class(name="attributeSchema")
+        class_schema = self.lookup_class(name="classSchema")
+
+        for obj in _iter(attribute_schema.id):
+            self._add_attribute(
+                dnt=obj.dnt,
+                id=obj.get("attributeID", raw=True),
+                name=obj.get("lDAPDisplayName"),
+                syntax=obj.get("attributeSyntax", raw=True),
+                om_syntax=obj.get("oMSyntax"),
+                om_object_class=obj.get("oMObjectClass"),
+                is_single_valued=obj.get("isSingleValued"),
+                link_id=obj.get("linkId"),
+                search_flags=obj.get("searchFlags"),
+            )
+
+        for obj in _iter(class_schema.id):
+            self._add_class(
+                dnt=obj.dnt,
+                id=obj.get("governsID", raw=True),
+                name=obj.get("lDAPDisplayName"),
+            )
 
     def _add_class(self, dnt: int, id: int, name: str) -> None:
         entry = ClassEntry(

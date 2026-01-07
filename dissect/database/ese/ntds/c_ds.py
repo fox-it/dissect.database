@@ -11,7 +11,7 @@ typedef struct _USER_PROPERTY {
     CHAR            PropertyValue[ValueLength];
 } USER_PROPERTY;
 
-typedef struct _USER_PROPERTIES {
+typedef struct _USER_PROPERTIES_HEADER {
     DWORD           Reserved1;
     DWORD           Length;
     WORD            Reserved2;
@@ -19,8 +19,16 @@ typedef struct _USER_PROPERTIES {
     CHAR            Reserved4[96];
     WORD            PropertySignature;
     WORD            PropertyCount;
-    USER_PROPERTY   UserProperties[PropertyCount];
-} USER_PROPERTIES;
+} USER_PROPERTIES_HEADER;
+
+typedef struct _ADAM_PROPERTIES_HEADER {    // For lack of a better name
+    DWORD           Reserved1;
+    DWORD           Reserved2;
+    DWORD           Reserved3;
+    DWORD           Reserved4;
+    DWORD           Reserved5;
+    DWORD           Reserved6;
+} ADAM_PROPERTIES_HEADER;
 
 typedef struct _KERB_KEY_DATA {
     WORD            Reserved1;
@@ -80,7 +88,7 @@ typedef struct _WDIGEST_CREDENTIALS {
     BYTE    Version;
     BYTE    NumberOfHashes;
     CHAR    Reserved3[12];
-    CHAR    Hash[NumberOfHashes][16];
+    CHAR    Hash[29][16];                   // The formal definition has Hash1, Hash2, ..., Hash29
 } WDIGEST_CREDENTIALS;
 """
 c_ds = cstruct(ds_def)

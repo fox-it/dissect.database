@@ -52,7 +52,7 @@ typedef struct _ENCRYPTED_DATA_WITH_AES {
     USHORT      Flags;
     ULONG       KeyId;
     CHAR        IV[16];
-    ULONG       BlockSize;
+    ULONG       Length;
     CHAR        EncryptedData[EOF];
 } ENCRYPTED_DATA_WITH_AES;
 """

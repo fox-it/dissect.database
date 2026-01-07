@@ -165,8 +165,7 @@ def _process_wildcard_tail(index: Index, filter_value: str) -> Iterator[Record]:
 
     # Create search bounds
     value = filter_value.replace("*", "")
-    cursor.seek([_increment_last_char(value)])
-    end = cursor.record()
+    end = cursor.seek([_increment_last_char(value)]).record()
 
     # Seek back to the start
     cursor.reset()

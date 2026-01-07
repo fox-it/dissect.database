@@ -66,6 +66,7 @@ def test_supplemental_credentials(goad: NTDS) -> None:
 
     syskey = bytes.fromhex("079f95655b66f16deb28aa1ab3a81eb0")
     goad.pek.unlock(syskey)
+    assert goad.pek.unlocked
 
     value = user.get("supplementalCredentials")[0]
     assert isinstance(value, dict)
@@ -96,3 +97,14 @@ def test_supplemental_credentials(goad: NTDS) -> None:
     assert value["Primary:Kerberos-Newer-Keys"]["Credentials"][2]["KeyType"] == 3
     assert value["Primary:Kerberos-Newer-Keys"]["Credentials"][2]["IterationCount"] == 4096
     assert value["Primary:Kerberos-Newer-Keys"]["Credentials"][2]["Key"].hex() == "89379167f87f0b5b"
+
+
+def test_supplemental_credentials_adam(adam: NTDS) -> None:
+    """Test decoding of supplementalCredentials attribute in AD LDS NTDS.dit."""
+    user = next(adam.users(), None)
+
+    value = user.get("supplementalCredentials")[0]
+    assert isinstance(value, dict)
+
+    assert value["Packages"] == ["WDigest"]
+    assert len(value["Primary:WDigest"]) == 29
