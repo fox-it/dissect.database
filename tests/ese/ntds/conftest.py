@@ -21,6 +21,7 @@ def goad() -> Iterator[NTDS]:
         - IronIslands OA was deleted AFTER the recycle bin was enabled
         - stannis.baratheon has password history and is disabled
         - robb.stark has password history
+        - syskey: 079f95655b66f16deb28aa1ab3a81eb0
     """
     for fh in open_file_gz("_data/ese/ntds/goad/ntds.dit.gz"):
         yield NTDS(fh)
@@ -35,6 +36,11 @@ def adam() -> Iterator[NTDS]:
 
 @pytest.fixture(scope="module")
 def large() -> Iterator[NTDS]:
+    """Large NTDS file for performance testing.
+
+    Notes:
+        - syskey: d9cf57f38072d3153f42524516e7ac3d
+    """
     for fh in open_file_gz("_data/ese/ntds/large/ntds.dit.gz"):
         # Keep this one decompressed in memory (~110MB) as it is a large file,
         # and performing I/O through the gzip layer is too slow
