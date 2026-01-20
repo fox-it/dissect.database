@@ -4,7 +4,7 @@ from dissect.database.ese.ntds.objects.top import Top
 
 
 class MSDSPasswordSettingsContainer(Top):
-    """Represents the MSDS-PasswordSettingsContainer object in Active Directory.
+    """Represents the msDS-PasswordSettingsContainer object in Active Directory.
 
     References:
         - https://learn.microsoft.com/en-us/windows/win32/adschema/c-msds-passwordsettingscontainer

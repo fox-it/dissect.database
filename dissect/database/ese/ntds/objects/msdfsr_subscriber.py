@@ -7,7 +7,7 @@ class MSDFSRSubscriber(Top):
     """Represents the MSDFSR Subscriber object in Active Directory.
 
     References:
-        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-msdfsrsubscriber
+        - https://learn.microsoft.com/en-us/windows/win32/adschema/c-msdfsr-subscriber
     """
 
     __object_class__ = "msDFSR-Subscriber"

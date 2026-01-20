@@ -4,7 +4,7 @@ from dissect.database.ese.ntds.objects.top import Top
 
 
 class MSAuthzCentralAccessRules(Top):
-    """Represents the msAuthz-CentralAccessRules attribute in Active Directory.
+    """Represents the msAuthz-CentralAccessRules object in Active Directory.
 
     References:
         - https://learn.microsoft.com/en-us/windows/win32/adschema/c-msauthz-centralaccessrules

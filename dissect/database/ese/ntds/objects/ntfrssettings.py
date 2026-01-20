@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from dissect.database.ese.ntds.objects import Object
 
 
-class NTRFSSettings(ApplicationSettings):
+class NTFRSSettings(ApplicationSettings):
     """Represents an NTFRS settings object in the Active Directory.
 
     References:

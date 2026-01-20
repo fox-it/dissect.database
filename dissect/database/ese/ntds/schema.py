@@ -208,7 +208,7 @@ class Schema:
         om_object_class: bytes | None,
         is_single_valued: bool,
         link_id: int | None,
-        search_flags: int | None,
+        search_flags: SearchFlags | None,
     ) -> None:
         type_oid = attrtyp_to_oid(syntax)
         entry = AttributeEntry(
@@ -268,8 +268,8 @@ class Schema:
         Returns:
             The matching attribute schema entry or ``None`` if not found.
         """
-        if id is not None and name is not None and column is not None and link_id is not None:
-            raise ValueError("Only one of 'id', 'name', 'link_id', or 'column' can be provided")
+        if sum(key is not None for key in [id, name, link_id, column]) != 1:
+            raise ValueError("Exactly one lookup key must be provided")
 
         if id is not None:
             return self._attribute_id_index.get(id)
@@ -283,7 +283,7 @@ class Schema:
         if column is not None:
             return self._attribute_column_index.get(column)
 
-        raise ValueError("One of 'id', 'name', 'link_id', or 'column' must be provided")
+        return None
 
     def lookup_class(
         self,
@@ -300,8 +300,8 @@ class Schema:
         Returns:
             The matching class schema entry or ``None`` if not found.
         """
-        if id is not None and name is not None:
-            raise ValueError("Only one of 'id' or 'name' can be provided")
+        if sum(key is not None for key in [id, name]) != 1:
+            raise ValueError("Exactly one lookup key must be provided")
 
         if id is not None:
             return self._class_id_index.get(id)
@@ -309,7 +309,7 @@ class Schema:
         if name is not None:
             return self._class_name_index.get(name.lower())
 
-        raise ValueError("One of 'id' or 'name' must be provided")
+        return None
 
     def lookup(
         self,
@@ -347,4 +347,4 @@ class Schema:
             name = name.lower()
             return self._class_name_index.get(name) or self._attribute_name_index.get(name)
 
-        raise ValueError("One of 'dnt', 'oid', 'attrtyp', or 'name' must be provided")
+        return None

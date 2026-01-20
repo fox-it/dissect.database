@@ -37,13 +37,13 @@ def test_benchmark_users(path: str, benchmark: BenchmarkFixture) -> None:
 
 @pytest.mark.benchmark
 @pytest.mark.parametrize(*PARAMS)
-def test_benchmark_groups(path: str, benchmark: BenchmarkFixture, request: pytest.FixtureRequest) -> None:
+def test_benchmark_groups(path: str, benchmark: BenchmarkFixture) -> None:
     ntds = open_ntds(path)
     benchmark(lambda: list(ntds.groups()))
 
 
 @pytest.mark.benchmark
 @pytest.mark.parametrize(*PARAMS)
-def test_benchmark_computers(path: str, benchmark: BenchmarkFixture, request: pytest.FixtureRequest) -> None:
+def test_benchmark_computers(path: str, benchmark: BenchmarkFixture) -> None:
     ntds = open_ntds(path)
     benchmark(lambda: list(ntds.computers()))

@@ -15,4 +15,4 @@ class OrganizationalPerson(Person):
     @property
     def city(self) -> str:
         """Return the city (l) of this organizational person."""
-        return self.get("l")
+        return self.get("l")  # "l" (localityName) represents the city/locality.

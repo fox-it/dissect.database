@@ -66,7 +66,7 @@ def test_nested_AND(goad: NTDS) -> None:
         assert second_run_queries < first_run_queries, "The second query should have fewer calls than the first one."
 
     # When we allow query optimization, the first query should be similar to the second one,
-    # that was manuall optimized
+    # that was manually optimized
     third_query = Query(goad.db, "(&(objectClass=user)(&(cn=hodor)(sAMAccountName=hodor)))", optimize=True)
     with (
         patch.object(third_query, "_query_database", wraps=third_query._query_database) as mock_fetch,

@@ -79,7 +79,7 @@ from dissect.database.ese.ntds.objects.ntdsconnection import NTDSConnection
 from dissect.database.ese.ntds.objects.ntdsdsa import NTDSDSA
 from dissect.database.ese.ntds.objects.ntdsservice import NTDSService
 from dissect.database.ese.ntds.objects.ntdssitesettings import NTDSSiteSettings
-from dissect.database.ese.ntds.objects.ntrfssettings import NTRFSSettings
+from dissect.database.ese.ntds.objects.ntfrssettings import NTFRSSettings
 from dissect.database.ese.ntds.objects.object import Object
 from dissect.database.ese.ntds.objects.organizationalperson import OrganizationalPerson
 from dissect.database.ese.ntds.objects.organizationalunit import OrganizationalUnit
@@ -184,13 +184,12 @@ __all__ = [
     "NTDSConnection",
     "NTDSService",
     "NTDSSiteSettings",
-    "NTRFSSettings",
+    "NTFRSSettings",
     "Object",
     "OrganizationalPerson",
     "OrganizationalUnit",
     "PKICertificateTemplate",
     "PKIEnrollmentService",
-    "Person",
     "Person",
     "PhysicalLocation",
     "QueryPolicy",

@@ -10,7 +10,7 @@ from dissect.database.ese.ntds.objects import DomainDNS, Object
 from dissect.database.ese.ntds.pek import PEK
 from dissect.database.ese.ntds.query import Query
 from dissect.database.ese.ntds.schema import Schema
-from dissect.database.ese.ntds.sd import ACL, SecurityDescriptor
+from dissect.database.ese.ntds.sd import SecurityDescriptor
 from dissect.database.ese.ntds.util import DN, SearchFlags, encode_value
 
 if TYPE_CHECKING:
@@ -58,19 +58,15 @@ class DataTable:
 
     def root_domain(self) -> DomainDNS | None:
         """Return the root domain object in the NTDS database. For AD LDS, this will return ``None``."""
-        obj = self.root()
-        while True:
-            for child in obj.children():
-                if child.is_deleted:
-                    continue
+        stack = [self.root()]
+        while stack:
+            if (obj := stack.pop()).is_deleted:
+                continue
 
-                if isinstance(child, DomainDNS) and child.is_head_of_naming_context:
-                    return child
+            if isinstance(obj, DomainDNS) and obj.is_head_of_naming_context:
+                return obj
 
-                obj = child
-                break
-            else:
-                break
+            stack.extend(obj.children())
 
         return None
 
@@ -84,6 +80,7 @@ class DataTable:
                 return None
 
             # Lookup the schema pek and permutate the boot key
+            # https://www.synacktiv.com/publications/using-ntdissector-to-extract-secrets-from-adam-ntds-files
             schema_pek = self.lookup(objectClass="dMD").get("pekList")
             boot_key = bytes(
                 [root_pek[i] for i in [2, 4, 25, 9, 7, 27, 5, 11]]
@@ -101,9 +98,7 @@ class DataTable:
         stack = [self.root()]
         while stack:
             yield (obj := stack.pop())
-            for child in obj.children():
-                yield child
-                stack.append(child)
+            stack.extend(obj.children())
 
     def iter(self) -> Iterator[Object]:
         """Iterate over all objects in the NTDS database."""
@@ -288,8 +283,8 @@ class LinkTable:
 
         Args:
             link_dnt: The DNT of the link object.
-            backlink_dnt: The DNT of the backlink object.
             name: The link name to check against.
+            backlink_dnt: The DNT of the backlink object.
         """
         return self._has_link(link_dnt, self._link_base(name), backlink_dnt)
 
@@ -298,12 +293,12 @@ class LinkTable:
 
         Args:
             backlink_dnt: The DNT of the backlink object.
-            link_dnt: The DNT of the link object.
             name: The link name to check against.
+            link_dnt: The DNT of the link object.
         """
         return self._has_backlink(backlink_dnt, self._link_base(name), link_dnt)
 
-    def _link_base(self, name: str) -> int | None:
+    def _link_base(self, name: str) -> int:
         """Get the link ID for a given link name.
 
         Args:
@@ -339,8 +334,8 @@ class LinkTable:
 
         Args:
             link_dnt: The DNT of the link object.
-            backlink_dnt: The DNT of the backlink object.
             base: The link base to check against.
+            backlink_dnt: The DNT of the backlink object.
         """
         cursor = self.table.index("link_index").cursor()
 
@@ -356,8 +351,8 @@ class LinkTable:
 
         Args:
             backlink_dnt: The DNT of the backlink object.
-            link_dnt: The DNT of the link object.
             base: The link base to check against.
+            link_dnt: The DNT of the link object.
         """
         cursor = self.table.index("backlink_index").cursor()
 
@@ -400,7 +395,7 @@ class SecurityDescriptorTable:
         self.db = db
         self.table = self.db.ese.table("sd_table")
 
-    def sd(self, id: int) -> ACL | None:
+    def sd(self, id: int) -> SecurityDescriptor | None:
         """Get the Discretionary Access Control List (DACL), if available.
 
         Args:

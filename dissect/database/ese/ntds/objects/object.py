@@ -76,6 +76,7 @@ class Object:
 
         Args:
             name: The attribute name to retrieve.
+            raw: Whether to return the raw value without decoding.
         """
         return _get_attribute(self.db, self.record, name, raw=raw)
 
@@ -97,8 +98,7 @@ class Object:
         return self.db.data.get(dnt=self.ncdnt) if self.ncdnt is not None else None
 
     def ancestors(self) -> Iterator[Object]:
-        """Yield all ancestor objects of this object."""
-        for dnt in self.get("Ancestors")[::-1]:
+        for dnt in (self.get("Ancestors") or [])[::-1]:
             yield self.db.data.get(dnt=dnt)
 
     def child(self, name: str) -> Object | None:

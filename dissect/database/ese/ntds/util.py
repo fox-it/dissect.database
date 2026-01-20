@@ -151,6 +151,7 @@ def _pek_decrypt(db: Database, value: bytes) -> bytes:
     """Decrypt a PEK-encrypted blob using the database's PEK, if it's unlocked.
 
     Args:
+        db: The associated NTDS database instance.
         value: The PEK-encrypted data blob.
 
     Returns:
@@ -166,6 +167,7 @@ def _decode_supplemental_credentials(db: Database, value: bytes) -> dict[str, by
     """Decode the ``supplementalCredentials`` attribute.
 
     Args:
+        db: The associated NTDS database instance.
         value: The raw bytes of the ``supplementalCredentials`` attribute.
 
     Returns:
@@ -303,6 +305,7 @@ def _ldapDisplayName_to_DNT(db: Database, value: str) -> int | str:
     """Convert an LDAP display name to its corresponding DNT value.
 
     Args:
+        db: The associated NTDS database instance.
         value: The LDAP display name to look up.
 
     Returns:
@@ -319,6 +322,7 @@ def _DNT_to_ldapDisplayName(db: Database, value: int) -> str | DN | int:
     For attributes and classes, the LDAP display name is returned. For objects, the distinguished name is returned.
 
     Args:
+        db: The associated NTDS database instance.
         value: The Directory Number Tag to look up.
 
     Returns:
@@ -354,6 +358,7 @@ def _oid_to_attrtyp(db: Database, value: str) -> int | str:
         objectClass=2.5.6.6      (OID string)
 
     Args:
+        db: The associated NTDS database instance.
         value: Either an OID string (contains dots) or LDAP display name.
 
     Returns:
@@ -369,6 +374,7 @@ def _attrtyp_to_oid(db: Database, value: int) -> str | int:
     """Convert ATTRTYP integer value to OID string.
 
     Args:
+        db: The associated NTDS database instance.
         value: The ATTRTYP integer value.
 
     Returns:
@@ -383,6 +389,7 @@ def _binary_to_dn(db: Database, value: bytes) -> tuple[int, bytes]:
     """Convert DN-Binary to the separate (DN, binary) tuple.
 
     Args:
+        db: The associated NTDS database instance.
         value: The binary DN value.
 
     Returns:
@@ -405,7 +412,7 @@ OID_ENCODE_DECODE_MAP: dict[
     "2.5.5.4": (None, lambda db, value: str(value)),
     "2.5.5.5": (None, lambda db, value: str(value)),
     # String(Numeric); A sequence of digits
-    "2.5.5.6": (None, str),
+    "2.5.5.6": (None, lambda db, value: str(value)),
     # Object(DN-Binary); A distinguished name plus a binary large object
     "2.5.5.7": (None, _binary_to_dn),
     # Boolean; TRUE or FALSE values
@@ -438,6 +445,7 @@ def encode_value(db: Database, attribute: str, value: str) -> int | bytes | str:
     """Encode a string value according to the attribute's type.
 
     Args:
+        db: The associated NTDS database instance.
         attribute: The LDAP attribute name.
         value: The string value to encode.
 
@@ -462,6 +470,7 @@ def decode_value(db: Database, attribute: str, value: Any) -> Any:
     """Decode a value according to the attribute's type.
 
     Args:
+        db: The associated NTDS database instance.
         attribute: The LDAP attribute name.
         value: The value to decode.
 

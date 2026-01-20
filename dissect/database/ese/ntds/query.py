@@ -28,9 +28,6 @@ class Query:
     def process(self) -> Iterator[Object]:
         """Process the LDAP query against the NTDS database.
 
-        Args:
-            ntds: The NTDS database instance.
-
         Yields:
             Matching records from the NTDS database.
         """
@@ -93,7 +90,7 @@ class Query:
         """Process AND logical operation.
 
         Args:
-            ldap: The LDAP search filter with AND operator.
+            filter: The LDAP search filter with AND operator.
             records: Optional list of records to filter.
 
         Yields:
@@ -129,7 +126,7 @@ class Query:
         """Filter a list of records against a simple LDAP filter.
 
         Args:
-            ldap: The LDAP search filter to apply.
+            filter: The LDAP search filter to apply.
             records: The list of records to filter.
 
         Yields:
@@ -198,7 +195,7 @@ def _value_matches_filter(
     return encoded_value == record_value
 
 
-def _increment_last_char(value: str) -> str | None:
+def _increment_last_char(value: str) -> str:
     """Increment the last character in a string to find the next lexicographically sortable key.
 
     Used for binary tree searching to find the upper bound of a range search.
@@ -207,7 +204,7 @@ def _increment_last_char(value: str) -> str | None:
         value: The string to increment.
 
     Returns:
-        A new string with the last character incremented, or ``None`` if increment would overflow all characters.
+        A new string with the last character incremented.
     """
     characters = list(value)
     i = len(characters) - 1
@@ -217,4 +214,5 @@ def _increment_last_char(value: str) -> str | None:
             characters[i] = chr(ord(characters[i]) + 1)
             return "".join(characters[: i + 1])
         i -= 1
+
     return value + "a"
