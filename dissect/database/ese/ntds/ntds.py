@@ -34,12 +34,12 @@ class NTDS:
         """Return the root object of the Active Directory."""
         return self.db.data.root()
 
-    def root_domain(self) -> DomainDNS:
+    def root_domain(self) -> DomainDNS | None:
         """Return the root domain object of the Active Directory."""
         return self.db.data.root_domain()
 
     @property
-    def pek(self) -> PEK:
+    def pek(self) -> PEK | None:
         """Return the PEK associated with the root domain."""
         return self.db.data.pek
 
