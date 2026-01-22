@@ -202,19 +202,27 @@ class SQLite3:
         if (num < 1 or num > self.header.page_count) and self.header.page_count > 0:
             raise InvalidPageNumber("Page number exceeds boundaries")
 
-        # If a specific WAL checkpoint was provided, use it instead of the on-disk page.
+        data = None
         if self.checkpoint is not None and (frame := self.checkpoint.get(num)):
-            return frame.data
+            # If a specific WAL checkpoint was provided, use it instead of the on-disk page.
+            data = frame.data
 
-        # Check if the latest valid instance of the page is committed (either the frame itself
-        # is the commit frame or it is included in a commit's frames). If so, return that frame's data.
-        if self.wal:
+        elif self.wal:
+            # Check if the latest valid instance of the page is committed (either the frame itself
+            # is the commit frame or it is included in a commit's frames). If so, return that frame's data.
             for commit in reversed(self.wal.commits):
                 if (frame := commit.get(num)) and frame.valid:
-                    return frame.data
+                    data = frame.data
+                    break
+
+        if data is not None:
+            if num == 1:
+                # Page 1 has a database header that needs to be stripped
+                return data[len(c_sqlite3.header) :]
+            return data
 
         # Else we read the page from the database file.
-        if num == 1:  # Page 1 is root
+        if num == 1:  # Page 1 is root, skip header
             self.fh.seek(len(c_sqlite3.header))
         else:
             self.fh.seek((num - 1) * self.page_size)
