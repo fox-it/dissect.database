@@ -252,3 +252,10 @@ def test_object_repr(goad: NTDS) -> None:
         repr(object)
         == "<User name='robert.baratheon\\nDEL:dbe3c0f1-88dc-4355-b2b0-78499dbd4522' sam_account_name='robert.baratheon' is_machine_account=False (deleted)>"  # noqa: E501
     )
+
+
+def test_all_memberships(large: NTDS) -> None:
+    """Test all memberships of all users."""
+    for user in large.users():
+        # Just iterate all memberships to see if any errors occur
+        list(user.groups())

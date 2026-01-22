@@ -253,7 +253,7 @@ def _get_attribute(db: Database, record: Record, name: str, *, raw: bool = False
         raw: Whether to return the raw value without decoding.
     """
     if (schema := db.data.schema.lookup_attribute(name=name)) is None:
-        raise KeyError(f"Attribute not found: {name!r}")
+        raise AttributeError(f"Attribute not found: {name!r}")
 
     value = record.get(schema.column)
 
