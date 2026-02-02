@@ -116,7 +116,8 @@ class BTree:
         """
         page = self._page
         while True:
-            node = find_node(page, key)
+            num = find_node(page, key)
+            node = page.node(num)
 
             if page.is_branch:
                 page = self.db.page(node.child)
@@ -132,35 +133,45 @@ class BTree:
         return self.node()
 
 
-def find_node(page: Page, key: bytes) -> Node:
+def find_node(page: Page, key: bytes) -> int:
     """Search a page for a node matching ``key``.
+
+    Referencing Extensible-Storage-Engine source, they bail out early if they find an exact match.
+    However, we prefer to always find the _first_ node that is greater than or equal to the key,
+    so we can handle cases where there are duplicate index keys. This is important for "range" searches
+    where we want to find all keys matching a certain prefix, and not end up somewhere in the middle of the range.
 
     Args:
         page: The page to search.
         key: The key to search.
+
+    Returns:
+        The node number of the first node that's greater than or equal to the key.
     """
-    first_node_idx = 0
-    last_node_idx = page.node_count - 1
+    lo, hi = 0, page.node_count - 1
+    res = 0
 
     node = None
-    while first_node_idx < last_node_idx:
-        node_idx = (first_node_idx + last_node_idx) // 2
-        node = page.node(node_idx)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        node = page.node(mid)
 
         # It turns out that the way BTree keys are compared matches 1:1 with how Python compares bytes
         # First compare data, then length
-        if key < node.key:
-            last_node_idx = node_idx
-        elif key == node.key:
-            if page.is_branch:
-                # If there's an exact match on a key on a branch page, the actual leaf nodes are in the next branch
-                # Page keys for branch pages appear to be non-inclusive upper bounds
-                node_idx = min(node_idx + 1, page.node_count - 1)
-                node = page.node(node_idx)
+        res = (key < node.key) - (key > node.key)
 
-            return node
+        if res < 0:
+            lo = mid + 1
         else:
-            first_node_idx = node_idx + 1
+            hi = mid
 
-    # We're at the last node
-    return page.node(first_node_idx)
+    # Final comparison on the last node
+    node = page.node(lo)
+    res = (key < node.key) - (key > node.key)
+
+    if page.is_branch and res == 0:
+        # If there's an exact match on a key on a branch page, the actual leaf nodes are in the next branch
+        # Page keys for branch pages appear to be non-inclusive upper bounds
+        lo = min(lo + 1, page.node_count - 1)
+
+    return lo

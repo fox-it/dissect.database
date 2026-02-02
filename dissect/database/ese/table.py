@@ -8,6 +8,7 @@ from dissect.database.ese import compression
 from dissect.database.ese.btree import BTree
 from dissect.database.ese.c_ese import (
     CODEPAGE,
+    FIELDFLAG,
     SYSOBJ,
     JET_coltyp,
 )
@@ -239,10 +240,11 @@ class Table:
 
 
 class Column:
-    def __init__(self, identifier: int, name: str, type_: JET_coltyp, record: Record | None = None):
+    def __init__(self, identifier: int, name: str, type: JET_coltyp, flags: FIELDFLAG, record: Record | None = None):
         self.identifier = identifier
         self.name = name
-        self.type = type_
+        self.type = type
+        self.flags = flags
 
         # Set by the table when added, only relevant for fixed value columns
         self._offset = None
@@ -250,7 +252,7 @@ class Column:
         self.record = record
 
     def __repr__(self) -> str:
-        return f"<Column name={self.name!r} identifier={self.identifier:#x} type={self.type} size={self.size}>"
+        return f"<Column name={self.name!r} identifier={self.identifier:#x} type={self.type} flags={self.flags.name} size={self.size}>"  # noqa: E501
 
     @property
     def offset(self) -> int:
@@ -275,6 +277,10 @@ class Column:
     @cached_property
     def is_binary(self) -> bool:
         return self.type in (JET_coltyp.Binary, JET_coltyp.LongBinary)
+
+    @cached_property
+    def is_multivalue(self) -> bool:
+        return bool(self.flags & FIELDFLAG.Multivalued)
 
     @cached_property
     def size(self) -> int:
@@ -310,34 +316,34 @@ class Catalog:
     """
 
     CATALOG_COLUMNS = (
-        Column(1, "ObjidTable", JET_coltyp.Long),
-        Column(2, "Type", JET_coltyp.Short),
-        Column(3, "Id", JET_coltyp.Long),
-        Column(4, "ColtypOrPgnoFDP", JET_coltyp.Long),
-        Column(5, "SpaceUsage", JET_coltyp.Long),
-        Column(6, "Flags", JET_coltyp.Long),
-        Column(7, "PagesOrLocale", JET_coltyp.Long),
-        Column(8, "RootFlag", JET_coltyp.Bit),
-        Column(9, "RecordOffset", JET_coltyp.Short),
-        Column(10, "LCMapFlags", JET_coltyp.Long),
-        Column(11, "KeyMost", JET_coltyp.UnsignedShort),
-        Column(12, "LVChunkMax", JET_coltyp.Long),
-        Column(128, "Name", JET_coltyp.Text),
-        Column(129, "Stats", JET_coltyp.Binary),
-        Column(130, "TemplateTable", JET_coltyp.Text),
-        Column(131, "DefaultValue", JET_coltyp.Binary),
-        Column(132, "KeyFldIDs", JET_coltyp.Binary),
-        Column(133, "VarSegMac", JET_coltyp.Binary),
-        Column(134, "ConditionalColumns", JET_coltyp.Binary),
-        Column(135, "TupleLimits", JET_coltyp.Binary),
-        Column(136, "Version", JET_coltyp.Binary),
-        Column(137, "SortID", JET_coltyp.Binary),
-        Column(256, "CallbackData", JET_coltyp.LongBinary),
-        Column(257, "CallbackDependencies", JET_coltyp.LongBinary),
-        Column(258, "SeparateLV", JET_coltyp.LongBinary),
-        Column(259, "SpaceHints", JET_coltyp.LongBinary),
-        Column(260, "SpaceDeferredLVHints", JET_coltyp.LongBinary),
-        Column(261, "LocaleName", JET_coltyp.LongBinary),
+        Column(1, "ObjidTable", JET_coltyp.Long, FIELDFLAG.NotNull),
+        Column(2, "Type", JET_coltyp.Short, FIELDFLAG.NotNull),
+        Column(3, "Id", JET_coltyp.Long, FIELDFLAG.NotNull),
+        Column(4, "ColtypOrPgnoFDP", JET_coltyp.Long, FIELDFLAG.NotNull),
+        Column(5, "SpaceUsage", JET_coltyp.Long, FIELDFLAG.NotNull),
+        Column(6, "Flags", JET_coltyp.Long, FIELDFLAG.NotNull),
+        Column(7, "PagesOrLocale", JET_coltyp.Long, FIELDFLAG.NotNull),
+        Column(8, "RootFlag", JET_coltyp.Bit, FIELDFLAG(0)),
+        Column(9, "RecordOffset", JET_coltyp.Short, FIELDFLAG(0)),
+        Column(10, "LCMapFlags", JET_coltyp.Long, FIELDFLAG(0)),
+        Column(11, "KeyMost", JET_coltyp.UnsignedShort, FIELDFLAG(0)),
+        Column(12, "LVChunkMax", JET_coltyp.Long, FIELDFLAG(0)),
+        Column(128, "Name", JET_coltyp.Text, FIELDFLAG.NotNull),
+        Column(129, "Stats", JET_coltyp.Binary, FIELDFLAG(0)),
+        Column(130, "TemplateTable", JET_coltyp.Text, FIELDFLAG(0)),
+        Column(131, "DefaultValue", JET_coltyp.Binary, FIELDFLAG(0)),
+        Column(132, "KeyFldIDs", JET_coltyp.Binary, FIELDFLAG(0)),
+        Column(133, "VarSegMac", JET_coltyp.Binary, FIELDFLAG(0)),
+        Column(134, "ConditionalColumns", JET_coltyp.Binary, FIELDFLAG(0)),
+        Column(135, "TupleLimits", JET_coltyp.Binary, FIELDFLAG(0)),
+        Column(136, "Version", JET_coltyp.Binary, FIELDFLAG(0)),
+        Column(137, "SortID", JET_coltyp.Binary, FIELDFLAG(0)),
+        Column(256, "CallbackData", JET_coltyp.LongBinary, FIELDFLAG(0)),
+        Column(257, "CallbackDependencies", JET_coltyp.LongBinary, FIELDFLAG(0)),
+        Column(258, "SeparateLV", JET_coltyp.LongBinary, FIELDFLAG(0)),
+        Column(259, "SpaceHints", JET_coltyp.LongBinary, FIELDFLAG(0)),
+        Column(260, "SpaceDeferredLVHints", JET_coltyp.LongBinary, FIELDFLAG(0)),
+        Column(261, "LocaleName", JET_coltyp.LongBinary, FIELDFLAG(0)),
     )
 
     def __init__(self, db: ESE, root_page: Page):
@@ -358,7 +364,13 @@ class Catalog:
                 self._table_name_map[rec.get("Name")] = cur_table
 
             elif rtype == SYSOBJ.Column:
-                column = Column(rec.get("Id"), rec.get("Name"), JET_coltyp(rec.get("ColtypOrPgnoFDP")), record=rec)
+                column = Column(
+                    rec.get("Id"),
+                    rec.get("Name"),
+                    JET_coltyp(rec.get("ColtypOrPgnoFDP")),
+                    FIELDFLAG(rec.get("Flags")),
+                    record=rec,
+                )
                 cur_table._add_column(column)
 
             elif rtype == SYSOBJ.Index:
