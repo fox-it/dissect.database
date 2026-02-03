@@ -134,9 +134,8 @@ def get_primary_key_from_constraint(column_type_constraint: str, column_def: str
         )
     matched_group = primary_key_sql.groups()[0]
     primary_key_defs = list(split_sql_list(matched_group))
-    # We only handle single primary keys, no compound keys or
-    # expressions, so a single entry in the list consisting of a single
-    # part.
+    # We only handle single primary keys, no compound keys or expressions, so a single entry in the list consisting of
+    # a single part. For example we parse ``id`` as a primary_key in the constraint ``PRIMARY KEY("id" AUTOINCREMENT)``.
     if len(primary_key_defs) == 1:
         primary_key_parts = primary_key_defs[0].split(maxsplit=1)
         primary_key = primary_key_parts[0].strip("'\"")
