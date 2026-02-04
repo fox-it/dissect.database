@@ -169,7 +169,7 @@ testdata = [
             ],
         ),
         id="primary-key-constraint-multiple-parts",
-    )
+    ),
 ]
 
 
