@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import struct
-from enum import IntFlag
+from enum import IntEnum, IntFlag
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -134,6 +134,19 @@ class UserAccountControl(IntFlag):
     DONT_REQUIRE_PREAUTH = 0x00400000
     PASSWORD_EXPIRED = 0x00800000
     TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = 0x01000000
+
+
+class SAMAccountType(IntEnum):
+    SAM_DOMAIN_OBJECT = 0x0
+    SAM_GROUP_OBJECT = 0x10000000
+    SAM_NON_SECURITY_GROUP_OBJECT = 0x10000001
+    SAM_ALIAS_OBJECT = 0x20000000
+    SAM_NON_SECURITY_ALIAS_OBJECT = 0x20000001
+    SAM_USER_OBJECT = 0x30000000
+    SAM_MACHINE_ACCOUNT = 0x30000001
+    SAM_TRUST_ACCOUNT = 0x30000002
+    SAM_APP_BASIC_GROUP = 0x40000000
+    SAM_APP_QUERY_GROUP = 0x40000001
 
 
 class SearchFlags(IntFlag):
@@ -274,6 +287,7 @@ ATTRIBUTE_ENCODE_DECODE_MAP: dict[
     "instanceType": (lambda db, value: int(value), lambda db, value: InstanceType(int(value))),
     "systemFlags": (lambda db, value: int(value), lambda db, value: SystemFlags(int(value))),
     "searchFlags": (lambda db, value: int(value), lambda db, value: SearchFlags(int(value))),
+    "sAMAccountType": (lambda db, value: int(value), lambda db, value: SAMAccountType(int(value))),
     "userAccountControl": (lambda db, value: int(value), lambda db, value: UserAccountControl(int(value))),
     "objectGUID": (lambda db, value: value.bytes_le, lambda db, value: UUID(bytes_le=value)),
     "badPasswordTime": (None, lambda db, value: wintimestamp(int(value))),
