@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from io import BytesIO
+from functools import lru_cache
 from pathlib import Path
 from typing import BinaryIO
-
-from dissect.util.stream import MappingStream
 
 from dissect.database.sqlite3.encryption.sqlcipher.exception import SQLCipherError
 from dissect.database.sqlite3.exception import InvalidDatabase
 from dissect.database.sqlite3.sqlite3 import SQLite3
+from dissect.util.stream import AlignedStream
 
 try:
     from Crypto.Cipher import AES
@@ -90,6 +89,8 @@ class SQLCipher(SQLite3):
         if not hasattr(self.cipher_fh, "read"):
             raise ValueError("Provided file handle cannot be read from")
 
+        self.cipher_fh: BinaryIO
+
         if isinstance(passphrase, str):
             passphrase = passphrase.encode()
 
@@ -146,30 +147,25 @@ class SQLCipher(SQLite3):
         if self.cipher_path is not None:
             self.cipher_fh.close()
 
-    def stream(self) -> MappingStream:
-        """Create a mapped stream of ``SQLCipherPage`` instances."""
-        stream = MappingStream()
+    def stream(self) -> SQLCipherStream:
+        """Create an aligned stream of :class:`SQLCipherPage` instances."""
+        return SQLCipherStream(self, self.cipher_fh, size=None, align=self.cipher_page_size)
 
-        # Add an appropriate plaintext SQLite3 header.
-        self.cipher_fh.seek(0)
-        offset = self.plaintext_header_size or 16
-        header = BytesIO(self.cipher_fh.read(offset) if self.plaintext_header_size else b"SQLite format 3\x00")
-        stream.add(0, offset, header)
 
-        # Creates SQLCipherPage objects which can be lazily read from. No page reading or decrypting happens
-        # until a specific page is accessed by the reader of the MappingStream.
-        page_num = 1
-        while True:
-            try:
-                page = SQLCipherPage(self, page_num)
-                size = self.cipher_page_size - ((self.plaintext_header_size or 16) if page_num == 1 else 0)
-                stream.add(offset, size, page)
-                offset += size
-                page_num += 1
-            except EOFError:  # noqa: PERF203
-                break
+class SQLCipherStream(AlignedStream):
+    def __init__(self, sqlcipher: SQLCipher, fh: BinaryIO, size: int | None = None, align: int = 4096):
+        super().__init__(size, align)
+        self.sqlcipher = sqlcipher
+        self.fh = fh
+        self._read_page = lru_cache(4096)(self._read_page)
 
-        return stream
+    def _read(self, offset: int, length: int) -> bytes:
+        pages_offset = offset // self.align
+        num_pages = length // self.align
+        return b"".join(self._read_page(num + 1) for num in range(pages_offset, pages_offset + num_pages))
+
+    def _read_page(self, page_num: int) -> bytes:
+        return SQLCipherPage(self.sqlcipher, page_num).read()
 
 
 class SQLCipher4(SQLCipher):
@@ -220,13 +216,11 @@ class SQLCipherPage:
         # The first page 'contains' the database salt so substract those first 16 bytes
         # from the page size and set the file handle forward accordingly.
         if page_num == 1:
-            header_offset = sqlcipher.plaintext_header or 16
-            self.enc_size -= header_offset
-            self.offset += header_offset
-
-        # Data is only read from the cipher file handle when ``.read()`` is called.
-        self.plaintext = None
-        self.encrypted = None
+            self.header_offset = sqlcipher.plaintext_header_size or 16
+            self.enc_size -= self.header_offset
+            self.offset += self.header_offset
+        else:
+            self.header_offset = 0
 
         # The last part of the page contains the iv and optionally hmac.
         sqlcipher.cipher_fh.seek(self.offset + self.enc_size)
@@ -239,15 +233,7 @@ class SQLCipherPage:
         self._pos = 0
 
     def __repr__(self) -> str:
-        return (
-            f"<SQLCipherPage page_num={self.page_num!r} "
-            f"size={self.sqlcipher.cipher_page_size} "
-            f"decrypted={self.decrypted!r}>"
-        )
-
-    @property
-    def decrypted(self) -> bool:
-        return bool(self.plaintext)
+        return f"<SQLCipherPage page_num={self.page_num!r} size={self.sqlcipher.cipher_page_size}>"
 
     def seek(self, pos: int, whence: int = 0) -> None:
         self._pos = pos
@@ -256,27 +242,34 @@ class SQLCipherPage:
         return self._pos
 
     def read(self, size: int | None = None) -> bytes:
-        """Cached plaintext reader of this page."""
+        """Plaintext reader of this page."""
 
         if size == -1:
             size = None
 
-        if self.plaintext:
-            return self.plaintext[self._pos : size]
-
         self.sqlcipher.cipher_fh.seek(self.offset)
-        self.encrypted = self.sqlcipher.cipher_fh.read(self.enc_size)
+        encrypted = self.sqlcipher.cipher_fh.read(self.enc_size)
 
         # We could have reached the end of the database if no more pages are left to read.
-        if not self.encrypted:
+        if not encrypted:
             raise EOFError
 
         cipher = AES.new(self.sqlcipher.key, AES.MODE_CBC, self.iv)
 
         # Append null bytes so the plaintext aligns with the page size.
         # https://github.com/sqlcipher/sqlcipher-tools/blob/master/decrypt.c
-        self.plaintext = cipher.decrypt(self.encrypted) + (self.align * b"\x00")
-        return self.plaintext[self._pos : size]
+        plaintext = cipher.decrypt(encrypted) + (self.align * b"\x00")
+
+        # Prepend the plaintext header of the SQLite3 database if this is the first page.
+        if self.header_offset == 16:
+            header = b"SQLite format 3\x00"
+        elif self.header_offset:
+            self.sqlcipher.cipher_fh.seek(0)
+            header = self.sqlcipher.cipher_fh.read(self.header_offset)
+        else:
+            header = b""
+
+        return (header + plaintext)[self._pos : size]
 
 
 def derive_key(passphrase: bytes, salt: bytes, kdf_iter: int, kdf_algo: SHA1 | SHA256 | SHA512) -> bytes:

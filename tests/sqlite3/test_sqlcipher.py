@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-
 from dissect.database.sqlite3.encryption.sqlcipher.exception import SQLCipherError
 from dissect.database.sqlite3.encryption.sqlcipher.sqlcipher import SQLCipher1, SQLCipher2, SQLCipher3, SQLCipher4
+
 from tests._util import absolute_path
 
 if TYPE_CHECKING:
