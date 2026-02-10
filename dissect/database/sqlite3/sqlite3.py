@@ -3,7 +3,7 @@ from __future__ import annotations
 import itertools
 import re
 from functools import lru_cache
-from io import BytesIO, RawIOBase
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO
 
@@ -76,7 +76,7 @@ class SQLite3:
 
     def __init__(
         self,
-        fh: Path | BinaryIO | RawIOBase,
+        fh: Path | BinaryIO,
         wal: WAL | Path | BinaryIO | None = None,
         checkpoint: Checkpoint | int | None = None,
     ):

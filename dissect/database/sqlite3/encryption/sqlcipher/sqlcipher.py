@@ -6,7 +6,7 @@ from typing import BinaryIO
 
 from dissect.database.sqlite3.encryption.sqlcipher.exception import SQLCipherError
 from dissect.database.sqlite3.exception import InvalidDatabase
-from dissect.database.sqlite3.sqlite3 import SQLite3
+from dissect.database.sqlite3.sqlite3 import SQLITE3_HEADER_MAGIC, SQLite3
 from dissect.util.stream import AlignedStream
 
 try:
@@ -110,7 +110,7 @@ class SQLCipher(SQLite3):
             self.plaintext_header_size = plaintext_header_size
 
         # The default and recommended plaintext header size is 32 bytes.
-        elif (header_or_salt := self.cipher_fh.read(16)) == b"SQLite format 3\x00":
+        elif (header_or_salt := self.cipher_fh.read(16)) == SQLITE3_HEADER_MAGIC:
             self.plaintext_header_size = 32
         else:
             self.plaintext_header_size = None
@@ -155,9 +155,9 @@ class SQLCipher(SQLite3):
 
 class SQLCipherStream(AlignedStream):
     def __init__(self, sqlcipher: SQLCipher):
-        super().__init__(None, self.cipher_page_size)
+        super().__init__(None, sqlcipher.cipher_page_size)
+        self.fh = sqlcipher.cipher_fh
         self.sqlcipher = sqlcipher
-        self.fh = fh.cipher_fh
         self._read_page = lru_cache(4096)(self._read_page)
 
     def _read(self, offset: int, length: int) -> bytes:
@@ -263,7 +263,7 @@ class SQLCipherPage:
 
         # Prepend the plaintext header of the SQLite3 database if this is the first page.
         if self.header_offset == 16:
-            header = b"SQLite format 3\x00"
+            header = SQLITE3_HEADER_MAGIC
         elif self.header_offset:
             self.sqlcipher.cipher_fh.seek(0)
             header = self.sqlcipher.cipher_fh.read(self.header_offset)
