@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from dissect.database.ese.ntds.objects import Computer, Group, Server, SubSchema, User
+from dissect.database.ese.ntds.util import SAMAccountType
 
 if TYPE_CHECKING:
     from dissect.database.ese.ntds import NTDS
@@ -87,6 +88,7 @@ def test_users(goad: NTDS) -> None:
     ]
 
     assert users[3].distinguished_name == "CN=BRANDON.STARK,CN=USERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL"
+    assert users[3].sam_account_type == SAMAccountType.SAM_USER_OBJECT
     assert users[3].cn == "brandon.stark"
     assert users[3].city == "Winterfell"
 
@@ -105,6 +107,7 @@ def test_computers(goad: NTDS) -> None:
     computers: list[Computer] = sorted(goad.computers(), key=lambda x: x.name)
     assert len(computers) == 3
     assert computers[0].name == "CASTELBLACK"
+    assert computers[0].sam_account_type == SAMAccountType.SAM_MACHINE_ACCOUNT
     assert computers[1].name == "KINGSLANDING"
     assert computers[2].name == "WINTERFELL"
 
