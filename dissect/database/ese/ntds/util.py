@@ -280,6 +280,29 @@ def _decode_supplemental_credentials(db: Database, value: bytes) -> dict[str, by
     return result
 
 
+def _decode_pwd_history(db: Database, value: list[bytes]) -> list[bytes]:
+    """Decode the ``ntPwdHistory`` or ``lmPwdHistory`` attribute value.
+
+    Args:
+        db: The associated NTDS database instance.
+        value: The raw list of bytes values for the password history attribute.
+
+    Returns:
+        A list of decrypted password hashes, or the original value if the PEK is locked.
+    """
+    if db.data.pek is None or not db.data.pek.unlocked:
+        return value
+
+    result = []
+    for buf in value:
+        buf = db.data.pek.decrypt(buf)
+        # The history attributes can contain multiple hashes concatenated together, so we need to split them up
+        # NT and LM hashes are both 16 bytes long
+        result.extend(buf[i : i + 16] for i in range(0, len(buf), 16))
+
+    return result
+
+
 ATTRIBUTE_ENCODE_DECODE_MAP: dict[
     str, tuple[Callable[[Database, Any], Any] | None, Callable[[Database, Any], Any] | None]
 ] = {
@@ -312,6 +335,13 @@ ATTRIBUTE_ENCODE_DECODE_MAP: dict[
     "trustAuthIncoming": (None, _pek_decrypt),
     "trustAuthOutgoing": (None, _pek_decrypt),
     "msDS-ExecuteScriptPassword": (None, _pek_decrypt),
+}
+
+ATTRIBUTE_LIST_ENCODE_DECODE_MAP: dict[
+    str, tuple[Callable[[Database, list[Any]], list[Any]], Callable[[Database, list[Any]], list[Any]]]
+] = {
+    "ntPwdHistory": (None, _decode_pwd_history),
+    "lmPwdHistory": (None, _decode_pwd_history),
 }
 
 
@@ -494,7 +524,13 @@ def decode_value(db: Database, attribute: str, value: Any) -> Any:
     if value is None:
         return value
 
-    # First check the list of deviations
+    # First check if we have a special decoder for this attribute
+    # Check for special handing of multi-valued attributes first
+    if isinstance(value, list):
+        _, decode = ATTRIBUTE_LIST_ENCODE_DECODE_MAP.get(attribute, (None, None))
+        if decode is not None:
+            return decode(db, value)
+
     _, decode = ATTRIBUTE_ENCODE_DECODE_MAP.get(attribute, (None, None))
     if decode is None:
         # Next, try it using the regular OID_ENCODE_DECODE_MAP mapping
