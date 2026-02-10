@@ -23,10 +23,32 @@ except ImportError:
 
 
 class SQLCipher(SQLite3):
-    """Abstract SQLCipher Community Edition implementation. Not intended for direct use.
-    Invoke :class:`SQLCipher4` or :class:`SQLCipher3` instead.
+    """SQLCipher Community Edition implementation.
 
+    Instantiate with a subclass from :class:`SQLCipher4`, :class:`SQLCipher3`, :class:`SQLCipher2`
+    or :class:`SQLCipher1`.
+
+    Decrypts a SQLCipher database from the given path or file-like oject.
     HMAC key derivation and tag verification is currently not implemented.
+
+    Example usage:
+        >>> from dissect.database.sqlite3.encryption import SQLCipher4
+        >>> db = SQLCipher4(Path("file.db"), "passphrase")
+        >>> row = db.table("MyTable").row(0)
+
+    Args:
+        fh (Path | BinaryIO): The path or file-like object to open.
+        passphrase (str | bytes): String or bytes passphrase.
+        salt (bytes): Optionally provide the 16-byte salt directly.
+        plaintext_header_size (int): Size of plaintext header to use.
+        page_size (int): Override size of each page.
+        kdf_iter (int): Override amount of KDF iterations.
+        kdf_algo (str | Crypto.Hash): Override KDF digest alrorithm.
+        hmac_algo (str | Crypto.Hash): Override HMAC digest algorithm.
+        no_kdf (bool): Disable KDF from passphrase, use as raw key.
+
+    Raises:
+        SQLCipherError: If decryption failed using the provided arguments.
 
     References:
         - https://www.zetetic.net/sqlcipher/design/
@@ -44,7 +66,7 @@ class SQLCipher(SQLite3):
         passphrase: str | bytes,
         *,
         salt: bytes | None = None,
-        plaintext_header: int | None = None,
+        plaintext_header_size: int | None = None,
         page_size: int | None = None,
         kdf_iter: int | None = None,
         kdf_algo: object | None = None,
@@ -82,16 +104,16 @@ class SQLCipher(SQLite3):
 
         # Part of the header can be plaintext. We can infer that or it can be passed upon initialization.
         # https://www.zetetic.net/sqlcipher/sqlcipher-api/#cipher_plaintext_header_size
-        if plaintext_header:
-            self.plaintext_header = plaintext_header
+        if plaintext_header_size:
+            self.plaintext_header_size = plaintext_header_size
 
         # The default and recommended plaintext header size is 32 bytes.
         elif (header_or_salt := self.cipher_fh.read(16)) == b"SQLite format 3\x00":
-            self.plaintext_header = 32
+            self.plaintext_header_size = 32
         else:
-            self.plaintext_header = None
+            self.plaintext_header_size = None
 
-        if self.plaintext_header and not salt:
+        if self.plaintext_header_size and not salt:
             raise SQLCipherError("Plaintext header has no salt, please provide salt manually")
 
         self.salt = salt or header_or_salt
@@ -107,7 +129,6 @@ class SQLCipher(SQLite3):
         # Sanity check to prevent further issues down the line.
         if self.header.page_size != self.cipher_page_size or self.header.schema_format_number not in (1, 2, 3, 4):
             raise SQLCipherError("Decryption of SQLCipher database failed or is not a database")
-        self.unlocked = True
 
     def __repr__(self) -> str:
         return (
@@ -115,8 +136,7 @@ class SQLCipher(SQLite3):
             f"fh='{self.cipher_path or self.cipher_fh!s}' "
             f"wal='{self.wal!s}' "
             f"checkpoint={bool(self.checkpoint)!r} "
-            f"pages={self.header.page_count!r} "
-            f"unlocked={self.unlocked!r}>"
+            f"pages={self.header.page_count!r}>"
         )
 
     def close(self) -> None:
@@ -132,8 +152,8 @@ class SQLCipher(SQLite3):
 
         # Add an appropriate plaintext SQLite3 header.
         self.cipher_fh.seek(0)
-        offset = self.plaintext_header or 16
-        header = BytesIO(self.cipher_fh.read(offset) if self.plaintext_header else b"SQLite format 3\x00")
+        offset = self.plaintext_header_size or 16
+        header = BytesIO(self.cipher_fh.read(offset) if self.plaintext_header_size else b"SQLite format 3\x00")
         stream.add(0, offset, header)
 
         # Creates SQLCipherPage objects which can be lazily read from. No page reading or decrypting happens
@@ -142,7 +162,7 @@ class SQLCipher(SQLite3):
         while True:
             try:
                 page = SQLCipherPage(self, page_num)
-                size = self.cipher_page_size - ((self.plaintext_header or 16) if page_num == 1 else 0)
+                size = self.cipher_page_size - ((self.plaintext_header_size or 16) if page_num == 1 else 0)
                 stream.add(offset, size, page)
                 offset += size
                 page_num += 1
@@ -153,33 +173,6 @@ class SQLCipher(SQLite3):
 
 
 class SQLCipher4(SQLCipher):
-    """SQLCipher Community edition version 4.
-
-    Decrypts a SQLCipher database from the given path or file-like oject.
-
-    Example usage:
-        >>> from dissect.database.sqlite3.encryption import SQLCipher4
-        >>> db = SQLCipher4(Path("file.db"), "passphrase")
-        >>> row = db.table("MyTable").row(0)
-
-    Args:
-        fh: The path or file-like object to open.
-        passphrase: String or bytes passphrase.
-        salt: Optionally provide the 16-byte salt directly.
-        plaintext_header: Size of plaintext header to use.
-        page_size: Override size of each page.
-        kdf_iter: Override amount of KDF iterations.
-        kdf_algo: Override KDF digest alrorithm.
-        hmac_algo: Override HMAC digest algorithm.
-
-    Raises:
-        SQLCipherError: If decryption failed using the provided arguments.
-
-    References:
-        - https://www.zetetic.net/sqlcipher/design/
-        - https://github.com/sqlcipher/sqlcipher
-    """
-
     DEFAULT_PAGE_SIZE = 4096
     DEFAULT_KDF_ITER = 256_000
     DEFAULT_KDF_ALGO = SHA512
@@ -187,8 +180,6 @@ class SQLCipher4(SQLCipher):
 
 
 class SQLCipher3(SQLCipher):
-    """SQLCipher version 3."""
-
     DEFAULT_PAGE_SIZE = 1024
     DEFAULT_KDF_ITER = 64_000
     DEFAULT_KDF_ALGO = SHA1
@@ -196,8 +187,6 @@ class SQLCipher3(SQLCipher):
 
 
 class SQLCipher2(SQLCipher):
-    """SQLCipher version 2."""
-
     DEFAULT_PAGE_SIZE = 1024
     DEFAULT_KDF_ITER = 4000
     DEFAULT_KDF_ALGO = SHA1
@@ -205,8 +194,6 @@ class SQLCipher2(SQLCipher):
 
 
 class SQLCipher1(SQLCipher):
-    """SQLCipher version 1."""
-
     DEFAULT_PAGE_SIZE = 1024
     DEFAULT_KDF_ITER = 4000
     DEFAULT_KDF_ALGO = SHA1
