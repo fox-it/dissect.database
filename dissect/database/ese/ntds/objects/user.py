@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from dissect.database.ese.ntds.objects.organizationalperson import OrganizationalPerson
-from dissect.database.ese.ntds.util import UserAccountControl
+from dissect.database.ese.ntds.util import SAMAccountType, UserAccountControl
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -28,6 +28,11 @@ class User(OrganizationalPerson):
     def sam_account_name(self) -> str:
         """Return the user's sAMAccountName."""
         return self.get("sAMAccountName")
+
+    @property
+    def sam_account_type(self) -> SAMAccountType:
+        """Return the user's sAMAccountType."""
+        return self.get("sAMAccountType")
 
     @property
     def primary_group_id(self) -> str | None:
