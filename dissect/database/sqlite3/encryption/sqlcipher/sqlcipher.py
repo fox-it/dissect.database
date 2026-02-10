@@ -72,24 +72,25 @@ class SQLCipher(SQLite3):
         hmac_algo: object | None = None,
         no_kdf: bool = False,
     ):
-        self.cipher_fh = fh
-        self.cipher_path = None
+        if not HAS_CRYPTO:
+            raise RuntimeError("Missing dependency pycryptodome")
+
+        if isinstance(fh, Path):
+            cipher_fh = fh.open("rb")
+            cipher_path = fh
+        else:
+            cipher_fh = fh
+            cipher_path = None
+
+        self.cipher_fh = cipher_fh
+        self.cipher_path = cipher_path
         self.cipher_page_size = page_size or self.DEFAULT_PAGE_SIZE
         self.kdf_iter = kdf_iter or self.DEFAULT_KDF_ITER
         self.kdf_algo = kdf_algo or self.DEFAULT_KDF_ALGO
         self.hmac_algo = hmac_algo or self.DEFAULT_HMAC_ALGO
 
-        if not HAS_CRYPTO:
-            raise RuntimeError("Missing dependency pycryptodome")
-
-        if isinstance(fh, Path):
-            self.cipher_path = fh
-            self.cipher_fh = fh.open("rb")
-
         if not hasattr(self.cipher_fh, "read"):
             raise ValueError("Provided file handle cannot be read from")
-
-        self.cipher_fh: BinaryIO
 
         if isinstance(passphrase, str):
             passphrase = passphrase.encode()
@@ -134,10 +135,10 @@ class SQLCipher(SQLite3):
     def __repr__(self) -> str:
         return (
             f"<{self.__class__.__name__} "
-            f"fh='{self.cipher_path or self.cipher_fh!s}' "
-            f"wal='{self.wal!s}' "
-            f"checkpoint={bool(self.checkpoint)!r} "
-            f"pages={self.header.page_count!r}>"
+            f"fh={self.cipher_path or self.cipher_fh} "
+            f"wal={self.wal} "
+            f"checkpoint={bool(self.checkpoint)} "
+            f"pages={self.header.page_count}>"
         )
 
     def close(self) -> None:
@@ -149,14 +150,14 @@ class SQLCipher(SQLite3):
 
     def stream(self) -> SQLCipherStream:
         """Create an aligned stream of :class:`SQLCipherPage` instances."""
-        return SQLCipherStream(self, self.cipher_fh, size=None, align=self.cipher_page_size)
+        return SQLCipherStream(self)
 
 
 class SQLCipherStream(AlignedStream):
-    def __init__(self, sqlcipher: SQLCipher, fh: BinaryIO, size: int | None = None, align: int = 4096):
-        super().__init__(size, align)
+    def __init__(self, sqlcipher: SQLCipher):
+        super().__init__(None, self.cipher_page_size)
         self.sqlcipher = sqlcipher
-        self.fh = fh
+        self.fh = fh.cipher_fh
         self._read_page = lru_cache(4096)(self._read_page)
 
     def _read(self, offset: int, length: int) -> bytes:
