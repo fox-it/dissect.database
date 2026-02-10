@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from functools import lru_cache
 from pathlib import Path
 from typing import BinaryIO
@@ -11,9 +12,6 @@ from dissect.util.stream import AlignedStream
 
 try:
     from Crypto.Cipher import AES
-    from Crypto.Hash import SHA1, SHA256, SHA512
-    from Crypto.Hash import new as new_hash
-    from Crypto.Protocol.KDF import PBKDF2
 
     HAS_CRYPTO = True
 
@@ -56,8 +54,8 @@ class SQLCipher(SQLite3):
 
     DEFAULT_PAGE_SIZE: int
     DEFAULT_KDF_ITER: int
-    DEFAULT_KDF_ALGO: object
-    DEFAULT_HMAC_ALGO: object
+    DEFAULT_KDF_ALGO: str
+    DEFAULT_HMAC_ALGO: str | None
 
     def __init__(
         self,
@@ -68,8 +66,8 @@ class SQLCipher(SQLite3):
         plaintext_header_size: int | None = None,
         page_size: int | None = None,
         kdf_iter: int | None = None,
-        kdf_algo: object | None = None,
-        hmac_algo: object | None = None,
+        kdf_algo: str | None = None,
+        hmac_algo: str | None = None,
         no_kdf: bool = False,
     ):
         if not HAS_CRYPTO:
@@ -99,10 +97,10 @@ class SQLCipher(SQLite3):
             raise SQLCipherError("No passphrase provided")
 
         if isinstance(self.hmac_algo, str):
-            self.hmac_algo = new_hash(self.hmac_algo)
+            self.hmac_algo = hashlib.new(self.hmac_algo)
 
         if isinstance(self.kdf_algo, str):
-            self.kdf_algo = new_hash(self.kdf_algo)
+            self.kdf_algo = hashlib.new(self.kdf_algo)
 
         # Part of the header can be plaintext. We can infer that or it can be passed upon initialization.
         # https://www.zetetic.net/sqlcipher/sqlcipher-api/#cipher_plaintext_header_size
@@ -120,7 +118,13 @@ class SQLCipher(SQLite3):
 
         self.salt = salt or header_or_salt
         self.passphrase = passphrase
-        self.key = self.passphrase if no_kdf else derive_key(self.passphrase, self.salt, self.kdf_iter, self.kdf_algo)
+
+        if no_kdf:
+            self.key = self.passphrase
+        else:
+            self.key = derive_key(
+                self.passphrase, self.salt, self.kdf_iter, self.kdf_algo.name if self.kdf_algo else None
+            )
 
         # Initialize the decrypted SQLite3 stream as a file-like object and see if that works.
         try:
@@ -172,28 +176,28 @@ class SQLCipherStream(AlignedStream):
 class SQLCipher4(SQLCipher):
     DEFAULT_PAGE_SIZE = 4096
     DEFAULT_KDF_ITER = 256_000
-    DEFAULT_KDF_ALGO = SHA512
-    DEFAULT_HMAC_ALGO = SHA512
+    DEFAULT_KDF_ALGO = "SHA512"
+    DEFAULT_HMAC_ALGO = "SHA512"
 
 
 class SQLCipher3(SQLCipher):
     DEFAULT_PAGE_SIZE = 1024
     DEFAULT_KDF_ITER = 64_000
-    DEFAULT_KDF_ALGO = SHA1
-    DEFAULT_HMAC_ALGO = SHA1
+    DEFAULT_KDF_ALGO = "SHA1"
+    DEFAULT_HMAC_ALGO = "SHA1"
 
 
 class SQLCipher2(SQLCipher):
     DEFAULT_PAGE_SIZE = 1024
     DEFAULT_KDF_ITER = 4000
-    DEFAULT_KDF_ALGO = SHA1
-    DEFAULT_HMAC_ALGO = SHA1
+    DEFAULT_KDF_ALGO = "SHA1"
+    DEFAULT_HMAC_ALGO = "SHA1"
 
 
 class SQLCipher1(SQLCipher):
     DEFAULT_PAGE_SIZE = 1024
     DEFAULT_KDF_ITER = 4000
-    DEFAULT_KDF_ALGO = SHA1
+    DEFAULT_KDF_ALGO = "SHA1"
     DEFAULT_HMAC_ALGO = None
 
 
@@ -273,10 +277,10 @@ class SQLCipherPage:
         return (header + plaintext)[self._pos : size]
 
 
-def derive_key(passphrase: bytes, salt: bytes, kdf_iter: int, kdf_algo: SHA1 | SHA256 | SHA512) -> bytes:
+def derive_key(passphrase: bytes, salt: bytes, kdf_iter: int, kdf_algo: str | None) -> bytes:
     """Derive the database key as SQLCipher would using PBKDF2."""
 
-    if not kdf_iter and not kdf_algo:
+    if not kdf_iter or not kdf_algo:
         return passphrase
 
-    return PBKDF2(passphrase, salt, 32, count=kdf_iter, hmac_hash_module=kdf_algo)
+    return hashlib.pbkdf2_hmac(kdf_algo, passphrase, salt, kdf_iter, 32)
