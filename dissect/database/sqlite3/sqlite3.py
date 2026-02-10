@@ -3,7 +3,7 @@ from __future__ import annotations
 import itertools
 import re
 from functools import lru_cache
-from io import BytesIO
+from io import BytesIO, RawIOBase
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO
 
@@ -76,7 +76,7 @@ class SQLite3:
 
     def __init__(
         self,
-        fh: Path | BinaryIO,
+        fh: Path | BinaryIO | RawIOBase,
         wal: WAL | Path | BinaryIO | None = None,
         checkpoint: Checkpoint | int | None = None,
     ):
@@ -130,6 +130,9 @@ class SQLite3:
             self.checkpoint = checkpoint
 
         self.page = lru_cache(256)(self.page)
+
+    def __repr__(self) -> str:
+        return f"<SQLite3 path='{self.path!s}' fh='{self.fh!s}' wal='{self.wal!s}' checkpoint={bool(self.checkpoint)!r} pages={self.header.page_count!r}>"  # noqa: E501
 
     def __enter__(self) -> Self:
         """Return ``self`` upon entering the runtime context."""
