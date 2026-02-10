@@ -4,15 +4,22 @@ from io import BytesIO
 from pathlib import Path
 from typing import BinaryIO
 
-from Crypto.Cipher import AES
-from Crypto.Hash import SHA1, SHA256, SHA512
-from Crypto.Hash import new as new_hash
-from Crypto.Protocol.KDF import PBKDF2
 from dissect.util.stream import MappingStream
 
 from dissect.database.sqlite3.encryption.sqlcipher.exception import SQLCipherError
 from dissect.database.sqlite3.exception import InvalidDatabase
 from dissect.database.sqlite3.sqlite3 import SQLite3
+
+try:
+    from Crypto.Cipher import AES
+    from Crypto.Hash import SHA1, SHA256, SHA512
+    from Crypto.Hash import new as new_hash
+    from Crypto.Protocol.KDF import PBKDF2
+
+    HAS_CRYPTO = True
+
+except ImportError:
+    HAS_CRYPTO = False
 
 
 class SQLCipher(SQLite3):
@@ -50,6 +57,9 @@ class SQLCipher(SQLite3):
         self.kdf_iter = kdf_iter or self.DEFAULT_KDF_ITER
         self.kdf_algo = kdf_algo or self.DEFAULT_KDF_ALGO
         self.hmac_algo = hmac_algo or self.DEFAULT_HMAC_ALGO
+
+        if not HAS_CRYPTO:
+            raise RuntimeError("Missing dependency pycryptodome")
 
         if isinstance(fh, Path):
             self.cipher_path = fh
