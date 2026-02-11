@@ -64,7 +64,7 @@ class Object:
             db: The database instance associated with this object.
             record: The :class:`Record` instance representing this object.
         """
-        if (object_classes := _get_attribute(db, record, "objectClass")) is not None and (
+        if (object_classes := _get_attribute(db, record, "objectClass")) and (
             known_cls := cls.__known_classes__.get(object_classes[0])
         ) is not None:
             return known_cls(db, record)
@@ -260,6 +260,10 @@ def _get_attribute(db: Database, record: Record, name: str, *, raw: bool = False
     if schema.is_single_valued and isinstance(value, list):
         # There are a few attributes that have the flag IsSingleValued but are marked as MultiValue in ESE
         value = value[0]
+
+    if not schema.is_single_valued and value is None:
+        # Return an empty list for multi-valued attributes that are not set
+        value = []
 
     if raw:
         return value
