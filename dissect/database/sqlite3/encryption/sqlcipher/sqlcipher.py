@@ -5,10 +5,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import BinaryIO
 
+from dissect.util.stream import AlignedStream
+
 from dissect.database.sqlite3.encryption.sqlcipher.exception import SQLCipherError
 from dissect.database.sqlite3.exception import InvalidDatabase
 from dissect.database.sqlite3.sqlite3 import SQLITE3_HEADER_MAGIC, SQLite3
-from dissect.util.stream import AlignedStream
 
 try:
     from Crypto.Cipher import AES
@@ -158,19 +159,85 @@ class SQLCipher(SQLite3):
 
 
 class SQLCipherStream(AlignedStream):
+    """Implements a transparent decryption stream in the form of an :class:`AlignedStream` based on
+    the ``page_size`` for SQLCipher databases."""
+
     def __init__(self, sqlcipher: SQLCipher):
         super().__init__(None, sqlcipher.cipher_page_size)
+
         self.fh = sqlcipher.cipher_fh
         self.sqlcipher = sqlcipher
+
         self._read_page = lru_cache(4096)(self._read_page)
 
     def _read(self, offset: int, length: int) -> bytes:
+        """Calculates which pages to read from based on the given offset and length. Returns decrypted bytes."""
+
         pages_offset = offset // self.align
         num_pages = length // self.align
         return b"".join(self._read_page(num + 1) for num in range(pages_offset, pages_offset + num_pages))
 
     def _read_page(self, page_num: int) -> bytes:
-        return SQLCipherPage(self.sqlcipher, page_num).read()
+        """Decrypt and read from the given SQLCipher page number.
+
+        References:
+            - https://github.com/sqlcipher/sqlcipher-tools/blob/master/decrypt.c
+        """
+
+        if page_num < 1:
+            raise ValueError("The first page number is 1")
+
+        fh = self.sqlcipher.cipher_fh
+        page_size = self.sqlcipher.cipher_page_size
+
+        # Calculate the absolute offset in the SQLCipher file handle by multiplying the page number with
+        # the SQLCipher page size.
+        offset = (page_num - 1) * page_size
+
+        # Calculate size of the page iv (always 16 bytes) plus the hmac digest size.
+        digest_size = self.sqlcipher.hmac_algo.digest_size if self.sqlcipher.hmac_algo else 0
+        align = 16 + digest_size
+
+        # Calculate the size of the encrypted data by substracting the iv and hmac size from the page size.
+        # The sum of the iv and hmac size needs to be adjusted to 16 byte blocks.
+        if align % 16 != 0:
+            align = (align + 15) & ~15
+        enc_size = page_size - align
+
+        # By default, the first page 'contains' the database salt (in place of SQLITE_HEAER_MAGIC) so we substract those
+        # first 16 bytes from the page size and update the ciphertext offset and size accordingly.
+        header_offset = 0
+        header = b""
+        if page_num == 1:
+            header_offset = self.sqlcipher.plaintext_header_size or 16
+            enc_size -= header_offset
+            offset += header_offset
+
+            # Prepare the plaintext header of the SQLite3 database if this is the first page, or read the plaintext
+            # header according to the plaintext_header_size variable.
+            if header_offset == 16:
+                header = SQLITE3_HEADER_MAGIC
+            elif header_offset:
+                fh.seek(0)
+                header = fh.read(header_offset)
+
+        # The last part of the page contains the iv and optionally a hmac digest.
+        fh.seek(offset + enc_size)
+        iv = fh.read(16)
+        _mac = fh.read(digest_size) if digest_size else None
+
+        fh.seek(offset)
+        ciphertext = fh.read(enc_size)
+
+        if len(iv) != 16 or not ciphertext:
+            raise EOFError
+
+        # Decrypt the ciphertext using AES CBC and append null bytes so the plaintext aligns with the page size.
+        cipher = AES.new(self.sqlcipher.key, AES.MODE_CBC, iv)
+        plaintext = cipher.decrypt(ciphertext) + (align * b"\x00")
+
+        # Return the plaintext prepended by the optional plaintext header.
+        return header + plaintext
 
 
 class SQLCipher4(SQLCipher):
@@ -199,82 +266,6 @@ class SQLCipher1(SQLCipher):
     DEFAULT_KDF_ITER = 4000
     DEFAULT_KDF_ALGO = "SHA1"
     DEFAULT_HMAC_ALGO = None
-
-
-class SQLCipherPage:
-    """Represents a single SQLCipher page. Acts as if it is a BytesIO object to read from."""
-
-    def __init__(self, sqlcipher: SQLCipher, page_num: int) -> None:
-        self.sqlcipher = sqlcipher
-        self.page_num = page_num
-        self.offset = (page_num - 1) * sqlcipher.cipher_page_size
-
-        # Calculate size of page iv (always 16 bytes) plus hmac digest size
-        self.align = 16 + (sqlcipher.hmac_algo.digest_size if sqlcipher.hmac_algo else 0)
-
-        # Calculate the size of the encrypted data by substracting the iv+hmac size
-        # from the page size. The iv+hmac size needs to be adjusted to 16 byte blocks.
-        if self.align % 16 != 0:
-            self.align = (self.align + 15) & ~15
-        self.enc_size = sqlcipher.cipher_page_size - self.align
-
-        # The first page 'contains' the database salt so substract those first 16 bytes
-        # from the page size and set the file handle forward accordingly.
-        if page_num == 1:
-            self.header_offset = sqlcipher.plaintext_header_size or 16
-            self.enc_size -= self.header_offset
-            self.offset += self.header_offset
-        else:
-            self.header_offset = 0
-
-        # The last part of the page contains the iv and optionally hmac.
-        sqlcipher.cipher_fh.seek(self.offset + self.enc_size)
-        self.iv = sqlcipher.cipher_fh.read(16)
-        self.mac = sqlcipher.cipher_fh.read(sqlcipher.hmac_algo.digest_size) if sqlcipher.hmac_algo else None
-
-        if len(self.iv) != 16:
-            raise EOFError
-
-        self._pos = 0
-
-    def __repr__(self) -> str:
-        return f"<SQLCipherPage page_num={self.page_num!r} size={self.sqlcipher.cipher_page_size}>"
-
-    def seek(self, pos: int, whence: int = 0) -> None:
-        self._pos = pos
-
-    def tell(self) -> int:
-        return self._pos
-
-    def read(self, size: int | None = None) -> bytes:
-        """Plaintext reader of this page."""
-
-        if size == -1:
-            size = None
-
-        self.sqlcipher.cipher_fh.seek(self.offset)
-        encrypted = self.sqlcipher.cipher_fh.read(self.enc_size)
-
-        # We could have reached the end of the database if no more pages are left to read.
-        if not encrypted:
-            raise EOFError
-
-        cipher = AES.new(self.sqlcipher.key, AES.MODE_CBC, self.iv)
-
-        # Append null bytes so the plaintext aligns with the page size.
-        # https://github.com/sqlcipher/sqlcipher-tools/blob/master/decrypt.c
-        plaintext = cipher.decrypt(encrypted) + (self.align * b"\x00")
-
-        # Prepend the plaintext header of the SQLite3 database if this is the first page.
-        if self.header_offset == 16:
-            header = SQLITE3_HEADER_MAGIC
-        elif self.header_offset:
-            self.sqlcipher.cipher_fh.seek(0)
-            header = self.sqlcipher.cipher_fh.read(self.header_offset)
-        else:
-            header = b""
-
-        return (header + plaintext)[self._pos : size]
 
 
 def derive_key(passphrase: bytes, salt: bytes, kdf_iter: int, kdf_algo: str | None) -> bytes:
