@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 from functools import lru_cache
 from pathlib import Path
 from typing import BinaryIO
@@ -27,7 +28,6 @@ class SQLCipher(SQLite3):
     or :class:`SQLCipher1`.
 
     Decrypts a SQLCipher database from the given path or file-like oject.
-    HMAC key derivation and tag verification is currently not implemented.
 
     Example usage:
         >>> from dissect.database.sqlite3.encryption import SQLCipher4
@@ -44,6 +44,7 @@ class SQLCipher(SQLite3):
         kdf_algo (str | hashlib._Hash): Override KDF digest alrorithm.
         hmac_algo (str | hashlib._Hash): Override HMAC digest algorithm.
         no_kdf (bool): Disable KDF from passphrase, use as raw key.
+        verify_hmac (bool): Optionally verify digest of every page.
 
     Raises:
         SQLCipherError: If decryption failed using the provided arguments.
@@ -70,6 +71,7 @@ class SQLCipher(SQLite3):
         kdf_algo: str | None = None,
         hmac_algo: str | None = None,
         no_kdf: bool = False,
+        verify_hmac: bool = False,
     ):
         if not HAS_CRYPTO:
             raise RuntimeError("Missing dependency pycryptodome")
@@ -87,6 +89,7 @@ class SQLCipher(SQLite3):
         self.kdf_iter = kdf_iter or self.DEFAULT_KDF_ITER
         self.kdf_algo = kdf_algo or self.DEFAULT_KDF_ALGO
         self.hmac_algo = hmac_algo or self.DEFAULT_HMAC_ALGO
+        self.verify_hmac = verify_hmac
 
         if not hasattr(self.cipher_fh, "read"):
             raise ValueError("Provided file handle cannot be read from")
@@ -127,10 +130,14 @@ class SQLCipher(SQLite3):
                 self.passphrase, self.salt, self.kdf_iter, self.kdf_algo.name if self.kdf_algo else None
             )
 
+        # The hmac key is derived using the raw or derived database key with it's own salt and two kdf iterations.
+        self.hmac_salt = bytes(i ^ 0x3A for i in self.salt)
+        self.hmac_key = derive_key(self.key, self.hmac_salt, 2, self.hmac_algo.name if self.hmac_algo else None)
+
         # Initialize the decrypted SQLite3 stream as a file-like object and see if that works.
         try:
             super().__init__(self.stream(), wal=None, checkpoint=None)
-        except InvalidDatabase as e:
+        except (InvalidDatabase, SQLCipherError) as e:
             raise SQLCipherError("Decryption of SQLCipher database failed or is not a database") from e
 
         # Sanity check to prevent further issues down the line.
@@ -175,9 +182,12 @@ class SQLCipherStream(AlignedStream):
 
         pages_offset = offset // self.align
         num_pages = length // self.align
-        return b"".join(self._read_page(num + 1) for num in range(pages_offset, pages_offset + num_pages))
+        return b"".join(
+            self._read_page(num + 1, self.sqlcipher.verify_hmac)
+            for num in range(pages_offset, pages_offset + num_pages)
+        )
 
-    def _read_page(self, page_num: int) -> bytes:
+    def _read_page(self, page_num: int, verify_hmac: bool = False) -> bytes:
         """Decrypt and read from the given SQLCipher page number.
 
         References:
@@ -195,7 +205,8 @@ class SQLCipherStream(AlignedStream):
         offset = (page_num - 1) * page_size
 
         # Calculate size of the page iv (always 16 bytes) plus the hmac digest size.
-        digest_size = self.sqlcipher.hmac_algo.digest_size if self.sqlcipher.hmac_algo else 0
+        hmac_algo = self.sqlcipher.hmac_algo
+        digest_size = hmac_algo.digest_size if hmac_algo else 0
         align = 16 + digest_size
 
         # Calculate the size of the encrypted data by substracting the iv and hmac size from the page size.
@@ -224,13 +235,26 @@ class SQLCipherStream(AlignedStream):
         # The last part of the page contains the iv and optionally a hmac digest.
         fh.seek(offset + enc_size)
         iv = fh.read(16)
-        _mac = fh.read(digest_size) if digest_size else None
+        page_hmac = fh.read(digest_size) if digest_size else None
 
         fh.seek(offset)
         ciphertext = fh.read(enc_size)
 
         if len(iv) != 16 or not ciphertext:
             raise EOFError
+
+        # Optionally verify the hmac signature with the page's ciphertext. Assumes default CIPHER_FLAG_LE_PGNO.
+        # https://github.com/sqlcipher/sqlcipher-tools/blob/master/verify.c
+        # https://github.com/sqlcipher/sqlcipher/blob/master/src/sqlcipher.c @ sqlcipher_page_hmac
+        if verify_hmac:
+            if not hmac_algo:
+                raise ValueError("verify_hmac is set to True but no HMAC algorithm is selected")
+
+            hmac_msg = ciphertext + iv + page_num.to_bytes(4, "little")
+            calc_hmac = hmac.digest(self.sqlcipher.hmac_key, hmac_msg, hmac_algo.name)
+
+            if calc_hmac != page_hmac:
+                raise SQLCipherError(f"HMAC digest mismatch for page {page_num}")
 
         # Decrypt the ciphertext using AES CBC and append null bytes so the plaintext aligns with the page size.
         cipher = AES.new(self.sqlcipher.key, AES.MODE_CBC, iv)

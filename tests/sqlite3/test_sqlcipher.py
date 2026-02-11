@@ -41,9 +41,9 @@ def _assert_sqlite_db(sqlite: SQLite3) -> None:
     ("cipher", "kwargs", "path_str"),
     [
         # Defaults per major version
-        pytest.param(SQLCipher4, {}, "aes256_hmac_sha512_kdf_256000.sqlite", id="version-4-default"),
-        pytest.param(SQLCipher3, {}, "aes256_hmac_sha1_kdf_64000.sqlite", id="version-3-default"),
-        pytest.param(SQLCipher2, {}, "aes256_hmac_sha1_kdf_4000.sqlite", id="version-2-default"),
+        pytest.param(SQLCipher4, {"verify_hmac": True}, "aes256_hmac_sha512_kdf_256000.sqlite", id="version-4-default"),
+        pytest.param(SQLCipher3, {"verify_hmac": True}, "aes256_hmac_sha1_kdf_64000.sqlite", id="version-3-default"),
+        pytest.param(SQLCipher2, {"verify_hmac": True}, "aes256_hmac_sha1_kdf_4000.sqlite", id="version-2-default"),
         pytest.param(SQLCipher1, {}, "aes256_hmac_none_kdf_4000.sqlite", id="version-1-default"),
         # Custom parameters
         pytest.param(
@@ -92,5 +92,5 @@ def test_decrypt_community_plaintext_header() -> None:
     with pytest.raises(SQLCipherError, match="Decryption of SQLCipher database failed"):
         SQLCipher4(path, "invalid passphrase", salt=salt)
 
-    sqlcipher = SQLCipher4(path, "passphrase", salt=salt)
+    sqlcipher = SQLCipher4(path, "passphrase", salt=salt, verify_hmac=True)
     _assert_sqlite_db(sqlcipher)
