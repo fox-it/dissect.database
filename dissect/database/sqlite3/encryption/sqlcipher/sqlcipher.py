@@ -41,8 +41,8 @@ class SQLCipher(SQLite3):
         plaintext_header_size (int): Size of plaintext header to use.
         page_size (int): Override size of each page.
         kdf_iter (int): Override amount of KDF iterations.
-        kdf_algo (str | Crypto.Hash): Override KDF digest alrorithm.
-        hmac_algo (str | Crypto.Hash): Override HMAC digest algorithm.
+        kdf_algo (str | hashlib._Hash): Override KDF digest alrorithm.
+        hmac_algo (str | hashlib._Hash): Override HMAC digest algorithm.
         no_kdf (bool): Disable KDF from passphrase, use as raw key.
 
     Raises:
