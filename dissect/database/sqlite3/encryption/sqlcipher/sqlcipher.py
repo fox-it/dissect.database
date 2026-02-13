@@ -161,13 +161,12 @@ class SQLCipher(SQLite3):
             self.cipher_fh.close()
 
     def stream(self) -> SQLCipherStream:
-        """Create an aligned stream of :class:`SQLCipherPage` instances."""
+        """Create a transparent decryption stream."""
         return SQLCipherStream(self)
 
 
 class SQLCipherStream(AlignedStream):
-    """Implements a transparent decryption stream in the form of an :class:`AlignedStream` based on
-    the ``page_size`` for SQLCipher databases."""
+    """Implements a transparent decryption stream for SQLCipher databases."""
 
     def __init__(self, sqlcipher: SQLCipher):
         super().__init__(None, sqlcipher.cipher_page_size)
@@ -180,11 +179,10 @@ class SQLCipherStream(AlignedStream):
     def _read(self, offset: int, length: int) -> bytes:
         """Calculates which pages to read from based on the given offset and length. Returns decrypted bytes."""
 
-        pages_offset = offset // self.align
+        start_page = offset // self.align
         num_pages = length // self.align
         return b"".join(
-            self._read_page(num + 1, self.sqlcipher.verify_hmac)
-            for num in range(pages_offset, pages_offset + num_pages)
+            self._read_page(num + 1, self.sqlcipher.verify_hmac) for num in range(start_page, start_page + num_pages)
         )
 
     def _read_page(self, page_num: int, verify_hmac: bool = False) -> bytes:
@@ -254,7 +252,9 @@ class SQLCipherStream(AlignedStream):
             calc_hmac = hmac.digest(self.sqlcipher.hmac_key, hmac_msg, hmac_algo.name)
 
             if calc_hmac != page_hmac:
-                raise SQLCipherError(f"HMAC digest mismatch for page {page_num}")
+                raise SQLCipherError(
+                    f"HMAC digest mismatch for page {page_num} (expected {page_hmac.hex()}, got {calc_hmac.hex()})"
+                )
 
         # Decrypt the ciphertext using AES CBC and append null bytes so the plaintext aligns with the page size.
         cipher = AES.new(self.sqlcipher.key, AES.MODE_CBC, iv)
