@@ -268,4 +268,4 @@ def _get_attribute(db: Database, record: Record, name: str, *, raw: bool = False
     if raw:
         return value
 
-    return decode_value(db, name, value)
+    return decode_value(db, schema, value)
