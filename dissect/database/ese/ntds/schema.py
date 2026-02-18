@@ -4,11 +4,8 @@ from io import BytesIO
 from typing import TYPE_CHECKING, NamedTuple
 
 from dissect.database.ese.ntds.c_ds import c_ds
-from dissect.database.ese.ntds.objects.object import Object
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-
     from dissect.database.ese.ntds.database import Database
     from dissect.database.ese.ntds.util import SearchFlags
 
@@ -51,6 +48,8 @@ BOOTSTRAP_ATTRIBUTES = [
     ("searchFlags", 131406, 0x00080009, True),  # ATTj131406
     # Class schema
     ("governsID", 131094, 0x00080002, True),  # ATTc131094
+    # DSA attributes
+    ("dMDLocation", 131108, 0x00080001, True),  # ATTb131108
 ]
 
 # For convenience, bootstrap some common object classes
@@ -200,45 +199,38 @@ class Schema:
             db: The database instance to load the schema from.
         """
 
-        def _iter(id: int) -> Iterator[Object]:
-            # Use the ATTc0 (objectClass) index to iterate over all objects of the given objectClass
-            # TODO: In the future, maybe use `DataTable._get_index`, but that's not fully implemented yet
-            cursor = db.data.table.index("INDEX_00000000").cursor()
-            end = cursor.seek([id + 1]).record()
-
-            cursor.reset()
-            cursor.seek([id])
-
-            record = cursor.record()
-            while record is not None and record != end:
-                yield Object.from_record(db, record)
-                record = cursor.next()
+        # Load the schema entries from the DMD object
+        # This _should_ have all the attribute and class schema entries
+        # We used to perform an index search on objectClass (ATTc0, INDEX_00000000), but apparently
+        # not all databases have this index
+        dmd = db.data.dmd()
 
         # We bootstrapped these earlier
         attribute_schema = self.lookup_class(name="attributeSchema")
         class_schema = self.lookup_class(name="classSchema")
 
-        # Load all attributes
-        for obj in _iter(attribute_schema.id):
-            self._add_attribute(
-                dnt=obj.dnt,
-                id=obj.get("attributeID", raw=True),
-                name=obj.get("lDAPDisplayName"),
-                syntax=obj.get("attributeSyntax", raw=True),
-                om_syntax=obj.get("oMSyntax"),
-                om_object_class=obj.get("oMObjectClass"),
-                is_single_valued=obj.get("isSingleValued"),
-                link_id=obj.get("linkId"),
-                search_flags=obj.get("searchFlags"),
-            )
+        for obj in dmd.children():
+            # Get as raw to avoid decoding the attribute and class schema entries before we know which is which
+            classes = obj.get("objectClass", raw=True)
+            if attribute_schema.id in classes:
+                self._add_attribute(
+                    dnt=obj.dnt,
+                    id=obj.get("attributeID", raw=True),
+                    name=obj.get("lDAPDisplayName"),
+                    syntax=obj.get("attributeSyntax", raw=True),
+                    om_syntax=obj.get("oMSyntax"),
+                    om_object_class=obj.get("oMObjectClass"),
+                    is_single_valued=obj.get("isSingleValued"),
+                    link_id=obj.get("linkId"),
+                    search_flags=obj.get("searchFlags"),
+                )
 
-        # Load all classes
-        for obj in _iter(class_schema.id):
-            self._add_class(
-                dnt=obj.dnt,
-                id=obj.get("governsID", raw=True),
-                name=obj.get("lDAPDisplayName"),
-            )
+            elif class_schema.id in classes:
+                self._add_class(
+                    dnt=obj.dnt,
+                    id=obj.get("governsID", raw=True),
+                    name=obj.get("lDAPDisplayName"),
+                )
 
         # Load user-defined OID prefixes
         if (prefix_map := db.data.dmd().get("prefixMap")) is not None:
