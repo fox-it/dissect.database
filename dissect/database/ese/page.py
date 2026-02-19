@@ -49,6 +49,9 @@ class Page:
         self._node_cls = LeafNode if self.is_leaf else BranchNode
         self._node_cache = {}
 
+    def __repr__(self) -> str:
+        return f"<Page num={self.num:d} flags={self.flags.name} nodes={self.node_count}>"
+
     @cached_property
     def is_small_page(self) -> bool:
         return self.db.has_small_pages
@@ -123,7 +126,7 @@ class Page:
             IndexError: If the node number is out of bounds.
         """
         if num < 0 or num > self.node_count - 1:
-            raise IndexError(f"Node number exceeds boundaries: 0-{self.node_count - 1}")
+            raise IndexError(f"Node number exceeds boundaries 0-{self.node_count - 1}: {num}")
 
         if num not in self._node_cache:
             self._node_cache[num] = self._node_cls(self.tag(num + 1))
@@ -160,9 +163,6 @@ class Page:
 
         if self.is_root and leaf and leaf.tag.page.next_page:
             yield from db.page(leaf.tag.page.next_page).iter_leaf_nodes()
-
-    def __repr__(self) -> str:
-        return f"<Page num={self.num:d}>"
 
 
 class Tag:

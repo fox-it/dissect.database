@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from dissect.database.ese.btree import BTree
-from dissect.database.ese.exception import KeyNotFoundError, NoNeighbourPageError
+from dissect.database.ese.exception import KeyNotFoundError
 from dissect.database.ese.record import Record
 
 if TYPE_CHECKING:
@@ -11,8 +10,9 @@ if TYPE_CHECKING:
 
     from typing_extensions import Self
 
+    from dissect.database.ese.ese import ESE
     from dissect.database.ese.index import Index
-    from dissect.database.ese.page import Node
+    from dissect.database.ese.page import Node, Page
     from dissect.database.ese.util import RecordValue
 
 
@@ -28,10 +28,13 @@ class Cursor:
         self.table = index.table
         self.db = index.db
 
-        self._primary = BTree(self.db, index.root)
-        self._secondary = None if index.is_primary else BTree(self.db, self.table.root)
+        self._primary = RawCursor(self.db, index.root)
+        self._secondary = None if index.is_primary else RawCursor(self.db, self.table.root)
 
     def __iter__(self) -> Iterator[Record]:
+        if self._primary._page.is_branch:
+            self._primary.first()
+
         record = self.record()
         while record is not None:
             yield record
@@ -44,9 +47,9 @@ class Cursor:
             A :class:`~dissect.database.ese.page.Node` object of the current node.
         """
         node = self._primary.node()
-        if self._secondary:
+        if self._secondary is not None:
             self._secondary.reset()
-            node = self._secondary.search(node.data.tobytes(), exact=True)
+            node = self._secondary.search(node.data.tobytes(), exact=True).node()
         return node
 
     def record(self) -> Record:
@@ -67,30 +70,22 @@ class Cursor:
     def next(self) -> Record | None:
         """Move the cursor to the next record and return it.
 
-        Can move the cursor to the next page as a side effect.
-
         Returns:
             A :class:`~dissect.database.ese.record.Record` object of the next record.
         """
-        try:
-            self._primary.next()
-        except NoNeighbourPageError:
-            return None
-        return self.record()
+        if self._primary.next():
+            return self.record()
+        return None
 
     def prev(self) -> Record | None:
         """Move the cursor to the previous node and return it.
 
-        Can move the cursor to the previous page as a side effect.
-
         Returns:
             A :class:`~dissect.database.ese.record.Record` object of the previous record.
         """
-        try:
-            self._primary.prev()
-        except NoNeighbourPageError:
-            return None
-        return self.record()
+        if self._primary.prev():
+            return self.record()
+        return None
 
     def make_key(self, *args: RecordValue, **kwargs: RecordValue) -> bytes:
         """Generate a key for this index from the given values.
@@ -137,7 +132,7 @@ class Cursor:
             exact: If ``True``, search for an exact match. If ``False``, sets the cursor on the
                    next record that is greater than or equal to the key.
         """
-        self._primary.search(key, exact)
+        self._primary.search(key, exact=exact)
         return self.record()
 
     def seek(self, *args: RecordValue, **kwargs: RecordValue) -> Self:
@@ -189,18 +184,6 @@ class Cursor:
             return
 
         current_key = self._primary.node().key
-
-        # Check if we need to move the cursor back to find the first record
-        while True:
-            if current_key != self._primary.node().key:
-                self._primary.next()
-                break
-
-            try:
-                self._primary.prev()
-            except NoNeighbourPageError:
-                break
-
         while True:
             # Entries with the same indexed columns are guaranteed to be adjacent
             if current_key != self._primary.node().key:
@@ -224,7 +207,222 @@ class Cursor:
             else:
                 yield record
 
-            try:
-                self._primary.next()
-            except NoNeighbourPageError:
+            if not self._primary.next():
                 break
+
+
+class RawCursor:
+    """A simple implementation for searching the ESE B+Trees on their raw nodes.
+
+    Args:
+        db: An instance of :class:`~dissect.database.ese.ese.ESE`.
+        page: The page to open the :class:`BTree` on.
+    """
+
+    def __init__(self, db: ESE, root: Page | int):
+        self.db = db
+        self.root = db.page(root) if isinstance(root, int) else root
+
+        self._page = root
+        self._idx = 0
+        self._stack = []
+
+    @property
+    def state(self) -> tuple[Page, int, list[tuple[Page, int]]]:
+        """Get the current cursor state."""
+        return self._page, self._idx, self._stack[:]
+
+    @state.setter
+    def state(self, value: tuple[Page, int, list[tuple[Page, int]]]) -> None:
+        """Set the current cursor state."""
+        self._page, self._idx, self._stack = value[0], value[1], value[2][:]
+
+    def reset(self) -> Self:
+        """Reset the cursor to the root of the B+Tree."""
+        self._page = self.root
+        self._idx = 0
+        self._stack = []
+
+        return self
+
+    def node(self) -> Node:
+        """Return the node the cursor is currently on.
+
+        Returns:
+            A :class:`~dissect.database.ese.page.Node` object of the current node.
+        """
+        return self._page.node(self._idx)
+
+    def first(self) -> bool:
+        """Move the cursor to the first leaf node in the B+Tree."""
+        self.reset()
+        while self._page.is_branch:
+            self.push()
+
+        return self._page.node_count != 0
+
+    def last(self) -> bool:
+        """Move the cursor to the last leaf node in the B+Tree."""
+        self.reset()
+        while self._page.is_branch:
+            self._idx = self._page.node_count - 1
+            self.push()
+
+        self._idx = self._page.node_count - 1
+        return self._page.node_count != 0
+
+    def next(self) -> bool:
+        """Move the cursor to the next leaf node."""
+        if self._page.is_branch:
+            # Treat as if we were at the first node
+            self.first()
+            return self._page.node_count != 0
+
+        if self._idx + 1 < self._page.node_count:
+            self._idx += 1
+        elif self._stack:
+            # End of current page, traverse to the next leaf page
+
+            # First pop until we find a page with unvisited nodes
+            while self._idx + 1 >= self._page.node_count:
+                if not self._stack:
+                    return False
+                self.pop()
+
+            self._idx += 1
+
+            # Then push down to the next page
+            while self._page.is_branch:
+                self.push()
+        else:
+            return False
+
+        return True
+
+    def prev(self) -> bool:
+        """Move the cursor to the previous leaf node."""
+        if self._page.is_branch:
+            # Treat as if we were at the last node
+            self.last()
+            return self._page.node_count != 0
+
+        if self._idx - 1 >= 0:
+            self._idx -= 1
+        elif self._stack:
+            # Start of current page, traverse to the previous leaf page
+
+            # First pop until we find a page with unvisited nodes
+            while self._idx - 1 < 0:
+                if not self._stack:
+                    # Start of B+Tree reached
+                    return False
+                self.pop()
+
+            self._idx -= 1
+
+            # Then push down to the rightmost leaf
+            while self._page.is_branch:
+                self._idx = self._page.node_count - 1
+                self.push()
+        else:
+            # Start of B+Tree reached
+            return False
+
+        return True
+
+    def push(self) -> Self:
+        """Push down to the child page at the current index."""
+        child_page = self.db.page(self._page.node(self._idx).child)
+
+        self._stack.append((self._page, self._idx))
+        self._page = child_page
+        self._idx = 0
+
+        return self
+
+    def pop(self) -> Self:
+        """Pop back to the parent page."""
+        if not self._stack:
+            raise IndexError("Cannot pop from an empty stack")
+
+        self._page, self._idx = self._stack.pop()
+
+        return self
+
+    def walk(self) -> Iterator[Node]:
+        """Walk the B+Tree in order, yielding nodes."""
+        if self.first():
+            yield self.node()
+
+            while self.next():
+                yield self.node()
+
+    def search(self, key: bytes, *, exact: bool = True) -> Self:
+        """Search the tree for the given ``key``.
+
+        Moves the cursor to the matching node, or on the last node that is less than the requested key.
+
+        Args:
+            key: The key to search for.
+            exact: Whether to only return successfully on an exact match.
+
+        Raises:
+            KeyNotFoundError: If an ``exact`` match was requested but not found.
+        """
+        while self._page.is_branch:
+            self._idx = find_node(self._page, key, exact=False)
+            self.push()
+
+        self._idx = find_node(self._page, key, exact=exact)
+        if self._idx >= self._page.node_count or self._idx == -1:
+            raise KeyNotFoundError(f"Key not found: {key!r}")
+
+        return self
+
+
+def find_node(page: Page, key: bytes, *, exact: bool) -> int:
+    """Search a page for a node matching ``key``.
+
+    Referencing Extensible-Storage-Engine source, they bail out early if they find an exact match.
+    However, we prefer to always find the _first_ node that is greater than or equal to the key,
+    so we can handle cases where there are duplicate index keys. This is important for "range" searches
+    where we want to find all keys matching a certain prefix, and not end up somewhere in the middle of the range.
+
+    Args:
+        page: The page to search.
+        key: The key to search.
+        exact: Whether to only return successfully on an exact match.
+
+    Returns:
+        The node number of the first node that's greater than or equal to the key.
+    """
+    lo, hi = 0, page.node_count - 1
+    res = 0
+
+    node = None
+    while lo < hi:
+        mid = (lo + hi) // 2
+        node = page.node(mid)
+
+        # It turns out that the way BTree keys are compared matches 1:1 with how Python compares bytes
+        # First compare data, then length
+        res = (key < node.key) - (key > node.key)
+
+        if res < 0:
+            lo = mid + 1
+        else:
+            hi = mid
+
+    # Final comparison on the last node
+    node = page.node(lo)
+    res = (key < node.key) - (key > node.key)
+
+    if page.is_branch and res == 0:
+        # If there's an exact match on a key on a branch page, the actual leaf nodes are in the next branch
+        # Page keys for branch pages appear to be non-inclusive upper bounds
+        lo = min(lo + 1, page.node_count - 1)
+
+    if exact and res != 0:
+        return -1
+
+    return lo

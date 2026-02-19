@@ -5,14 +5,13 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from dissect.database.ese import compression
-from dissect.database.ese.btree import BTree
 from dissect.database.ese.c_ese import (
     CODEPAGE,
     FIELDFLAG,
     SYSOBJ,
     JET_coltyp,
 )
-from dissect.database.ese.exception import NoNeighbourPageError
+from dissect.database.ese.cursor import RawCursor
 from dissect.database.ese.index import Index
 from dissect.database.ese.record import Record
 from dissect.database.ese.util import COLUMN_TYPE_MAP, ColumnType, RecordValue
@@ -189,19 +188,16 @@ class Table:
             key: The lookup key for the long value.
         """
         rkey = key[::-1]
-        btree = BTree(self.db, self.lv_page)
-        header = btree.search(rkey)
+        cursor = RawCursor(self.db, self.lv_page)
+        header = cursor.search(rkey).node()
 
         _, size = struct.unpack("<2I", header.data)
         chunks = []
         chunk_offsets = []
 
-        while True:
-            try:
-                node = btree.next()
-                if not node.key.startswith(rkey):
-                    break
-            except NoNeighbourPageError:
+        while cursor.next():
+            node = cursor.node()
+            if not node.key.startswith(rkey):
                 break
 
             chunks.append(node.data)
