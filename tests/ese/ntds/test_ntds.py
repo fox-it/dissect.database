@@ -229,7 +229,7 @@ def test_object_repr(goad: NTDS) -> None:
     """Test the ``__repr__`` methods of User, Computer, Object and Group classes."""
     object = next(goad.search(sAMAccountName="Administrator"))
     assert isinstance(object, User)
-    assert repr(object) == "<User name='Administrator' sam_account_name='Administrator' is_machine_account=False>"
+    assert repr(object) == "<User name='Administrator' sam_account_name='Administrator' is_machine_account=False>" # noqa: E501
 
     object = next(goad.search(sAMAccountName="KINGSL*"))
     assert isinstance(object, Computer)
