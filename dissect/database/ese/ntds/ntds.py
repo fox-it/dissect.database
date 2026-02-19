@@ -80,7 +80,7 @@ class NTDS:
 
     def users(self) -> Iterator[User]:
         """Get all user objects from the database."""
-        yield from self.search(objectCategory="person")
+        yield from self.search(objectCategory="person", objectClass="user")
 
     def computers(self) -> Iterator[Computer]:
         """Get all computer objects from the database."""
