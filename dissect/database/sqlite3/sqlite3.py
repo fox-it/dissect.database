@@ -135,7 +135,7 @@ class SQLite3:
         self.page = lru_cache(256)(self.page)
 
     def __repr__(self) -> str:
-        return f"<SQLite3 path={self.path!s} fh={self.fh!s} wal={self.wal!s} checkpoint={bool(self.checkpoint)!r} pages={self.header.page_count!r}>"  # noqa: E501
+        return f"<SQLite3 path={self.path} fh={self.fh} wal={self.wal} checkpoint={bool(self.checkpoint)} pages={self.page_count}>"  # noqa: E501
 
     def __enter__(self) -> Self:
         """Return ``self`` upon entering the runtime context."""
