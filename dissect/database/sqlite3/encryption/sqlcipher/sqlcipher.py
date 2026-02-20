@@ -150,7 +150,7 @@ class SQLCipher(SQLite3):
             f"fh={self.cipher_path or self.cipher_fh} "
             f"wal={self.wal} "
             f"checkpoint={bool(self.checkpoint)} "
-            f"pages={self.header.page_count}>"
+            f"pages={self.page_count}>"
         )
 
     def close(self) -> None:
