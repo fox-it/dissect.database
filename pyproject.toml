@@ -66,6 +66,14 @@ dev = [
     {include-group = "debug"},
 ]
 
+[project.scripts]
+dissect-ntds = "dissect.database.ese.ntds.tools.ntds:main"
+dissect-ual = "dissect.database.ese.tools.ual:main"
+dissect-sru = "dissect.database.ese.tools.sru:main"
+dissect-certlog = "dissect.database.ese.tools.certlog:main"
+dissect-rpm = "dissect.database.bsd.tools.rpm:main"
+dissect-impacket = "dissect.database.ese.tools.impacket:main"
+
 [tool.ruff]
 line-length = 120
 required-version = ">=0.13.1"

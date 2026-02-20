@@ -64,10 +64,15 @@ class Object:
             db: The database instance associated with this object.
             record: The :class:`Record` instance representing this object.
         """
-        if (object_classes := _get_attribute(db, record, "objectClass")) and (
-            known_cls := cls.__known_classes__.get(object_classes[0])
-        ) is not None:
-            return known_cls(db, record)
+        try:
+            if (object_classes := _get_attribute(db, record, "objectClass")) and (
+                known_cls := cls.__known_classes__.get(object_classes[0])
+            ) is not None:
+                return known_cls(db, record)
+        except ValueError:
+            # Resolving the objectClass values can fail if the schema is not loaded yet (or is malformed)
+            # Fallback to a generic Object in that case
+            pass
 
         return cls(db, record)
 
@@ -268,4 +273,4 @@ def _get_attribute(db: Database, record: Record, name: str, *, raw: bool = False
     if raw:
         return value
 
-    return decode_value(db, name, value)
+    return decode_value(db, schema, value)

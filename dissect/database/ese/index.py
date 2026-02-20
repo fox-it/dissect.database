@@ -282,7 +282,7 @@ def _encode_text(index: Index, column: Column, value: str, max_size: int) -> byt
     else:
         # Unicode strings == LCMapStringW
         flags = index.record.get("LCMapFlags")
-        locale = index.record.get("LocaleName").decode("utf-16-le")
+        locale = local_name.decode("utf-16-le") if (local_name := index.record.get("LocaleName")) is not None else ""
         segment = map_string(value, flags, locale)
         key += segment[:max_size]
 

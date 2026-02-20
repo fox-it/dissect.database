@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from dissect.database.ese.ntds.objects import Computer, Group, Server, SubSchema, User
+from dissect.database.ese.ntds.objects import Computer, Group, GroupPolicyContainer, Server, SubSchema, User
 from dissect.database.ese.ntds.util import SAMAccountType
 
 if TYPE_CHECKING:
@@ -262,3 +262,16 @@ def test_all_memberships(large: NTDS) -> None:
     for user in large.users():
         # Just iterate all memberships to see if any errors occur
         list(user.groups())
+
+
+def test_group_policies(goad: NTDS) -> None:
+    gpos: list[GroupPolicyContainer] = sorted(goad.group_policies(), key=lambda x: x.distinguished_name)
+    assert len(gpos) == 5
+    assert isinstance(gpos[0], GroupPolicyContainer)
+    assert [x.distinguished_name for x in gpos] == [
+        "CN={117DC7AC-6832-4B21-ABFD-C56679BC3626},CN=POLICIES,CN=SYSTEM,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN={31B2F340-016D-11D2-945F-00C04FB984F9},CN=POLICIES,CN=SYSTEM,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN={31B2F340-016D-11D2-945F-00C04FB984F9},CN=POLICIES,CN=SYSTEM,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN={6AC1786C-016F-11D2-945F-00C04FB984F9},CN=POLICIES,CN=SYSTEM,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "CN={6AC1786C-016F-11D2-945F-00C04FB984F9},CN=POLICIES,CN=SYSTEM,DC=SEVENKINGDOMS,DC=LOCAL",
+    ]

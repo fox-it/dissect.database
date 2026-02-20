@@ -83,7 +83,7 @@ class Query:
                 raise NotImplementedError("Wildcards in the middle or start of the value are not yet supported")
         else:
             # Exact match query
-            encoded_value = encode_value(self.db, filter.attribute, filter.value)
+            encoded_value = encode_value(self.db, schema, filter.value)
             yield from index.cursor().find_all(**{schema.column: encoded_value})
 
     def _process_and_operation(self, filter: SearchFilter, records: list[Record] | None) -> Iterator[Record]:
@@ -132,11 +132,10 @@ class Query:
         Yields:
             Records that match the filter criteria.
         """
-        encoded_value = encode_value(self.db, filter.attribute, filter.value)
-        schema = self.db.data.schema.lookup_attribute(name=filter.attribute)
-
-        if schema is None:
+        if (schema := self.db.data.schema.lookup_attribute(name=filter.attribute)) is None:
             return
+
+        encoded_value = encode_value(self.db, schema, filter.value)
 
         has_wildcard = "*" in filter.value
         wildcard_prefix = filter.value.replace("*", "").lower() if has_wildcard else None

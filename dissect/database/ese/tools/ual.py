@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import ipaddress
+import json
 from collections.abc import Iterator
 from pathlib import Path
 from typing import BinaryIO
@@ -89,6 +90,7 @@ def convert_day_num_to_date(year: int, day_num: int) -> datetime.datetime:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="dissect.database.ese UAL parser")
+    parser.add_argument("-j", "--json", action="store_true", default=False, help="output in JSON format")
     parser.add_argument("input", help="UAL database to read")
     args = parser.parse_args()
 
@@ -100,7 +102,10 @@ def main() -> None:
                 continue
 
             for record in parser.get_table_records(table.name):
-                print(record)
+                if args.json:
+                    print(json.dumps(record, default=str))
+                else:
+                    print(record)
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ from dissect.database.ese.ntds.database import Database
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from dissect.database.ese.ntds.objects import Computer, DomainDNS, Group, Object, Server, User
+    from dissect.database.ese.ntds.objects import Computer, DomainDNS, Group, GroupPolicyContainer, Object, Server, User
     from dissect.database.ese.ntds.objects.trusteddomain import TrustedDomain
     from dissect.database.ese.ntds.pek import PEK
 
@@ -80,7 +80,7 @@ class NTDS:
 
     def users(self) -> Iterator[User]:
         """Get all user objects from the database."""
-        yield from self.search(objectCategory="person")
+        yield from self.search(objectCategory="person", objectClass="user")
 
     def computers(self) -> Iterator[Computer]:
         """Get all computer objects from the database."""
@@ -89,3 +89,7 @@ class NTDS:
     def trusts(self) -> Iterator[TrustedDomain]:
         """Get all trust objects from the database."""
         yield from self.search(objectClass="trustedDomain")
+
+    def group_policies(self) -> Iterator[GroupPolicyContainer]:
+        """Get all group policy objects (GPO) objects from the database."""
+        yield from self.search(objectClass="groupPolicyContainer")
