@@ -223,7 +223,7 @@ class RawCursor:
         self.db = db
         self.root = db.page(root) if isinstance(root, int) else root
 
-        self._page = root
+        self._page = self.root
         self._idx = 0
         self._stack = []
 
@@ -396,6 +396,9 @@ def find_node(page: Page, key: bytes, *, exact: bool) -> int:
     Returns:
         The node number of the first node that's greater than or equal to the key.
     """
+    if page.node_count == 0:
+        return -1
+
     lo, hi = 0, page.node_count - 1
     res = 0
 

@@ -152,7 +152,7 @@ class Query:
 
             if isinstance(record_value, list):
                 # Currently assume that we can only search for single values, not lists
-                if has_wildcard and isinstance(record_value[0], str):
+                if has_wildcard and record_value and isinstance(record_value[0], str):
                     if any(re_encoded_value.match(rv) for rv in record_value):
                         yield record
                 elif encoded_value in record_value:
