@@ -48,7 +48,6 @@ class Cursor:
         """
         node = self._primary.node()
         if self._secondary is not None:
-            self._secondary.reset()
             node = self._secondary.search(node.data.tobytes(), exact=True).node()
         return node
 
@@ -256,7 +255,7 @@ class RawCursor:
     def first(self) -> bool:
         """Move the cursor to the first leaf node in the B+Tree."""
         self.reset()
-        while self._page.is_branch:
+        while self._page.is_branch and self._page.node_count > 0:
             self.push()
 
         return self._page.node_count != 0
@@ -264,7 +263,7 @@ class RawCursor:
     def last(self) -> bool:
         """Move the cursor to the last leaf node in the B+Tree."""
         self.reset()
-        while self._page.is_branch:
+        while self._page.is_branch and self._page.node_count > 0:
             self._idx = self._page.node_count - 1
             self.push()
 
@@ -369,6 +368,8 @@ class RawCursor:
         Raises:
             KeyNotFoundError: If an ``exact`` match was requested but not found.
         """
+        self.reset()
+
         while self._page.is_branch:
             self._idx = find_node(self._page, key, exact=False)
             self.push()

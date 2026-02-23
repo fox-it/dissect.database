@@ -114,10 +114,13 @@ def test_invalid_attribute(goad: NTDS) -> None:
         list(query.process())
 
 
-def test_invalid_index(goad: NTDS) -> None:
-    """Test invalid index for attribute."""
-    query = Query(goad.db, "(cn=ThisIsNotExistingInTheDB)")
-    assert list(query.process()) == []  # Should return no results, but not raise an error
+def test_no_index(goad: NTDS) -> None:
+    """Test searching for attribute with no index."""
+    schema = goad.db.data.schema.lookup_attribute(name="description")
+    assert goad.db.data.table.find_index([schema.column]) is None
+
+    query = Query(goad.db, "(description=Brainless*)")
+    assert len(list(query.process())) == 1
 
 
 def test_increment_last_char() -> None:
