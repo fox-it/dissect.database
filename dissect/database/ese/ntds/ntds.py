@@ -1,14 +1,24 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, BinaryIO
+from uuid import UUID
 
 from dissect.database.ese.ntds.database import Database
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from dissect.database.ese.ntds.objects import Computer, DomainDNS, Group, GroupPolicyContainer, Object, Server, User
-    from dissect.database.ese.ntds.objects.trusteddomain import TrustedDomain
+    from dissect.database.ese.ntds.objects import (
+        Computer,
+        DomainDNS,
+        Group,
+        GroupPolicyContainer,
+        Object,
+        Secret,
+        Server,
+        TrustedDomain,
+        User,
+    )
     from dissect.database.ese.ntds.pek import PEK
 
 
@@ -93,3 +103,27 @@ class NTDS:
     def group_policies(self) -> Iterator[GroupPolicyContainer]:
         """Get all group policy objects (GPO) objects from the database."""
         yield from self.search(objectClass="groupPolicyContainer")
+
+    def secrets(self) -> Iterator[Secret]:
+        """Get all secret objects from the database."""
+        yield from self.search(objectClass="secret")
+
+    def backup_keys(self) -> Iterator[tuple[UUID, bytes]]:
+        """Get all DPAPI backup keys from the database as a tuple of the GUID and the key value.
+
+        All key values start with a ``DWORD`` version number.
+        The current version (``2``) is followed by two more ``DWORD`` which are the length of the private key bytes and
+        the length of the public key bytes, followed by the private key and public key bytes respectively.
+        """
+        if not self.pek.unlocked:
+            raise ValueError("PEK must be unlocked to retrieve backup keys")
+
+        for secret in self.secrets():
+            if secret.is_phantom:
+                continue
+
+            # Just return all backup keys regardless if they're preferred or not
+            if not secret.name.startswith("BCKUPKEY_") or secret.name.startswith("BCKUPKEY_P"):
+                continue
+
+            yield (UUID(secret.name.removeprefix("BCKUPKEY_").removesuffix(" Secret")), secret.current_value)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 import pytest
 
@@ -265,6 +266,7 @@ def test_all_memberships(large: NTDS) -> None:
 
 
 def test_group_policies(goad: NTDS) -> None:
+    """Test retrieval of group policies."""
     gpos: list[GroupPolicyContainer] = sorted(goad.group_policies(), key=lambda x: x.distinguished_name)
     assert len(gpos) == 5
     assert isinstance(gpos[0], GroupPolicyContainer)
@@ -275,3 +277,18 @@ def test_group_policies(goad: NTDS) -> None:
         "CN={6AC1786C-016F-11D2-945F-00C04FB984F9},CN=POLICIES,CN=SYSTEM,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
         "CN={6AC1786C-016F-11D2-945F-00C04FB984F9},CN=POLICIES,CN=SYSTEM,DC=SEVENKINGDOMS,DC=LOCAL",
     ]
+
+
+def test_backup_keys(goad: NTDS) -> None:
+    """Test retrieval of DPAPI backup keys."""
+    with pytest.raises(ValueError, match="PEK must be unlocked to retrieve backup keys"):
+        list(goad.backup_keys())
+
+    goad.pek.unlock(bytes.fromhex("079f95655b66f16deb28aa1ab3a81eb0"))
+
+    keys = list(goad.backup_keys())
+    assert len(keys) == 2
+    assert keys[0][0] == UUID("dbea00d0-005f-4233-b140-41a9961da100")
+    assert keys[0][1][:4] == b"\x01\x00\x00\x00"  # Legacy key version
+    assert keys[1][0] == UUID("b7d3c47b-2efe-4cad-b37a-bb2f8b18bd87")
+    assert keys[1][1][:4] == b"\x02\x00\x00\x00"  # Current key version
