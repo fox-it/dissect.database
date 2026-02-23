@@ -214,8 +214,11 @@ class DataTable:
         cursor.seek([dnt])
 
         record = cursor.record()
-        while record is not None and record != end:
+        while record is not None:
             yield Object.from_record(self.db, record)
+            if record == end:
+                break
+
             record = cursor.next()
 
     def _make_dn(self, dnt: int) -> DN:
