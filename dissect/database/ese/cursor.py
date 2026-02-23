@@ -216,7 +216,7 @@ class RawCursor:
 
     Args:
         db: An instance of :class:`~dissect.database.ese.ese.ESE`.
-        page: The page to open the :class:`BTree` on.
+        root: The page to open the raw cursor on.
     """
 
     def __init__(self, db: ESE, root: Page | int):
