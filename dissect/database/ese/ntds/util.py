@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import struct
-from enum import IntEnum, IntFlag
+from enum import Flag, IntEnum, IntFlag, auto
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -16,6 +16,23 @@ if TYPE_CHECKING:
     from dissect.database.ese.ntds.database import Database
     from dissect.database.ese.ntds.objects import Object
     from dissect.database.ese.ntds.schema import AttributeEntry
+
+
+class DatabaseFlags(Flag):
+    """Database flags that are stored in the hiddentable.
+
+    The flags are weirdly stored as ``1``, ``0`` or ``\x00`` in a byte array.
+    To make parsing a bit easier, we use the index of each flag in this class as the character offset in the byte array.
+    """
+
+    AUXCLASS = auto()
+    SD_CONVERSION_REQUIRED = auto()
+    ROOT_GUID_UPDATED = auto()
+    ADAM = auto()
+    ASCII_INDICES_REBUILT = auto()
+    SHOW_IN_AB_ARRAY_REBUILD = auto()
+    UPDATE_NC_TYPE_REQUIRED = auto()
+    LINK_QUOTA_USN = auto()
 
 
 # https://learn.microsoft.com/en-us/windows/win32/adschema/a-instancetype
@@ -102,10 +119,10 @@ def _pek_decrypt(db: Database, value: bytes) -> bytes:
     Returns:
         The decrypted data blob, or the original value if the PEK is locked.
     """
-    if db.data.pek is None or not db.data.pek.unlocked:
+    if db.pek is None or not db.pek.unlocked:
         return value
 
-    return db.data.pek.decrypt(value)
+    return db.pek.decrypt(value)
 
 
 def _decode_supplemental_credentials(db: Database, value: bytes) -> dict[str, bytes] | bytes:
@@ -118,10 +135,10 @@ def _decode_supplemental_credentials(db: Database, value: bytes) -> dict[str, by
     Returns:
         A dictionary mapping credential types to their data blobs, or the original value if the PEK is locked.
     """
-    if db.data.pek is None or not db.data.pek.unlocked:
+    if db.pek is None or not db.pek.unlocked:
         return value
 
-    value = db.data.pek.decrypt(value)
+    value = db.pek.decrypt(value)
     header = c_ds.USER_PROPERTIES_HEADER(value)
 
     result = {}
@@ -222,12 +239,12 @@ def _decode_pwd_history(db: Database, value: list[bytes]) -> list[bytes]:
     Returns:
         A list of decrypted password hashes, or the original value if the PEK is locked.
     """
-    if db.data.pek is None or not db.data.pek.unlocked:
+    if db.pek is None or not db.pek.unlocked:
         return value
 
     result = []
     for buf in value:
-        buf = db.data.pek.decrypt(buf)
+        buf = db.pek.decrypt(buf)
         # The history attributes can contain multiple hashes concatenated together, so we need to split them up
         # NT and LM hashes are both 16 bytes long
         result.extend(buf[i : i + 16] for i in range(0, len(buf), 16))

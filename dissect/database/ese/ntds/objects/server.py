@@ -7,7 +7,7 @@ from dissect.database.ese.ntds.objects.top import Top
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from dissect.database.ese.ntds.objects import Object
+    from dissect.database.ese.ntds.objects import Computer, Object
 
 
 class Server(Top):
@@ -18,6 +18,12 @@ class Server(Top):
     """
 
     __object_class__ = "server"
+
+    def computer(self) -> Computer | None:
+        """Return the computer object associated with this server, if any."""
+        self._assert_local()
+
+        return next(self.db.link.links(self.dnt, "serverReference"), None)
 
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this server."""

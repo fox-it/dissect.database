@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from dissect.database.ese.ntds.util import DatabaseFlags
+
 if TYPE_CHECKING:
     from dissect.database.ese.ntds import NTDS
 
@@ -44,6 +46,8 @@ def test_pek(goad: NTDS) -> None:
 
 def test_pek_adam(adam: NTDS) -> None:
     """Test PEK unlocking and decryption for AD LDS NTDS.dit."""
+    assert DatabaseFlags.ADAM in adam.db.flags
+
     # The PEK in AD LDS is derived within the database itself
     assert adam.pek.unlocked
 

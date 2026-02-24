@@ -41,18 +41,18 @@ class NTDS:
     def __init__(self, fh: BinaryIO):
         self.db = Database(fh)
 
+    @property
+    def pek(self) -> PEK | None:
+        """Return the PEK associated with the root domain."""
+        return self.db.pek
+
     def root(self) -> Object:
         """Return the root object of the Active Directory."""
         return self.db.data.root()
 
-    def root_domain(self) -> DomainDNS | None:
+    def domain(self) -> DomainDNS | None:
         """Return the root domain object of the Active Directory."""
-        return self.db.data.root_domain()
-
-    @property
-    def pek(self) -> PEK | None:
-        """Return the PEK associated with the root domain."""
-        return self.db.data.pek
+        return self.db.domain()
 
     def walk(self) -> Iterator[Object]:
         """Walk through all objects in the NTDS database."""

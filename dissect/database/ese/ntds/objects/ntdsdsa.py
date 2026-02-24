@@ -7,7 +7,7 @@ from dissect.database.ese.ntds.objects.applicationsettings import ApplicationSet
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from dissect.database.ese.ntds.objects import Object
+    from dissect.database.ese.ntds.objects import DomainDNS, MSDSOptionalFeature, Object
 
 
 class NTDSDSA(ApplicationSettings):
@@ -18,6 +18,18 @@ class NTDSDSA(ApplicationSettings):
     """
 
     __object_class__ = "nTDSDSA"
+
+    def domain(self) -> DomainDNS | None:
+        """Return the domain object associated with this NTDS DSA object, if any."""
+        self._assert_local()
+
+        return next(self.db.link.links(self.dnt, "msDS-HasDomainNCs"), None)
+
+    def features(self) -> Iterator[MSDSOptionalFeature]:
+        """Return the optional features that are enabled on this NTDS DSA object."""
+        self._assert_local()
+
+        yield from self.db.link.links(self.dnt, "msDS-EnabledFeature")
 
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this NTDS DSA object."""
