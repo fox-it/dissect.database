@@ -13,6 +13,23 @@ if TYPE_CHECKING:
     from dissect.database.ese.ntds import NTDS
 
 
+def test_dsa(goad: NTDS) -> None:
+    """Test retrieval of the NTDS DSA object and its associated domain and features."""
+    dsa = goad.db.dsa()
+    assert dsa is not None
+    assert dsa.domain() is not None
+    assert dsa.domain().name == "sevenkingdoms"
+    assert [f.name for f in dsa.features()] == ["Recycle Bin Feature"]
+
+
+def test_dc(goad: NTDS) -> None:
+    """Test retrieval of the domain controller objects and their associated computer and managedBy links."""
+    dc = goad.db.dc()
+    assert dc.name == "KINGSLANDING"
+    assert dc.computer() is not None
+    assert dc.computer().name == "KINGSLANDING"
+
+
 def test_groups(goad: NTDS) -> None:
     groups = sorted(goad.groups(), key=lambda x: x.distinguished_name)
 

@@ -49,7 +49,7 @@ class Database:
         if self.hiddeninfo is None:
             return None
 
-        result = None
+        result = DatabaseFlags(0)
         flags = self.hiddeninfo.get("flags_col")
         for idx, member in enumerate(DatabaseFlags.__members__.values()):
             if flags[idx] == ord(b"1"):

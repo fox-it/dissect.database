@@ -232,7 +232,7 @@ class Schema:
                 )
 
         # Load user-defined OID prefixes
-        if (prefix_map := db.dmd().get("prefixMap")) is not None:
+        if (prefix_map := dmd.get("prefixMap")) is not None:
             self._oid_idx_to_prefix_index.update(parse_prefix_map(prefix_map))
             # Rebuild the reverse index
             self._oid_prefix_to_idx_index = {prefix: idx for idx, prefix in self._oid_idx_to_prefix_index.items()}
