@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -288,7 +289,17 @@ def test_backup_keys(goad: NTDS) -> None:
 
     keys = list(goad.backup_keys())
     assert len(keys) == 2
-    assert keys[0][0] == UUID("dbea00d0-005f-4233-b140-41a9961da100")
-    assert keys[0][1][:4] == b"\x01\x00\x00\x00"  # Legacy key version
-    assert keys[1][0] == UUID("b7d3c47b-2efe-4cad-b37a-bb2f8b18bd87")
-    assert keys[1][1][:4] == b"\x02\x00\x00\x00"  # Current key version
+    assert keys[0].guid == UUID("dbea00d0-005f-4233-b140-41a9961da100")
+    assert keys[0].version == 1
+    assert hashlib.sha256(keys[0].key).hexdigest() == "bae7b058f277922b75d63d9803b85fca40a95a3cc9d47c0ef0a644a203009562"
+
+    assert keys[1].guid == UUID("b7d3c47b-2efe-4cad-b37a-bb2f8b18bd87")
+    assert keys[1].version == 2  # Current key version
+    assert (
+        hashlib.sha256(keys[1].private_key).hexdigest()
+        == "e7317dfe5f962121afead04e0dbb4249aa395ef281e2332f6179f940b54f202f"
+    )
+    assert (
+        hashlib.sha256(keys[1].public_key).hexdigest()
+        == "398fef9281677096b18785d0ad000251d41f76b82e28687718d6a9812ddaca8a"
+    )

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from dissect.util.ts import wintimestamp
 
+from dissect.database.ese.ntds.c_ds import c_ds
 from dissect.database.ese.ntds.objects.leaf import Leaf
 
 if TYPE_CHECKING:
@@ -45,3 +48,52 @@ class Secret(Leaf):
         if (ts := self.get("priorSetTime")) is not None:
             return wintimestamp(ts)
         return None
+
+
+class BackupKey:
+    """Represents a DPAPI backup key object in the Active Directory."""
+
+    def __init__(self, secret: Secret):
+        self.secret = secret
+
+    def __repr__(self) -> str:
+        return f"<BackupKey guid={self.guid} version={self.version}>"
+
+    @cached_property
+    def guid(self) -> UUID:
+        """The GUID of the backup key."""
+        return UUID(self.secret.name.removeprefix("BCKUPKEY_").removesuffix(" Secret"))
+
+    @cached_property
+    def version(self) -> int:
+        """The version of the backup key."""
+        return c_ds.DWORD(self.secret.current_value)
+
+    @cached_property
+    def is_legacy(self) -> bool:
+        """Whether the backup key is a legacy key (version 1)."""
+        return self.version == 1
+
+    @cached_property
+    def key(self) -> bytes:
+        """The key bytes of the backup key, for legacy keys (version 1)."""
+        if self.version == 1:
+            return self.secret.current_value[4:]
+        raise TypeError(f"Backup key version {self.version} does not have a single key value")
+
+    @cached_property
+    def private_key(self) -> bytes:
+        """The private key bytes of the backup key, for version 2 keys."""
+        if self.version == 2:
+            private_length = c_ds.DWORD(self.secret.current_value[4:8])
+            return self.secret.current_value[12 : 12 + private_length]
+        raise TypeError(f"Backup key version {self.version} does not have a private key value")
+
+    @cached_property
+    def public_key(self) -> bytes:
+        """The public key bytes of the backup key, for version 2 keys."""
+        if self.version == 2:
+            private_length = c_ds.DWORD(self.secret.current_value[4:8])
+            public_length = c_ds.DWORD(self.secret.current_value[8:12])
+            return self.secret.current_value[12 + private_length : 12 + private_length + public_length]
+        raise TypeError(f"Backup key version {self.version} does not have a public key value")

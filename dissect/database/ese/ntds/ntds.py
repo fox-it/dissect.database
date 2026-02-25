@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, BinaryIO
 from uuid import UUID
 
 from dissect.database.ese.ntds.database import Database
+from dissect.database.ese.ntds.objects.secret import BackupKey
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -108,22 +109,32 @@ class NTDS:
         """Get all secret objects from the database."""
         yield from self.search(objectClass="secret")
 
-    def backup_keys(self) -> Iterator[tuple[UUID, bytes]]:
-        """Get all DPAPI backup keys from the database as a tuple of the GUID and the key value.
-
-        All key values start with a ``DWORD`` version number.
-        The current version (``2``) is followed by two more ``DWORD`` which are the length of the private key bytes and
-        the length of the public key bytes, followed by the private key and public key bytes respectively.
-        """
+    def backup_keys(self) -> Iterator[BackupKey]:
+        """Get all DPAPI backup keys from the database."""
         if not self.pek.unlocked:
             raise ValueError("PEK must be unlocked to retrieve backup keys")
 
         for secret in self.secrets():
-            if secret.is_phantom:
+            if secret.is_phantom or not secret.name.startswith("BCKUPKEY_") or secret.name.startswith("BCKUPKEY_P"):
                 continue
 
-            # Just return all backup keys regardless if they're preferred or not
-            if not secret.name.startswith("BCKUPKEY_") or secret.name.startswith("BCKUPKEY_P"):
+            yield BackupKey(secret)
+
+    def preferred_backup_keys(self) -> Iterator[BackupKey]:
+        """Get preferred DPAPI backup keys from the database."""
+        if not self.pek.unlocked:
+            raise ValueError("PEK must be unlocked to retrieve backup keys")
+
+        # We could do this the proper way (lookup the BCKUPKEY_P* secrets and then directly lookup the
+        # corresponding BCKUPKEY_* secrets), but in practice there are only a few backup keys, so just
+        # filter after the fact
+        preferred_guids = []
+        for secret in self.secrets():
+            if secret.is_phantom or not secret.name.startswith("BCKUPKEY_P"):
                 continue
 
-            yield (UUID(secret.name.removeprefix("BCKUPKEY_").removesuffix(" Secret")), secret.current_value)
+            preferred_guids.append(UUID(bytes_le=secret.current_value))
+
+        for key in self.backup_keys():
+            if key.guid in preferred_guids:
+                yield key
