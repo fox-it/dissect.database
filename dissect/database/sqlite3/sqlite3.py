@@ -129,10 +129,13 @@ class SQLite3:
         else:
             self.checkpoint = checkpoint
 
+        # Determine the highest page count we have encountered while parsing the SQLite3 header and optionally WAL.
+        self.page_count = max(self.header.page_count, self.wal.highest_page_num) if self.wal else self.header.page_count
+
         self.page = lru_cache(256)(self.page)
 
     def __repr__(self) -> str:
-        return f"<SQLite3 path={self.path!s} fh={self.fh!s} wal={self.wal!s} checkpoint={bool(self.checkpoint)!r} pages={self.header.page_count!r}>"  # noqa: E501
+        return f"<SQLite3 path={self.path} fh={self.fh} wal={self.wal} checkpoint={bool(self.checkpoint)} pages={self.page_count}>"  # noqa: E501
 
     def __enter__(self) -> Self:
         """Return ``self`` upon entering the runtime context."""
@@ -202,7 +205,7 @@ class SQLite3:
         """
         # Only throw an out of bounds exception if the header contains a page_count.
         # Some old versions of SQLite3 do not set/update the page_count correctly.
-        if (num < 1 or num > self.header.page_count) and self.header.page_count > 0:
+        if (num < 1 or num > self.page_count) and self.page_count > 0:
             raise InvalidPageNumber("Page number exceeds boundaries")
 
         data = None
@@ -235,7 +238,7 @@ class SQLite3:
         return Page(self, num)
 
     def pages(self) -> Iterator[Page]:
-        for i in range(self.header.page_count):
+        for i in range(self.page_count):
             yield self.page(i + 1)
 
     def cells(self) -> Iterator[Cell]:

@@ -14,3 +14,8 @@ class Top(Object):
 
     def __repr_body__(self) -> str:
         return f"name={self.name!r}"
+
+    @property
+    def display_name(self) -> str | None:
+        """Return the displayName for this object."""
+        return self.get("displayName")

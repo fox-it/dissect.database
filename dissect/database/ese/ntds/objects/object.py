@@ -148,6 +148,11 @@ class Object:
         return self.get("name")
 
     @property
+    def cn(self) -> str | None:
+        """Return the object's Common Name (CN)."""
+        return self.get("cn")
+
+    @property
     def object_category(self) -> str | None:
         """Return the object's objectCategory."""
         return self.get("objectCategory")

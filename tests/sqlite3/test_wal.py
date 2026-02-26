@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from dissect.database.sqlite3 import sqlite3
+from tests._util import absolute_path
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -162,3 +163,39 @@ def _assert_checkpoint_3(s: sqlite3.SQLite3) -> None:
     assert rows[9].id == 11
     assert rows[9].name == "second checkpoint"
     assert rows[9].value == 101
+
+
+def test_wal_page_count() -> None:
+    """Test if we count the page numbers in the SQLite3 and WAL correctly.
+
+    Test data generated using:
+
+        $ sqlite3 tests/_data/sqlite3/page_count.db
+        SQLite version 3.45.1 2024-01-30 16:01:20
+        Enter ".help" for usage hints.
+        sqlite> PRAGMA journal_mode = WAL;
+        wal
+        sqlite> CREATE TABLE t1 (a, b);
+        sqlite> .quit  # commits wal
+
+        $ python
+        >>> import sqlite3
+        >>> con = sqlite3.connect("tests/_data/sqlite3/page_count.db")
+        ... cur = con.cursor()
+        >>> cur.execute("INSERT INTO t1 VALUES (1, ?)", ("A" * 8192,))
+        >>> con.commit()
+        # Copy page_count.db* files before closing
+    """
+
+    db = sqlite3.SQLite3(absolute_path("_data/sqlite3/page_count.db"))
+    table = db.table("t1")
+    assert table.sql == "CREATE TABLE t1 (a, b)"
+
+    row = next(table.rows())
+    assert row.a == 1
+    assert row.b == "A" * 8192
+
+    assert db.wal
+    assert db.wal.highest_page_num == 4
+    assert db.header.page_count == 2
+    assert db.page_count == 4
