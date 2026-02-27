@@ -397,7 +397,8 @@ def find_node(page: Page, key: bytes, *, exact: bool) -> int:
         exact: Whether to only return successfully on an exact match.
 
     Returns:
-        The node number of the first node that's greater than or equal to the key, or -1 if not found.
+        The node number of the first node that's greater than or equal to the key, or the last node on the page if
+        the key is larger than all nodes. If ``exact`` is ``True`` and an exact match is not found, returns -1.
     """
     if page.node_count == 0:
         return -1
