@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 class Cursor:
-    """A simple cursor implementation for searching the ESE indexes.
+    """A simple cursor implementation for searching the ESE indexes on their records.
 
     Args:
         index: The :class:`~dissect.database.ese.index.Index` to create the cursor for.
@@ -211,7 +211,7 @@ class Cursor:
 
 
 class RawCursor:
-    """A simple implementation for searching the ESE B+Trees on their raw nodes.
+    """A simple cursor implementation for searching the ESE B+Trees on their raw nodes.
 
     Args:
         db: An instance of :class:`~dissect.database.ese.ese.ESE`.
@@ -224,6 +224,8 @@ class RawCursor:
 
         self._page = self.root
         self._idx = 0
+
+        # Stack of (page, idx, stack[:]) for traversing back up the tree when doing in-order traversal
         self._stack = []
 
     @property
@@ -382,7 +384,7 @@ class RawCursor:
 
 
 def find_node(page: Page, key: bytes, *, exact: bool) -> int:
-    """Search a page for a node matching ``key``.
+    """Search a page for a node matching the given key.
 
     Referencing Extensible-Storage-Engine source, they bail out early if they find an exact match.
     However, we prefer to always find the _first_ node that is greater than or equal to the key,
@@ -395,13 +397,12 @@ def find_node(page: Page, key: bytes, *, exact: bool) -> int:
         exact: Whether to only return successfully on an exact match.
 
     Returns:
-        The node number of the first node that's greater than or equal to the key.
+        The node number of the first node that's greater than or equal to the key, or -1 if not found.
     """
     if page.node_count == 0:
         return -1
 
     lo, hi = 0, page.node_count - 1
-    res = 0
 
     node = None
     while lo < hi:
@@ -410,23 +411,22 @@ def find_node(page: Page, key: bytes, *, exact: bool) -> int:
 
         # It turns out that the way BTree keys are compared matches 1:1 with how Python compares bytes
         # First compare data, then length
-        res = (key < node.key) - (key > node.key)
-
-        if res < 0:
+        if key > node.key:
             lo = mid + 1
         else:
             hi = mid
 
     # Final comparison on the last node
     node = page.node(lo)
-    res = (key < node.key) - (key > node.key)
 
-    if page.is_branch and res == 0:
-        # If there's an exact match on a key on a branch page, the actual leaf nodes are in the next branch
-        # Page keys for branch pages appear to be non-inclusive upper bounds
-        lo = min(lo + 1, page.node_count - 1)
+    if key == node.key:
+        if page.is_branch:
+            # If there's an exact match on a key on a branch page, the actual leaf nodes are in the next branch
+            # Page keys for branch pages appear to be non-inclusive upper bounds
+            lo = min(lo + 1, page.node_count - 1)
 
-    if exact and res != 0:
+    # key != node.key
+    elif exact:
         return -1
 
     return lo
