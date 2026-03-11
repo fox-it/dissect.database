@@ -114,10 +114,17 @@ class DataTable:
             yield (obj := stack.pop())
             stack.extend(obj.children())
 
-    def iter(self) -> Iterator[Object]:
-        """Iterate over all objects in the NTDS database."""
+    def iter(self, raw: bool = False) -> Iterator[Object]:
+        """Iterate over all objects in the NTDS database.
+
+        Args:
+            raw: Whether to return base :class:`Object` instances without upcasting to more specific types
+                 based on the objectClass.
+        """
+        from_record = Object if raw else Object.from_record
+
         for record in self.table.records():
-            yield Object.from_record(self.db, record)
+            yield from_record(self.db, record)
 
     def get(self, dnt: int) -> Object:
         """Retrieve an object by its Directory Number Tag (DNT) value.
