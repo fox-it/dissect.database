@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from dissect.database.ese.ntds.util import DN, InstanceType, SystemFlags, decode_value
+from dissect.database.ese.ntds.util import InstanceType, decode_value
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
     from dissect.database.ese.ntds.database import Database
     from dissect.database.ese.ntds.sd import SecurityDescriptor
+    from dissect.database.ese.ntds.util import DN, SystemFlags
     from dissect.database.ese.record import Record
 
 

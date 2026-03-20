@@ -9,11 +9,12 @@ from dissect.util.sid import read_sid
 from dissect.util.ts import oatimestamp, wintimestamp
 
 from dissect.database.ese.ese import ESE
-from dissect.database.ese.record import Record, serialise_record_column_values
+from dissect.database.ese.record import serialise_record_column_values
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from dissect.database.ese.record import Record
     from dissect.database.ese.table import Table
     from dissect.database.ese.util import RecordValue
 

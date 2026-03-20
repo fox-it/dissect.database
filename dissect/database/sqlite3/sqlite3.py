@@ -15,13 +15,15 @@ from dissect.database.sqlite3.exception import (
     NoCellData,
 )
 from dissect.database.sqlite3.util import parse_table_columns_constraints
-from dissect.database.sqlite3.wal import WAL, Checkpoint
+from dissect.database.sqlite3.wal import WAL
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from types import TracebackType
 
     from typing_extensions import Self
+
+    from dissect.database.sqlite3.wal import Checkpoint
 
 ENCODING = {
     1: "utf-8",
@@ -259,7 +261,7 @@ class Column:
         self.default_value = self._parse_default_value_from_description(description)
 
     def _parse_default_value_from_description(self, description: str) -> bool | str | int | float | None:
-        """Find the default from the description string"""
+        """Find the default from the description string."""
         if "DEFAULT" not in description.upper():
             return None
 
@@ -275,13 +277,13 @@ class Column:
         return [x for x in tokens if x and x != " "]
 
     def _get_default_value(self, tokens: list[str]) -> str:
-        """Retrieve the default from the tokens"""
+        """Retrieve the default from the tokens."""
         # The +1 is to account for the space after the default
         value_index = [x.upper() for x in tokens].index("DEFAULT") + 1
         return tokens[value_index]
 
     def _parse_default_value(self, value: str) -> bool | str | int | float | None:
-        """Parses the default value
+        """Parses the default value.
 
         The value can hold an expression surrounded by ().
         This can be a literal, so these values get stripped.
@@ -292,7 +294,7 @@ class Column:
             return None
 
     def _parse_literal(self, value: str) -> bool | str | int | float:
-        """Tries to convert a literal from a string to any type
+        """Tries to convert a literal from a string to any type.
 
         CURRENT_(TIME|DATE|TIMESTAMP) isn't being taken into account.
         """

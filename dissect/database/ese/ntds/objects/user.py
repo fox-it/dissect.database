@@ -3,13 +3,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from dissect.database.ese.ntds.objects.organizationalperson import OrganizationalPerson
-from dissect.database.ese.ntds.util import SAMAccountType, UserAccountControl
+from dissect.database.ese.ntds.util import UserAccountControl
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from dissect.database.ese.ntds.objects.group import Group
     from dissect.database.ese.ntds.objects.object import Object
+    from dissect.database.ese.ntds.util import SAMAccountType
 
 
 class User(OrganizationalPerson):

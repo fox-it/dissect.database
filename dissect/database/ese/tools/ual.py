@@ -4,15 +4,18 @@ import argparse
 import datetime
 import ipaddress
 import json
-from collections.abc import Iterator
 from pathlib import Path
-from typing import BinaryIO
+from typing import TYPE_CHECKING, BinaryIO
 
 from dissect.util.ts import wintimestamp
 
 from dissect.database.ese.ese import ESE
-from dissect.database.ese.table import Table
 from dissect.database.ese.util import RecordValue
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from dissect.database.ese.table import Table
 
 UalValue = RecordValue | ipaddress.IPv4Address | ipaddress.IPv6Interface | tuple[datetime.datetime]
 

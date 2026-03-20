@@ -14,7 +14,7 @@ from dissect.database.ese.c_ese import (
 from dissect.database.ese.cursor import RawCursor
 from dissect.database.ese.index import Index
 from dissect.database.ese.record import Record
-from dissect.database.ese.util import COLUMN_TYPE_MAP, ColumnType, RecordValue
+from dissect.database.ese.util import COLUMN_TYPE_MAP
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from dissect.database.ese.cursor import Cursor
     from dissect.database.ese.ese import ESE
     from dissect.database.ese.page import Page
+    from dissect.database.ese.util import ColumnType, RecordValue
 
 
 class Table:
