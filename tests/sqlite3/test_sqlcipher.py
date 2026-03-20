@@ -61,7 +61,6 @@ def _assert_sqlite_db(sqlite: SQLite3) -> None:
 )
 def test_decrypt_community(cipher: Callable, path_str: str, kwargs: dict) -> None:
     """Test if we can parse a SQLCipher (4.5.6 community) encrypted database."""
-
     path = absolute_path("_data/sqlite3/encryption/sqlcipher/" + path_str)
 
     with pytest.raises(SQLCipherError, match="Decryption of SQLCipher database failed"):
@@ -79,7 +78,6 @@ def test_decrypt_community(cipher: Callable, path_str: str, kwargs: dict) -> Non
 
 def test_decrypt_community_plaintext_header() -> None:
     """Test if we can parse and decrypt a SQLCipher 4.5.6 database with a 32-byte plaintext header."""
-
     path = absolute_path("_data/sqlite3/encryption/sqlcipher/aes256_hmac_sha512_kdf_256000_plain_header.sqlite")
     salt = bytes.fromhex("01010101010101010101010101010101")
 

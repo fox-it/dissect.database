@@ -186,7 +186,6 @@ def test_wal_page_count() -> None:
         >>> con.commit()
         # Copy page_count.db* files before closing
     """
-
     db = sqlite3.SQLite3(absolute_path("_data/sqlite3/page_count.db"))
     table = db.table("t1")
     assert table.sql == "CREATE TABLE t1 (a, b)"

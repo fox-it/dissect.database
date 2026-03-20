@@ -121,7 +121,6 @@ def test_cell_overflow_reserved_page_size_regression() -> None:
         >>> con.commit()
         ... con.close()
     """
-
     db = sqlite3.SQLite3(absolute_path("_data/sqlite3/overflow.db"))
     assert db.header.reserved_size == 32
     assert db.header.page_size == 4096

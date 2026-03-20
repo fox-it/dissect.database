@@ -109,7 +109,6 @@ def parse_table_columns_constraints(sql: str) -> tuple[str | None, list[str], li
 
 def split_column_def(sql: str, column_def: str) -> tuple[str, str]:
     """Splits the column definition to name and constraint."""
-
     column_parts = column_def.split(maxsplit=1)
     if not column_parts:
         raise InvalidSQL(f"Not a valid CREATE TABLE definition: empty column definition in {sql!r}")

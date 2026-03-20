@@ -198,7 +198,6 @@ class Schema:
         Args:
             db: The database instance to load the schema from.
         """
-
         # Load the schema entries from the DMD object
         # This _should_ have all the attribute and class schema entries
         # We used to perform an index search on objectClass (ATTc0, INDEX_00000000), but apparently

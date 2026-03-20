@@ -276,7 +276,6 @@ class Column:
 
     def _get_default_value(self, tokens: list[str]) -> str:
         """Retrieve the default from the tokens"""
-
         # The +1 is to account for the space after the default
         value_index = [x.upper() for x in tokens].index("DEFAULT") + 1
         return tokens[value_index]
@@ -385,7 +384,6 @@ class Row:
         If there are any cell values with unknown column names
         they get added to the unknown list.
         """
-
         row_values = {}
         unknowns = []
 

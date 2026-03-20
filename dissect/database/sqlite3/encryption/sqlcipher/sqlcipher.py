@@ -178,7 +178,6 @@ class SQLCipherStream(AlignedStream):
 
     def _read(self, offset: int, length: int) -> bytes:
         """Calculates which pages to read from based on the given offset and length. Returns decrypted bytes."""
-
         start_page = offset // self.align
         num_pages = length // self.align
         return b"".join(
@@ -191,7 +190,6 @@ class SQLCipherStream(AlignedStream):
         References:
             - https://github.com/sqlcipher/sqlcipher-tools/blob/master/decrypt.c
         """
-
         if page_num < 1:
             raise ValueError("The first page number is 1")
 
@@ -294,7 +292,6 @@ class SQLCipher1(SQLCipher):
 
 def derive_key(passphrase: bytes, salt: bytes, kdf_iter: int, kdf_algo: str | None) -> bytes:
     """Derive the database key as SQLCipher would using PBKDF2."""
-
     if not kdf_iter or not kdf_algo:
         return passphrase
 
