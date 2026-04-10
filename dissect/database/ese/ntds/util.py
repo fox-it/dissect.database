@@ -267,6 +267,7 @@ ATTRIBUTE_ENCODE_DECODE_MAP: dict[
     "trustAuthIncoming": (None, _pek_decrypt),
     "trustAuthOutgoing": (None, _pek_decrypt),
     "msDS-ExecuteScriptPassword": (None, _pek_decrypt),
+    "msDS-ManagedPassword": (None, lambda db, value: bytearray(c_ds.GMS_MANAGED_PASSWORD(value).Password).hex()),
 }
 
 ATTRIBUTE_LIST_ENCODE_DECODE_MAP: dict[

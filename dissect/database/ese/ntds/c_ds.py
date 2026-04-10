@@ -90,5 +90,12 @@ typedef struct _WDIGEST_CREDENTIALS {
     CHAR    Reserved3[12];
     CHAR    Hash[29][16];                   // The formal definition has Hash1, Hash2, ..., Hash29
 } WDIGEST_CREDENTIALS;
+
+typedef struct _GMS_MANAGED_PASSWORD {
+    WORD    Version;
+    WORD    Reserved;
+    DWORD   Length;
+    CHAR    Password[Length];
+} GMS_MANAGED_PASSWORD;
 """
 c_ds = cstruct(ds_def)

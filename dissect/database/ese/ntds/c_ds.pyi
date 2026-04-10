@@ -324,6 +324,23 @@ class _c_ds(__cs__.cstruct):
         def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
 
     WDIGEST_CREDENTIALS: TypeAlias = _WDIGEST_CREDENTIALS
+    class _GMS_MANAGED_PASSWORD(__cs__.Structure):
+        Version: _c_ds.uint16
+        Reserved: _c_ds.uint16
+        Length: _c_ds.uint32
+        Password: __cs__.Array[__cs__.CharArray]
+        @overload
+        def __init__(
+            self,
+            Version: _c_ds.uint16 | None = ...,
+            Reserved: _c_ds.uint16 | None = ...,
+            Length: _c_ds.uint32 | None = ...,
+            Password: __cs__.Array[__cs__.CharArray] | None = ...,
+        ): ...
+        @overload
+        def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
+
+    _GMS_MANAGED_PASSWORD: TypeAlias = _GMS_MANAGED_PASSWORD
 
 # Technically `c_ds` is an instance of `_c_ds`, but then we can't use it in type hints
 c_ds: TypeAlias = _c_ds
