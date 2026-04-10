@@ -340,7 +340,7 @@ class _c_ds(__cs__.cstruct):
         @overload
         def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
 
-    _GMS_MANAGED_PASSWORD: TypeAlias = _GMS_MANAGED_PASSWORD
+    GMS_MANAGED_PASSWORD: TypeAlias = _GMS_MANAGED_PASSWORD
 
 # Technically `c_ds` is an instance of `_c_ds`, but then we can't use it in type hints
 c_ds: TypeAlias = _c_ds
