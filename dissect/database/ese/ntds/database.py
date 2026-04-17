@@ -11,7 +11,7 @@ from dissect.database.ese.ntds.pek import PEK
 from dissect.database.ese.ntds.query import Query
 from dissect.database.ese.ntds.schema import Schema
 from dissect.database.ese.ntds.sd import SecurityDescriptor
-from dissect.database.ese.ntds.util import DN, DatabaseFlags, SearchFlags, encode_value
+from dissect.database.ese.ntds.util import DN, DatabaseFlag, SearchFlag, encode_value
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -44,14 +44,14 @@ class Database:
         self.data._make_dn.cache_clear()
 
     @cached_property
-    def flags(self) -> DatabaseFlags | None:
+    def flags(self) -> DatabaseFlag | None:
         """Return the database flags."""
         if self.hiddeninfo is None:
             return None
 
-        result = DatabaseFlags(0)
+        result = DatabaseFlag(0)
         flags = self.hiddeninfo.get("flags_col")
-        for idx, member in enumerate(DatabaseFlags.__members__.values()):
+        for idx, member in enumerate(DatabaseFlag.__members__.values()):
             if flags[idx] == ord(b"1"):
                 result = member if result is None else result | member
 
@@ -256,9 +256,9 @@ class DataTable:
         if schema.search_flags is None:
             raise ValueError(f"Attribute is not indexed: {attribute!r}")
 
-        if SearchFlags.Indexed in schema.search_flags:
+        if SearchFlag.Indexed in schema.search_flags:
             name = f"INDEX_{schema.id:08x}"
-        elif SearchFlags.TupleIndexed in schema.search_flags:
+        elif SearchFlag.TupleIndexed in schema.search_flags:
             name = f"INDEX_T_{schema.id:08x}"
         else:
             # TODO add ContainerIndexed

@@ -20,6 +20,7 @@ if TYPE_CHECKING:
         TrustedDomain,
         User,
     )
+    from dissect.database.ese.ntds.objects.organizationalunit import OrganizationalUnit
     from dissect.database.ese.ntds.pek import PEK
 
 
@@ -83,11 +84,11 @@ class NTDS:
 
     def groups(self) -> Iterator[Group]:
         """Get all group objects from the database."""
-        yield from self.search(objectCategory="group")
+        yield from self.search(objectClass="group")
 
     def servers(self) -> Iterator[Server]:
         """Get all server objects from the database."""
-        yield from self.search(objectCategory="server")
+        yield from self.search(objectClass="server")
 
     def users(self) -> Iterator[User]:
         """Get all user objects from the database."""
@@ -95,7 +96,11 @@ class NTDS:
 
     def computers(self) -> Iterator[Computer]:
         """Get all computer objects from the database."""
-        yield from self.search(objectCategory="computer")
+        yield from self.search(objectClass="computer")
+
+    def domains(self) -> Iterator[DomainDNS]:
+        """Get all domain objects from the database."""
+        yield from self.search(objectClass="domainDNS")
 
     def trusts(self) -> Iterator[TrustedDomain]:
         """Get all trust objects from the database."""
@@ -104,6 +109,10 @@ class NTDS:
     def group_policies(self) -> Iterator[GroupPolicyContainer]:
         """Get all group policy objects (GPO) objects from the database."""
         yield from self.search(objectClass="groupPolicyContainer")
+
+    def organizational_units(self) -> Iterator[OrganizationalUnit]:
+        """Get all organizational unit (OU) objects from the database."""
+        yield from self.search(objectClass="organizationalUnit")
 
     def secrets(self) -> Iterator[Secret]:
         """Get all secret objects from the database."""

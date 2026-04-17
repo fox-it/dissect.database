@@ -7,7 +7,7 @@ from dissect.database.ese.ntds.c_ds import c_ds
 
 if TYPE_CHECKING:
     from dissect.database.ese.ntds.database import Database
-    from dissect.database.ese.ntds.util import SearchFlags
+    from dissect.database.ese.ntds.util import SearchFlag
 
 # These are fixed columns in the NTDS database
 # They do not exist in the schema, but are required for basic operation
@@ -121,7 +121,7 @@ class AttributeEntry(NamedTuple):
     om_object_class: bytes | None
     is_single_valued: bool
     link_id: int | None
-    search_flags: SearchFlags | None
+    search_flags: SearchFlag | None
 
 
 class Schema:
@@ -255,7 +255,7 @@ class Schema:
         om_object_class: bytes | None,
         is_single_valued: bool,
         link_id: int | None,
-        search_flags: SearchFlags | None,
+        search_flags: SearchFlag | None,
     ) -> None:
         entry = AttributeEntry(
             dnt=dnt,

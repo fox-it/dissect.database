@@ -7,7 +7,15 @@ from uuid import UUID
 import pytest
 
 from dissect.database.ese.ntds.objects import Computer, Group, GroupPolicyContainer, Server, SubSchema, User
-from dissect.database.ese.ntds.util import SAMAccountType
+from dissect.database.ese.ntds.util import (
+    SAMAccountType,
+    SystemFlagAttribute,
+    SystemFlagCrossRef,
+    TrustAttribute,
+    TrustDirection,
+    TrustType,
+    UserAccountControl,
+)
 
 if TYPE_CHECKING:
     from dissect.database.ese.ntds import NTDS
@@ -276,6 +284,27 @@ def test_object_repr(goad: NTDS) -> None:
     )
 
 
+def test_object_as_dict(goad: NTDS) -> None:
+    """Test the as_dict method of the Object class."""
+    user = next(goad.search(sAMAccountName="jon.snow"))
+    assert isinstance(user, User)
+
+    user_dict = user.as_dict()
+    assert isinstance(user_dict, dict)
+    assert user_dict["sAMAccountName"] == "jon.snow"
+    assert user_dict["cn"] == "jon.snow"
+    assert user_dict["l"] == "Castel Black"
+    assert user_dict["objectSid"] == "S-1-5-21-459184689-3312531310-188885708-1118"
+
+    # Specifically test that the decoders are applied when using as_dict
+    assert (
+        user_dict["userAccountControl"]
+        == UserAccountControl.NORMAL_ACCOUNT
+        | UserAccountControl.DONT_EXPIRE_PASSWORD
+        | UserAccountControl.TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION
+    )
+
+
 def test_all_memberships(large: NTDS) -> None:
     """Test all memberships of all users."""
     for user in large.users():
@@ -319,6 +348,72 @@ def test_backup_keys(goad: NTDS) -> None:
     assert (
         hashlib.sha256(keys[1].public_key).hexdigest()
         == "398fef9281677096b18785d0ad000251d41f76b82e28687718d6a9812ddaca8a"
+    )
+
+
+def test_domains(goad: NTDS) -> None:
+    """Test retrieval of domain objects."""
+    domains = sorted(goad.domains(), key=lambda x: x.distinguished_name)
+    assert len(domains) == 5
+    assert [x.distinguished_name for x in domains] == [
+        "DC=DOMAINDNSZONES,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "DC=DOMAINDNSZONES,DC=SEVENKINGDOMS,DC=LOCAL",
+        "DC=FORESTDNSZONES,DC=SEVENKINGDOMS,DC=LOCAL",
+        "DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "DC=SEVENKINGDOMS,DC=LOCAL",
+    ]
+
+    domain = domains[-1]
+    assert domain.behavior_version == 7
+
+
+def test_trusts(goad: NTDS) -> None:
+    """Test retrieval of trust objects."""
+    trusts = sorted(goad.trusts(), key=lambda x: x.distinguished_name)
+    assert len(trusts) == 3
+    assert trusts[0].distinguished_name == "CN=ESSOS.LOCAL,CN=SYSTEM,DC=SEVENKINGDOMS,DC=LOCAL"
+    assert trusts[0].trust_type == TrustType.UPLEVEL
+    assert trusts[0].trust_direction == TrustDirection.BIDIRECTIONAL
+    assert trusts[0].trust_attributes == TrustAttribute.FOREST_TRANSITIVE | TrustAttribute.TREAT_AS_EXTERNAL
+    assert trusts[0].trust_partner == "essos.local"
+    assert trusts[0].security_identifier == "S-1-5-21-1398578290-1256418943-189470967"
+
+
+def test_organizational_units(goad: NTDS) -> None:
+    ous = sorted(goad.organizational_units(), key=lambda x: x.distinguished_name)
+    assert len(ous) == 10
+    assert [x.distinguished_name for x in ous] == [
+        "OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=DOMAIN CONTROLLERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=DOMAIN CONTROLLERS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=DORNE,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=IRONISLANDS\nDEL:D58E6F7A-DA60-40AE-88C1-27A4FCEE1190,CN=DELETED OBJECTS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=REACH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=RIVERLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=STORMLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=VALE,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=WESTERLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+    ]
+
+    dc_ou = ous[2]
+    assert (
+        dc_ou.gp_link
+        == "[LDAP://CN={6AC1786C-016F-11D2-945F-00C04fB984F9},CN=Policies,CN=System,DC=sevenkingdoms,DC=local;0]"
+    )
+    assert dc_ou.gp_options is None
+
+
+def test_system_flags(goad: NTDS) -> None:
+    """Test the difference between system flags on attributeSchema and crossRef objects."""
+    crossref = next(goad.search(objectClass="crossRef"))
+    assert crossref.system_flags == SystemFlagCrossRef.CR_NTDS_NC
+
+    attribute = next(goad.search(objectClass="attributeSchema", name="ANR"))
+    assert (
+        attribute.system_flags
+        == SystemFlagAttribute.ATTR_IS_CONSTRUCTED
+        | SystemFlagAttribute.SCHEMA_BASE_OBJECT
+        | SystemFlagAttribute.DOMAIN_DISALLOW_RENAME
     )
 
 

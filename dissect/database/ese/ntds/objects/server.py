@@ -19,6 +19,11 @@ class Server(Top):
 
     __object_class__ = "server"
 
+    @property
+    def dns_host_name(self) -> str | None:
+        """Return the dNSHostName of this server."""
+        return self.get("dNSHostName")
+
     def computer(self) -> Computer | None:
         """Return the computer object associated with this server, if any."""
         self._assert_local()

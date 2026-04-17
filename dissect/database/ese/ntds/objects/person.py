@@ -11,3 +11,13 @@ class Person(Top):
     """
 
     __object_class__ = "person"
+
+    @property
+    def telephone_number(self) -> str | None:
+        """Return the telephone number of this person."""
+        return self.get("telephoneNumber")
+
+    @property
+    def user_password(self) -> str | None:
+        """Return the userPassword attribute of this person."""
+        return self.get("userPassword")

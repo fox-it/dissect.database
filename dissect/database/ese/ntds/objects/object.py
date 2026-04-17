@@ -1,18 +1,22 @@
 from __future__ import annotations
 
+import struct
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias
+from uuid import UUID
 
-from dissect.database.ese.ntds.util import InstanceType, decode_value
+from dissect.database.ese.ntds.util import InstanceType, SystemFlag, decode_value
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
     from datetime import datetime
 
     from dissect.database.ese.ntds.database import Database
     from dissect.database.ese.ntds.sd import SecurityDescriptor
-    from dissect.database.ese.ntds.util import DN, SystemFlags
+    from dissect.database.ese.ntds.util import DN
     from dissect.database.ese.record import Record
+
+    DecoderMap: TypeAlias = dict[str, Callable[[Database, Any], Any]]
 
 
 class Object:
@@ -29,7 +33,19 @@ class Object:
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adsc/041c6068-c710-4c74-968f-3040e4208701
     """
 
+    # Subclasses must override this to specify their object class
     __object_class__: str
+    """The objectClass value for this object."""
+
+    # Decoders for specific attributes to this object
+    __decoders__: ClassVar[DecoderMap] = {
+        "Ancestors": lambda db, value: [v[0] for v in struct.iter_unpack("<I", value)],
+        "instanceType": lambda db, value: InstanceType(value),
+        "systemFlags": lambda db, value: SystemFlag(value),
+        "objectGUID": lambda db, value: UUID(bytes_le=value),
+    }
+
+    # All known object classes
     __known_classes__: ClassVar[dict[str, type[Object]]] = {}
 
     def __init__(self, db: Database, record: Record):
@@ -38,6 +54,12 @@ class Object:
 
     def __init_subclass__(cls):
         cls.__known_classes__[cls.__object_class__] = cls
+
+        # Merge parent decoders with any new ones defined on the new class
+        decoders = {}
+        for parent in reversed(cls.__mro__[1:]):
+            decoders |= getattr(parent, "__decoders__", {})
+        cls.__decoders__ = decoders | cls.__decoders__
 
     def __repr__(self) -> str:
         suffix = self.__repr_suffix__()
@@ -89,7 +111,13 @@ class Object:
             name: The attribute name to retrieve.
             raw: Whether to return the raw value without decoding.
         """
-        return _get_attribute(self.db, self.record, name, raw=raw)
+        value = _get_attribute(self.db, self.record, name, raw=raw)
+
+        # Allow custom decoders to override the default decoding logic for specific attributes
+        # This is convenient for things like enums or timestamps that we want to represent as more meaningful types
+        if value is not None and name in self.__decoders__:
+            value = self.__decoders__[name](self.db, value)
+        return value
 
     def as_dict(self) -> dict[str, Any]:
         """Return the object's attributes as a dictionary."""
@@ -97,7 +125,7 @@ class Object:
         for key in self.record.as_dict():
             if (schema := self.db.data.schema.lookup_attribute(column=key)) is not None:
                 key = schema.name
-                result[key] = _get_attribute(self.db, self.record, key)
+                result[key] = self.get(key)
         return result
 
     def parent(self) -> Object | None:
@@ -221,7 +249,7 @@ class Object:
         return self.get("instanceType")
 
     @property
-    def system_flags(self) -> SystemFlags | None:
+    def system_flags(self) -> SystemFlag | None:
         """Return the object's system flags."""
         return self.get("systemFlags")
 
@@ -240,9 +268,7 @@ class Object:
     @cached_property
     def sd(self) -> SecurityDescriptor | None:
         """Return the Security Descriptor for this object."""
-        if (sd_id := self.get("nTSecurityDescriptor")) is not None:
-            return self.db.sd.sd(sd_id)
-        return None
+        return self.get("nTSecurityDescriptor")
 
     @cached_property
     def well_known_objects(self) -> list[Object]:

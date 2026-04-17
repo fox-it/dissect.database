@@ -11,3 +11,8 @@ class GroupPolicyContainer(Container):
     """
 
     __object_class__ = "groupPolicyContainer"
+
+    @property
+    def file_path(self) -> str | None:
+        """Return the gPCFileSysPath of this group policy container."""
+        return self.get("gPCFileSysPath")

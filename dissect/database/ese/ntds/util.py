@@ -3,7 +3,6 @@ from __future__ import annotations
 import struct
 from enum import Flag, IntEnum, IntFlag, auto
 from typing import TYPE_CHECKING, Any
-from uuid import UUID
 
 from dissect.util.sid import read_sid, write_sid
 from dissect.util.ts import wintimestamp
@@ -18,7 +17,7 @@ if TYPE_CHECKING:
     from dissect.database.ese.ntds.schema import AttributeEntry
 
 
-class DatabaseFlags(Flag):
+class DatabaseFlag(Flag):
     """Database flags that are stored in the hiddentable.
 
     The flags are weirdly stored as ``1``, ``0`` or ``\x00`` in a byte array.
@@ -45,19 +44,71 @@ class InstanceType(IntFlag):
     NamingContextDeleting = 0x00000020
 
 
-# https://learn.microsoft.com/en-us/windows/win32/adschema/a-useraccountcontrol
-class SystemFlags(IntFlag):
-    NotReplicated = 0x00000001
-    ReplicatedToGlobalCatalog = 0x00000002
-    Constructed = 0x00000004
-    BaseSchema = 0x00000010
-    DeletedImmediately = 0x02000000
-    CannotBeMoved = 0x04000000
-    CannotBeRenamed = 0x08000000
-    ConfigurationCanBeMovedWithRestrictions = 0x10000000
-    ConfigurationCanBeMoved = 0x20000000
-    ConfigurationCanBeRenamedWithRestrictions = 0x40000000
-    CannotBeDeleted = 0x80000000
+# https://learn.microsoft.com/en-us/windows/win32/adschema/a-systemflags
+# https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/1e38247d-8234-4273-9de3-bbf313548631
+class SystemFlag(IntFlag):
+    # The first 3 flags have an overlap whether it's set on an attributeSchema or crossRef object
+    # We don't specify them here, see SystemFlagAttribute and SystemFlagCrossRef
+
+    # The following flags are also specific to certain objects, but have no overlap
+    ATTR_IS_OPERATIONAL = 0x00000008
+    SCHEMA_BASE_OBJECT = 0x00000010
+    ATTR_IS_RDN = 0x00000020
+    DISALLOW_MOVE_ON_DELETE = 0x02000000
+    DOMAIN_DISALLOW_MOVE = 0x04000000
+    DOMAIN_DISALLOW_RENAME = 0x08000000
+    CONFIG_ALLOW_LIMITED_MOVE = 0x10000000
+    CONFIG_ALLOW_MOVE = 0x20000000
+    CONFIG_ALLOW_RENAME = 0x40000000
+    DISALLOW_DELETE = 0x80000000
+
+
+# System flags that overlap with other flags and are specific to attributeSchema objects
+class SystemFlagAttribute(IntFlag):
+    ATTR_NOT_REPLICATED = 0x00000001
+    ATTR_REQ_PARTIAL_SET_MEMBER = 0x00000002
+    ATTR_IS_CONSTRUCTED = 0x00000004
+
+    # TODO: When we drop Python 3.10 support, we can subclass SystemFlag
+    # For now, just duplicate the flags here
+    ATTR_IS_OPERATIONAL = 0x00000008
+    SCHEMA_BASE_OBJECT = 0x00000010
+    ATTR_IS_RDN = 0x00000020
+    DISALLOW_MOVE_ON_DELETE = 0x02000000
+    DOMAIN_DISALLOW_MOVE = 0x04000000
+    DOMAIN_DISALLOW_RENAME = 0x08000000
+    CONFIG_ALLOW_LIMITED_MOVE = 0x10000000
+    CONFIG_ALLOW_MOVE = 0x20000000
+    CONFIG_ALLOW_RENAME = 0x40000000
+    DISALLOW_DELETE = 0x80000000
+
+
+# For better readability when printing attributeSchema objects, we reset the name
+SystemFlagAttribute.__name__ = "SystemFlag"
+
+
+# System flags that overlap with other flags and are specific to crossRef objects
+class SystemFlagCrossRef(IntFlag):
+    CR_NTDS_NC = 0x00000001
+    CR_NTDS_DOMAIN = 0x00000002
+    CR_NTDS_NOT_GC_REPLICATED = 0x00000004
+
+    # TODO: When we drop Python 3.10 support, we can subclass SystemFlag
+    # For now, just duplicate the flags here
+    ATTR_IS_OPERATIONAL = 0x00000008
+    SCHEMA_BASE_OBJECT = 0x00000010
+    ATTR_IS_RDN = 0x00000020
+    DISALLOW_MOVE_ON_DELETE = 0x02000000
+    DOMAIN_DISALLOW_MOVE = 0x04000000
+    DOMAIN_DISALLOW_RENAME = 0x08000000
+    CONFIG_ALLOW_LIMITED_MOVE = 0x10000000
+    CONFIG_ALLOW_MOVE = 0x20000000
+    CONFIG_ALLOW_RENAME = 0x40000000
+    DISALLOW_DELETE = 0x80000000
+
+
+# For better readability when printing crossRef objects, we reset the name
+SystemFlagCrossRef.__name__ = "SystemFlag"
 
 
 # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/dd302fd1-0aa7-406b-ad91-2a6b35738557
@@ -98,7 +149,7 @@ class SAMAccountType(IntEnum):
     SAM_APP_QUERY_GROUP = 0x40000001
 
 
-class SearchFlags(IntFlag):
+class SearchFlag(IntFlag):
     Indexed = 0x00000001
     ContainerIndexed = 0x00000002
     Anr = 0x00000004
@@ -107,6 +158,41 @@ class SearchFlags(IntFlag):
     TupleIndexed = 0x00000020
     VlvIndexed = 0x00000040
     Confidential = 0x00000080
+
+
+class TrustType(IntEnum):
+    DOWNLEVEL = 0x00000001
+    UPLEVEL = 0x00000002
+    MIT = 0x00000003
+    DCE = 0x00000004
+    AAD = 0x00000005
+
+
+class TrustDirection(IntEnum):
+    DISABLED = 0
+    INBOUND = 1
+    OUTBOUND = 2
+    BIDIRECTIONAL = 3
+
+
+class TrustAttribute(IntFlag):
+    NON_TRANSITIVE = 0x00000001
+    UPLEVEL_ONLY = 0x00000002
+    FILTER_SIDS = 0x00000004
+    FOREST_TRANSITIVE = 0x00000008
+    CROSS_ORGANIZATION = 0x00000010
+    WITHIN_FOREST = 0x00000020
+    TREAT_AS_EXTERNAL = 0x00000040
+    TRUST_USES_RC4_ENCRYPTION = 0x00000080
+    TRUST_USES_AES_KEYS = 0x00000100
+    CROSS_ORGANIZATION_NO_TGT_DELEGATION = 0x00000200
+    PIM_TRUST = 0x00000400
+    TREE_PARENT = 0x00400000
+    TREE_ROOT = 0x00800000
+
+
+class GroupPolicyOption(IntFlag):
+    BLOCK_POLICY = 0x00000001
 
 
 def _pek_decrypt(db: Database, value: bytes) -> bytes:
@@ -255,22 +341,6 @@ def _decode_pwd_history(db: Database, value: list[bytes]) -> list[bytes]:
 ATTRIBUTE_ENCODE_DECODE_MAP: dict[
     str, tuple[Callable[[Database, Any], Any] | None, Callable[[Database, Any], Any] | None]
 ] = {
-    "Ancestors": (None, lambda db, value: [v[0] for v in struct.iter_unpack("<I", value)]),
-    "instanceType": (lambda db, value: int(value), lambda db, value: InstanceType(int(value))),
-    "systemFlags": (lambda db, value: int(value), lambda db, value: SystemFlags(int(value))),
-    "searchFlags": (lambda db, value: int(value), lambda db, value: SearchFlags(int(value))),
-    "sAMAccountType": (lambda db, value: int(value), lambda db, value: SAMAccountType(int(value))),
-    "userAccountControl": (lambda db, value: int(value), lambda db, value: UserAccountControl(int(value))),
-    "objectGUID": (lambda db, value: value.bytes_le, lambda db, value: UUID(bytes_le=value)),
-    "badPasswordTime": (None, lambda db, value: wintimestamp(int(value))),
-    "lastLogonTimestamp": (None, lambda db, value: wintimestamp(int(value))),
-    "lastLogon": (None, lambda db, value: wintimestamp(int(value))),
-    "lastLogoff": (None, lambda db, value: wintimestamp(int(value))),
-    "pwdLastSet": (None, lambda db, value: wintimestamp(int(value))),
-    "accountExpires": (
-        None,
-        lambda db, value: float("inf") if int(value) == ((1 << 63) - 1) else wintimestamp(int(value)),
-    ),
     # Protected attributes
     "unicodePwd": (None, _pek_decrypt),
     "dBCSPwd": (None, _pek_decrypt),
@@ -432,7 +502,7 @@ SYNTAX_ENCODE_DECODE_MAP: dict[
     # TODO: Object(DN-String); A DN-String plus a Unicode string
     14: (None, None),
     # NTSecurityDescriptor; A security descriptor
-    15: (None, lambda db, value: int.from_bytes(value, byteorder="little")),
+    15: (None, lambda db, value: db.sd.sd(int.from_bytes(value, byteorder="little"))),
     # LargeInteger; A 64-bit number
     16: (None, lambda db, value: int(value)),
     # String(Sid); Security identifier (SID)

@@ -23,6 +23,21 @@ class Computer(User):
     def __repr_body__(self) -> str:
         return f"name={self.name!r}"
 
+    @property
+    def dns_host_name(self) -> str | None:
+        """Return the dNSHostName of this computer."""
+        return self.get("dNSHostName")
+
+    @property
+    def operating_system(self) -> str | None:
+        """Return the operatingSystem of this computer."""
+        return self.get("operatingSystem")
+
+    @property
+    def operating_system_version(self) -> str | None:
+        """Return the operatingSystemVersion of this computer."""
+        return self.get("operatingSystemVersion")
+
     def fve_recovery_information(self) -> Iterator[MSFVERecoveryInformation]:
         """Return the BitLocker recovery information objects associated with this computer."""
         for child in self.children():

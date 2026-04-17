@@ -19,6 +19,11 @@ class NTDSDSA(ApplicationSettings):
 
     __object_class__ = "nTDSDSA"
 
+    @property
+    def behavior_version(self) -> int | None:
+        """Return the msDS-Behavior-Version of this NTDS DSA object."""
+        return self.get("msDS-Behavior-Version")
+
     def domain(self) -> DomainDNS | None:
         """Return the domain object associated with this NTDS DSA object, if any."""
         self._assert_local()
