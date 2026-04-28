@@ -26,8 +26,7 @@ autoapi_options = [
     "undoc-members",
     "show-inheritance",
     "show-module-summary",
-    "special-members",
-    "imported-members",
+    "special-members"
 ]
 autoapi_keep_files = True
 autoapi_template_dir = "_templates/autoapi"
@@ -39,6 +38,5 @@ autosectionlabel_prefix_document = True
 
 suppress_warnings = [
     # https://github.com/readthedocs/sphinx-autoapi/issues/285
-    "autoapi.python_import_resolution",
-    "ref.python",
+    "autoapi.python_import_resolution"
 ]
