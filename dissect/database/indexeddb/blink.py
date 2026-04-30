@@ -33,7 +33,7 @@ class BlinkFileIndex:
     index_id: int
 
 
-BlinkType = BlinkBlobIndex, BlinkFileIndex, list[BlinkFileIndex]
+BlinkType = BlinkBlobIndex | BlinkFileIndex | list[BlinkFileIndex]
 
 
 def deserialize_blink_host_object(*, stream: v8serialize.decode.ReadableTagStream) -> BlinkType:
@@ -48,7 +48,6 @@ def deserialize_blink_host_object(*, stream: v8serialize.decode.ReadableTagStrea
     References:
         - https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/bindings/core/v8/serialization/v8_script_value_deserializer.cc
     """
-
     if not HAS_V8:
         raise ImportError(
             "Unable to deserialize Blink object: missing dependency v8serialize, install with 'pip install dissect.database[indexeddb]"  # noqa: E501
@@ -73,5 +72,7 @@ def deserialize_blink_host_object(*, stream: v8serialize.decode.ReadableTagStrea
     )
 
 
-class BlinkHostObjectHandlerDecodeError(v8serialize.DecodeV8SerializeError):
-    """Raised when decoding a HostObject as a Blink buffer fails."""
+if HAS_V8:
+
+    class BlinkHostObjectHandlerDecodeError(v8serialize.DecodeV8SerializeError):
+        """Raised when decoding a HostObject as a Blink buffer fails."""

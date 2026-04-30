@@ -8,12 +8,13 @@ from dissect.database.indexeddb.blink import deserialize_blink_host_object
 from dissect.database.indexeddb.c_indexeddb import c_indexeddb
 from dissect.database.leveldb.c_leveldb import c_leveldb
 from dissect.database.leveldb.leveldb import LevelDB
-from dissect.database.leveldb.leveldb import Record as LevelDBRecord
 from dissect.database.util.protobuf import decode_varint
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
+
+    from dissect.database.leveldb.leveldb import Record as LevelDBRecord
 
 try:
     import v8serialize
@@ -33,7 +34,6 @@ class IndexedDB:
         - https://github.com/google/dfindexeddb
         - https://www.cclsolutionsgroup.com/post/indexeddb-on-chromium
     """
-
 
     def __init__(self, path: Path):
         self.path = path
@@ -79,7 +79,6 @@ class IndexedDB:
 
     def database(self, key: int | str) -> Database | None:
         """Get a database by id or name, returns on first match."""
-
         for database in self.databases:
             if (isinstance(key, int) and database.id == key) or (isinstance(key, str) and database.name == key):
                 return database
@@ -129,7 +128,6 @@ class Database:
 
     def object_store(self, key: int | str) -> ObjectStore | None:
         """Return an object store based on the given key."""
-
         for object_store in self.object_stores:
             if (isinstance(key, int) and object_store.id == key) or (isinstance(key, str) and object_store.name == key):
                 return object_store
@@ -157,7 +155,6 @@ class ObjectStore:
 
     def _iter_records(self) -> Iterator[IndexedDBKey]:
         """Yield stored records in the object store. Currently does not mark deleted records as such."""
-
         for record in reversed(self.database.indexeddb.records):
             if (
                 record.database_id == self.database.id
@@ -169,7 +166,6 @@ class ObjectStore:
 
     def get(self, key: Any) -> IndexedDBKey | None:
         """Return a single record based on the id or an arbitrary key value."""
-
         for record in self.records:
             if record.key == key:
                 return record
@@ -177,7 +173,6 @@ class ObjectStore:
 
     def keys(self) -> tuple | None:
         """Return a tuple of record keys in this object store."""
-
         return tuple(record.key for record in self.records)
 
 
@@ -228,7 +223,6 @@ def read_varint_value(buf: BinaryIO) -> str:
     References:
         - https://github.com/chromium/chromium/blob/master/content/browser/indexed_db/docs/leveldb_coding_scheme.md
     """
-
     length = decode_varint(buf, 10)
     return buf.read(length * 2).decode("utf-16-be")
 
@@ -239,7 +233,6 @@ def read_truncated_int(input: bytes) -> int:
     References:
         - https://github.com/chromium/chromium/blob/master/content/browser/indexed_db/indexed_db_leveldb_coding.h#EncodeInt
     """
-
     result = 0
     for i, b in enumerate(input):
         result |= b << (i * 8)
@@ -248,7 +241,6 @@ def read_truncated_int(input: bytes) -> int:
 
 def decode_key(key_value: bytes) -> tuple[c_indexeddb.IdbKeyType, Any, int]:
     """Decode the :class:`IndexedDBRecord` key value."""
-
     key_buf = BytesIO(key_value)
     type = c_indexeddb.IdbKeyType(key_buf.read(1)[0])
     offset = None
@@ -300,7 +292,6 @@ def decode_value(value: bytes) -> bytes | Any | None:
         - https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/bindings/core/v8/serialization/trailer_reader.h
         - https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/modules/indexeddb/idb_value_wrapping.cc
     """
-
     if not value:
         return None
 

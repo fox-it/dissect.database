@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from dissect.database.leveldb.leveldb import LevelDB
-from dissect.database.leveldb.leveldb import Record as LevelDBRecord
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
+
+    from dissect.database.leveldb.leveldb import Record as LevelDBRecord
 
 
 class SessionStorage:
@@ -16,7 +17,6 @@ class SessionStorage:
     References:
         - https://www.cclsolutionsgroup.com/post/chromium-session-storage-and-local-storage
     """
-
 
     def __init__(self, path: Path):
         self.path = path

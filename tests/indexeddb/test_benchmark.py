@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 @pytest.mark.benchmark
 def test_benchmark_indexeddb(benchmark: BenchmarkFixture) -> None:
     """Test if we can parse a medium sized IndexedDB."""
-
     path = absolute_path("_data/leveldb/indexeddb/larger/file__0.indexeddb.leveldb")
     records = benchmark(lambda: IndexedDB(path).database("ExampleDatabase").object_store("MyObjectStore").records)
 

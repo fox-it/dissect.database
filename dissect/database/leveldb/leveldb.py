@@ -55,11 +55,7 @@ class LevelDB:
             elif file.name.startswith("MANIFEST-"):
                 self.manifests.append(ManifestFile(path=file))
 
-        self.records = [
-            record
-            for file in chain(self.ldb_files, self.log_files)
-            for record in file.records
-        ]
+        self.records = [record for file in chain(self.ldb_files, self.log_files) for record in file.records]
 
     def __repr__(self) -> str:
         return f"<LevelDB path='{self.path!s}' ldbs={len(self.ldb_files)!r} logs={len(self.log_files)!r}>"
@@ -84,24 +80,18 @@ class LogFile:
             raise LevelDBError("LogFile requires one of path or fh")
 
         self.blocks = list(self._iter_batches())
-        self.records = [
-            record
-            for block in self.blocks
-            for record in block.records
-        ]
+        self.records = [record for block in self.blocks for record in block.records]
 
     def __repr__(self) -> str:
         return f"<LogFile path='{self.path or 'BinaryIO'!s}' blocks={len(self.blocks)}>"
 
     def _iter_chunks(self) -> Iterator[BytesIO, int]:
         """Yields chunks of 32KB from the logfile file handle."""
-
         while buf := self.fh.read(c_leveldb.LOG_BLOCK_SIZE):
             yield BytesIO(buf), len(buf)
 
     def _iter_batches(self) -> Iterator:
         """Yields stitched :class:`LogBlock` instances."""
-
         chunk_buffer = b""  # Perhaps we should use a stream here in the future
 
         for chunk, size in self._iter_chunks():
@@ -218,7 +208,6 @@ class LdbFile:
 
     def _iter_records(self) -> Iterator[Record]:
         """Yield records in this LevelDB file."""
-
         for _, handle in self.index_block.entries():
             block = LdbBlock(self.fh, handle)
             for block_entry, _ in block.entries():

@@ -7,8 +7,8 @@ from tests._util import absolute_path
 
 def test_leveldb_log_file_full() -> None:
     """Test if we can parse a Google Chrome LevelDB log file with a single full block,
-    created by an IndexedDB serializer."""
-
+    created by an IndexedDB serializer.
+    """
     file = absolute_path("_data/leveldb/indexeddb/simple/https_mdn.github.io_0.indexeddb.leveldb/000003.log")
     log_file = LogFile(fh=file.open("rb"))
 
@@ -29,7 +29,6 @@ def test_leveldb_log_file_full() -> None:
 
 def test_leveldb_log_file_start_middle_end() -> None:
     """Test if we can parse a larger LevelDB log file with segmented blocks (start-middle-end)."""
-
     file = absolute_path("_data/leveldb/indexeddb/segmented/https_mdn.github.io_0.indexeddb.leveldb/000003.log")
     log_file = LogFile(fh=file.open("rb"))
 
@@ -40,7 +39,6 @@ def test_leveldb_log_file_start_middle_end() -> None:
 
 def test_leveldb_ldb_file() -> None:
     """Test if we can parse a LevelDB ldb file."""
-
     file = absolute_path("_data/leveldb/indexeddb/larger/file__0.indexeddb.leveldb/000005.ldb")
     ldb = LdbFile(fh=file.open("rb"))
     records = ldb.records
@@ -61,7 +59,6 @@ def test_leveldb_ldb_file() -> None:
 
 def test_leveldb_dir_parsing() -> None:
     """Test if we find all LevelDB log files and ldb files in a directory."""
-
     leveldb = LevelDB(absolute_path("_data/leveldb/indexeddb/larger/file__0.indexeddb.leveldb"))
 
     assert len(leveldb.manifests) == 1

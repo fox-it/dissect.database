@@ -8,9 +8,7 @@ class _c_indexeddb(__cs__.cstruct):
     kMaximumArraySize: Literal[1000000] = ...
     kMinWireFormatVersion: Literal[21] = ...
     class varint(__cs__.ProtobufVarint): ...
-
     class varint64(__cs__.ProtobufVarint): ...
-
     class varint32(__cs__.ProtobufVarint32): ...
 
     class KeyPrefixType(__cs__.Enum):
@@ -63,7 +61,13 @@ class _c_indexeddb(__cs__.cstruct):
         object_store_id: __cs__.CharArray
         index_id: __cs__.CharArray
         @overload
-        def __init__(self, lengths: _c_indexeddb.uint8 | None = ..., database_id: __cs__.CharArray | None = ..., object_store_id: __cs__.CharArray | None = ..., index_id: __cs__.CharArray | None = ...): ...
+        def __init__(
+            self,
+            lengths: _c_indexeddb.uint8 | None = ...,
+            database_id: __cs__.CharArray | None = ...,
+            object_store_id: __cs__.CharArray | None = ...,
+            index_id: __cs__.CharArray | None = ...,
+        ): ...
         @overload
         def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
 
@@ -72,7 +76,12 @@ class _c_indexeddb(__cs__.cstruct):
         blink_tag: _c_indexeddb.uint8
         blink_version: _c_indexeddb.varint
         @overload
-        def __init__(self, version: _c_indexeddb.varint | None = ..., blink_tag: _c_indexeddb.uint8 | None = ..., blink_version: _c_indexeddb.varint | None = ...): ...
+        def __init__(
+            self,
+            version: _c_indexeddb.varint | None = ...,
+            blink_tag: _c_indexeddb.uint8 | None = ...,
+            blink_version: _c_indexeddb.varint | None = ...,
+        ): ...
         @overload
         def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
 

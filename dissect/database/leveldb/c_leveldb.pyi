@@ -10,9 +10,7 @@ class _c_leveldb(__cs__.cstruct):
     LDB_FOOTER_SIZE: Literal[48] = ...
     LDB_BLOCK_TRAILER_SIZE: Literal[5] = ...
     class varint(__cs__.ProtobufVarint): ...
-
     class varint64(__cs__.ProtobufVarint): ...
-
     class varint32(__cs__.ProtobufVarint32): ...
 
     class LogBlockType(__cs__.Enum):
@@ -26,7 +24,12 @@ class _c_leveldb(__cs__.cstruct):
         size: _c_leveldb.uint16
         type: _c_leveldb.LogBlockType
         @overload
-        def __init__(self, crc32c: _c_leveldb.uint32 | None = ..., size: _c_leveldb.uint16 | None = ..., type: _c_leveldb.LogBlockType | None = ...): ...
+        def __init__(
+            self,
+            crc32c: _c_leveldb.uint32 | None = ...,
+            size: _c_leveldb.uint16 | None = ...,
+            type: _c_leveldb.LogBlockType | None = ...,
+        ): ...
         @overload
         def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
 
@@ -48,7 +51,12 @@ class _c_leveldb(__cs__.cstruct):
         key_len: _c_leveldb.varint
         key: __cs__.CharArray
         @overload
-        def __init__(self, state: _c_leveldb.RecordState | None = ..., key_len: _c_leveldb.varint | None = ..., key: __cs__.CharArray | None = ...): ...
+        def __init__(
+            self,
+            state: _c_leveldb.RecordState | None = ...,
+            key_len: _c_leveldb.varint | None = ...,
+            key: __cs__.CharArray | None = ...,
+        ): ...
         @overload
         def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
 
@@ -67,7 +75,14 @@ class _c_leveldb(__cs__.cstruct):
         key: __cs__.CharArray
         value: __cs__.CharArray
         @overload
-        def __init__(self, shared_len: _c_leveldb.varint32 | None = ..., non_shared_len: _c_leveldb.varint32 | None = ..., value_len: _c_leveldb.varint32 | None = ..., key: __cs__.CharArray | None = ..., value: __cs__.CharArray | None = ...): ...
+        def __init__(
+            self,
+            shared_len: _c_leveldb.varint32 | None = ...,
+            non_shared_len: _c_leveldb.varint32 | None = ...,
+            value_len: _c_leveldb.varint32 | None = ...,
+            key: __cs__.CharArray | None = ...,
+            value: __cs__.CharArray | None = ...,
+        ): ...
         @overload
         def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
 
@@ -79,7 +94,9 @@ class _c_leveldb(__cs__.cstruct):
         compression: _c_leveldb.CompressionType
         crc32c: __cs__.CharArray
         @overload
-        def __init__(self, compression: _c_leveldb.CompressionType | None = ..., crc32c: __cs__.CharArray | None = ...): ...
+        def __init__(
+            self, compression: _c_leveldb.CompressionType | None = ..., crc32c: __cs__.CharArray | None = ...
+        ): ...
         @overload
         def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
 
@@ -87,7 +104,11 @@ class _c_leveldb(__cs__.cstruct):
         meta_index_handle: _c_leveldb.BlockHandle
         index_handle: _c_leveldb.BlockHandle
         @overload
-        def __init__(self, meta_index_handle: _c_leveldb.BlockHandle | None = ..., index_handle: _c_leveldb.BlockHandle | None = ...): ...
+        def __init__(
+            self,
+            meta_index_handle: _c_leveldb.BlockHandle | None = ...,
+            index_handle: _c_leveldb.BlockHandle | None = ...,
+        ): ...
         @overload
         def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
 

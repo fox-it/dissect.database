@@ -10,7 +10,6 @@ def test_indexeddb_basic_example() -> None:
     References:
         - https://mdn.github.io/dom-examples/indexeddb-api/index.html
     """
-
     path = absolute_path("_data/leveldb/indexeddb/simple/https_mdn.github.io_0.indexeddb.leveldb")
     indexeddb = IndexedDB(path)
 

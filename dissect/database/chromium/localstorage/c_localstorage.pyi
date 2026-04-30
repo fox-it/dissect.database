@@ -5,9 +5,7 @@ import dissect.cstruct as __cs__
 
 class _c_localstorage(__cs__.cstruct):
     class varint(__cs__.ProtobufVarint): ...
-
     class varint64(__cs__.ProtobufVarint): ...
-
     class varint32(__cs__.ProtobufVarint32): ...
 
     class LocalStorageAreaWriteMetaData(__cs__.Structure):
@@ -16,7 +14,13 @@ class _c_localstorage(__cs__.cstruct):
         sb_type: _c_localstorage.uint8
         size_bytes: _c_localstorage.varint
         @overload
-        def __init__(self, lm_type: _c_localstorage.uint8 | None = ..., last_modified: _c_localstorage.varint | None = ..., sb_type: _c_localstorage.uint8 | None = ..., size_bytes: _c_localstorage.varint | None = ...): ...
+        def __init__(
+            self,
+            lm_type: _c_localstorage.uint8 | None = ...,
+            last_modified: _c_localstorage.varint | None = ...,
+            sb_type: _c_localstorage.uint8 | None = ...,
+            size_bytes: _c_localstorage.varint | None = ...,
+        ): ...
         @overload
         def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
 
@@ -24,7 +28,9 @@ class _c_localstorage(__cs__.cstruct):
         la_type: _c_localstorage.uint8
         last_accessed: _c_localstorage.varint
         @overload
-        def __init__(self, la_type: _c_localstorage.uint8 | None = ..., last_accessed: _c_localstorage.varint | None = ...): ...
+        def __init__(
+            self, la_type: _c_localstorage.uint8 | None = ..., last_accessed: _c_localstorage.varint | None = ...
+        ): ...
         @overload
         def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
 

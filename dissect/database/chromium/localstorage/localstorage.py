@@ -36,13 +36,10 @@ class LocalStorage:
     @property
     def stores(self) -> list[Store]:
         """Iterate over LevelDB records for store meta information."""
-
         meta_keys = {}
 
         for record in self.leveldb.records:
-            if record.state == c_leveldb.RecordState.LIVE and (
-                record.key.startswith((b"META:", b"METAACCESS:"))
-            ):
+            if record.state == c_leveldb.RecordState.LIVE and (record.key.startswith((b"META:", b"METAACCESS:"))):
                 cls = MetaKey if record.key[0:5] == b"META:" else MetaAccessKey
                 meta_key = cls(record.key, record.value, record.state, record.sequence)
                 meta_keys.setdefault(meta_key.key, []).append(meta_key)
@@ -72,7 +69,6 @@ class Store:
     @property
     def records(self) -> list[RecordKey]:
         """Returns all records related to this store."""
-
         # e.g. with "_https://google.com\x00\x01MyKey", the prefix would be "_https://google.com\x00"
         prefix = RecordKey.prefix + self.host.encode("iso-8859-1") + b"\x00"
         prefix_len = len(prefix)

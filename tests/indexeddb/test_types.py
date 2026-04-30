@@ -15,7 +15,6 @@ def test_indexeddb_different_types() -> None:
     References:
         - https://github.com/cclgroupltd/ccl_chromium_reader/blob/master/tools_and_utilities/extras/make_test_indexeddb.html
     """
-
     path = absolute_path("_data/leveldb/indexeddb/types/file__0.indexeddb.leveldb")
 
     indexeddb = IndexedDB(path)
