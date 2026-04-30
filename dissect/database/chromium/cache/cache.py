@@ -4,12 +4,18 @@ import gzip
 import zlib
 from typing import TYPE_CHECKING
 
-from cramjam import brotli
 from dissect.cstruct.utils import u32
 from dissect.util.stream import RangeStream
 from dissect.util.ts import webkittimestamp
 
 from dissect.database.chromium.cache.c_cache import BlockSizeForFileType, c_cache
+
+try:
+    from cramjam import brotli
+    HAS_CRAMJAM = True
+
+except ImportError:
+    HAS_CRAMJAM = False
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -97,7 +103,6 @@ class CacheIndexFile:
     @property
     def addresses(self) -> Iterator[CacheAddress]:
         """Yield :class:`CacheAddress` from the index table."""
-
         if hasattr(self, "_addresses"):
             yield from self._addresses
             return
@@ -225,6 +230,9 @@ class CacheEntryStore:
 
         meta = self.meta
         if b"content-encoding:br" in meta:
+            if not HAS_CRAMJAM:
+                raise RuntimeError("Missing required dependency cramjam to decode brotli data")
+
             return brotli.decompress(addr.data.read()).read()
 
         if b"content-encoding:deflate" in meta:
