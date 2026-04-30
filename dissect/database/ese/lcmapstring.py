@@ -1,6 +1,7 @@
 # Based on Wine source
 # https://github.com/wine-mirror/wine/blob/master/dlls/kernelbase/locale.c
 # http://www.flounder.com/localeexplorer.htm
+from __future__ import annotations
 
 from enum import IntEnum, IntFlag
 

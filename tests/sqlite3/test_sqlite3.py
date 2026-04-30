@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, BinaryIO
 import pytest
 
 from dissect.database.sqlite3 import sqlite3
+from tests._util import absolute_path
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -93,3 +94,35 @@ def test_empty(empty_db: BinaryIO) -> None:
 
     assert s.encoding == "utf-8"
     assert len(list(s.tables())) == 0
+
+
+def test_cell_overflow_reserved_page_size_regression() -> None:
+    """Test if we handle databases with reserve_bytes greater than 0 correctly.
+
+    This test case emulates a database with a page size of 4kb and with reserve_bytes set to 32.
+    We then commit a row to a dummy table with a value of 8kb, forcing a cell overflow to a new page.
+
+    Test data generated using:
+
+        $ sqlite3 example.db
+        SQLite version 3.45.1 2024-01-30 16:01:20
+        Enter ".help" for usage hints.
+        sqlite> .filectrl reserve_bytes 32
+        32
+        sqlite> VACUUM;
+        sqlite> CREATE TABLE foo ("id" INTEGER PRIMARY KEY AUTOINCREMENT, "text" TEXT NOT NULL);
+        sqlite> .quit
+
+        $ python
+        >>> import sqlite3
+        >>> con = sqlite3.connect("example.db")
+        ... cur = con.cursor()
+        >>> cur.execute("INSERT INTO foo VALUES (1, ?)", ("A" * 8192,))
+        >>> con.commit()
+        ... con.close()
+    """
+    db = sqlite3.SQLite3(absolute_path("_data/sqlite3/overflow.db"))
+    assert db.header.reserved_size == 32
+    assert db.header.page_size == 4096
+    assert db.usable_page_size == db.header.page_size - db.header.reserved_size
+    assert db.table("foo").row(0).text == "A" * 8192

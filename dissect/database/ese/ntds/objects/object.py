@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from dissect.database.ese.ntds.util import DN, InstanceType, SystemFlags, decode_value
+from dissect.database.ese.ntds.util import InstanceType, decode_value
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
     from dissect.database.ese.ntds.database import Database
     from dissect.database.ese.ntds.sd import SecurityDescriptor
+    from dissect.database.ese.ntds.util import DN, SystemFlags
     from dissect.database.ese.record import Record
 
 
@@ -64,10 +65,15 @@ class Object:
             db: The database instance associated with this object.
             record: The :class:`Record` instance representing this object.
         """
-        if (object_classes := _get_attribute(db, record, "objectClass")) is not None and (
-            known_cls := cls.__known_classes__.get(object_classes[0])
-        ) is not None:
-            return known_cls(db, record)
+        try:
+            if (object_classes := _get_attribute(db, record, "objectClass")) and (
+                known_cls := cls.__known_classes__.get(object_classes[0])
+            ) is not None:
+                return known_cls(db, record)
+        except ValueError:
+            # Resolving the objectClass values can fail if the schema is not loaded yet (or is malformed)
+            # Fallback to a generic Object in that case
+            pass
 
         return cls(db, record)
 
@@ -141,6 +147,11 @@ class Object:
     def name(self) -> str | None:
         """Return the object's name."""
         return self.get("name")
+
+    @property
+    def cn(self) -> str | None:
+        """Return the object's Common Name (CN)."""
+        return self.get("cn")
 
     @property
     def object_category(self) -> str | None:
@@ -261,7 +272,11 @@ def _get_attribute(db: Database, record: Record, name: str, *, raw: bool = False
         # There are a few attributes that have the flag IsSingleValued but are marked as MultiValue in ESE
         value = value[0]
 
+    if not schema.is_single_valued and value is None:
+        # Return an empty list for multi-valued attributes that are not set
+        value = []
+
     if raw:
         return value
 
-    return decode_value(db, name, value)
+    return decode_value(db, schema, value)

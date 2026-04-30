@@ -10,10 +10,12 @@ from typing import TYPE_CHECKING, BinaryIO
 from dissect.database.ese.c_ese import c_ese, pgnoFDPMSO, ulDAEMagic
 from dissect.database.ese.exception import InvalidDatabase
 from dissect.database.ese.page import Page
-from dissect.database.ese.table import Catalog, Table
+from dissect.database.ese.table import Catalog
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from dissect.database.ese.table import Table
 
 
 class ESE:
@@ -29,7 +31,7 @@ class ESE:
         impacket_compat: Whether to make the output impacket compatible.
 
     Raises:
-        InvalidDatabase: If the file-like object does not look like an ESE database.
+        ~dissect.database.ese.exception.InvalidDatabase: If the file-like object does not look like an ESE database.
     """
 
     def __init__(self, fh: BinaryIO, impacket_compat: bool = False):

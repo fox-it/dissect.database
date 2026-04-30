@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from unittest.mock import Mock
 
 from dissect.database.ese.c_ese import c_ese

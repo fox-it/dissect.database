@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
     from dissect.database.ese.ntds.objects.group import Group
     from dissect.database.ese.ntds.objects.object import Object
+    from dissect.database.ese.ntds.util import SAMAccountType
 
 
 class User(OrganizationalPerson):
@@ -28,6 +29,11 @@ class User(OrganizationalPerson):
     def sam_account_name(self) -> str:
         """Return the user's sAMAccountName."""
         return self.get("sAMAccountName")
+
+    @property
+    def sam_account_type(self) -> SAMAccountType:
+        """Return the user's sAMAccountType."""
+        return self.get("sAMAccountType")
 
     @property
     def primary_group_id(self) -> str | None:

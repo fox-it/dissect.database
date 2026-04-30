@@ -15,13 +15,15 @@ from dissect.database.sqlite3.exception import (
     NoCellData,
 )
 from dissect.database.sqlite3.util import parse_table_columns_constraints
-from dissect.database.sqlite3.wal import WAL, Checkpoint
+from dissect.database.sqlite3.wal import WAL
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from types import TracebackType
 
     from typing_extensions import Self
+
+    from dissect.database.sqlite3.wal import Checkpoint
 
 ENCODING = {
     1: "utf-8",
@@ -68,7 +70,8 @@ class SQLite3:
         checkpoint: The checkpoint to apply from the WAL file. Can be a :class:`Checkpoint` object or an integer index.
 
     Raises:
-        InvalidDatabase: If the file-like object does not look like a SQLite3 database based on the header magic.
+        ~dissect.database.sqlite3.exception.InvalidDatabase: If the file-like object does not look like a SQLite3
+            database based on the header magic.
 
     References:
         - https://sqlite.org/fileformat2.html
@@ -129,7 +132,13 @@ class SQLite3:
         else:
             self.checkpoint = checkpoint
 
+        # Determine the highest page count we have encountered while parsing the SQLite3 header and optionally WAL.
+        self.page_count = max(self.header.page_count, self.wal.highest_page_num) if self.wal else self.header.page_count
+
         self.page = lru_cache(256)(self.page)
+
+    def __repr__(self) -> str:
+        return f"<SQLite3 path={self.path} fh={self.fh} wal={self.wal} checkpoint={bool(self.checkpoint)} pages={self.page_count}>"  # noqa: E501
 
     def __enter__(self) -> Self:
         """Return ``self`` upon entering the runtime context."""
@@ -199,7 +208,7 @@ class SQLite3:
         """
         # Only throw an out of bounds exception if the header contains a page_count.
         # Some old versions of SQLite3 do not set/update the page_count correctly.
-        if (num < 1 or num > self.header.page_count) and self.header.page_count > 0:
+        if (num < 1 or num > self.page_count) and self.page_count > 0:
             raise InvalidPageNumber("Page number exceeds boundaries")
 
         data = None
@@ -232,7 +241,7 @@ class SQLite3:
         return Page(self, num)
 
     def pages(self) -> Iterator[Page]:
-        for i in range(self.header.page_count):
+        for i in range(self.page_count):
             yield self.page(i + 1)
 
     def cells(self) -> Iterator[Cell]:
@@ -253,7 +262,7 @@ class Column:
         self.default_value = self._parse_default_value_from_description(description)
 
     def _parse_default_value_from_description(self, description: str) -> bool | str | int | float | None:
-        """Find the default from the description string"""
+        """Find the default from the description string."""
         if "DEFAULT" not in description.upper():
             return None
 
@@ -269,14 +278,13 @@ class Column:
         return [x for x in tokens if x and x != " "]
 
     def _get_default_value(self, tokens: list[str]) -> str:
-        """Retrieve the default from the tokens"""
-
+        """Retrieve the default from the tokens."""
         # The +1 is to account for the space after the default
         value_index = [x.upper() for x in tokens].index("DEFAULT") + 1
         return tokens[value_index]
 
     def _parse_default_value(self, value: str) -> bool | str | int | float | None:
-        """Parses the default value
+        """Parses the default value.
 
         The value can hold an expression surrounded by ().
         This can be a literal, so these values get stripped.
@@ -287,7 +295,7 @@ class Column:
             return None
 
     def _parse_literal(self, value: str) -> bool | str | int | float:
-        """Tries to convert a literal from a string to any type
+        """Tries to convert a literal from a string to any type.
 
         CURRENT_(TIME|DATE|TIMESTAMP) isn't being taken into account.
         """
@@ -379,7 +387,6 @@ class Row:
         If there are any cell values with unknown column names
         they get added to the unknown list.
         """
-
         row_values = {}
         unknowns = []
 
@@ -512,7 +519,6 @@ class Cell:
         if not self._data:
             offset = self._offset + self._record_offset
             page_data = self.page.data
-            page_size = self.page.sqlite.page_size
 
             if self.size <= self.max_payload_size:
                 size = max(self.size, 4)
@@ -545,7 +551,7 @@ class Cell:
                     # overflow_size is the size of the page data without the
                     # extra 4 bytes for the next overflow page, so it needs to
                     # be added.
-                    data_size = min(overflow_size + 4, page_size)
+                    data_size = min(overflow_size + 4, self.page.sqlite.usable_page_size)
                     page_buf = self.page.sqlite.raw_page(overflow_page)[:data_size]
 
                     overflow_page = c_sqlite3.uint32(page_buf[:4])

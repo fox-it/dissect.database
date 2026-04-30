@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from dissect.database.ese.index import Index
-    from dissect.database.ese.ntds.objects import Top
+    from dissect.database.ese.ntds.objects import DMD, NTDSDSA, Top
 
 
 class Database:
@@ -43,12 +43,26 @@ class DataTable:
     def __init__(self, db: Database):
         self.db = db
         self.table = self.db.ese.table("datatable")
+        self.hiddentable = self.db.ese.table("hiddentable")
+        self.hiddeninfo = next(self.hiddentable.records(), None)
 
         self.schema = Schema()
 
         # Cache frequently used and "expensive" methods
         self.get = lru_cache(4096)(self.get)
         self._make_dn = lru_cache(4096)(self._make_dn)
+
+    def dsa(self) -> NTDSDSA:
+        """Return the Directory System Agent (DSA) object."""
+        if not self.hiddeninfo:
+            raise ValueError("No hiddentable information available")
+        return self.get(self.hiddeninfo.get("dsa_col"))
+
+    def dmd(self) -> DMD:
+        """Return the Directory Management Domain (DMD) object, a.k.a. the schema container."""
+        if not self.hiddeninfo:
+            raise ValueError("No hiddentable information available")
+        return self.get(self.dsa().get("dMDLocation", raw=True))
 
     def root(self) -> Top:
         """Return the top-level object in the NTDS database."""
@@ -100,10 +114,17 @@ class DataTable:
             yield (obj := stack.pop())
             stack.extend(obj.children())
 
-    def iter(self) -> Iterator[Object]:
-        """Iterate over all objects in the NTDS database."""
+    def iter(self, raw: bool = False) -> Iterator[Object]:
+        """Iterate over all objects in the NTDS database.
+
+        Args:
+            raw: Whether to return base :class:`Object` instances without upcasting to more specific types
+                 based on the objectClass.
+        """
+        from_record = Object if raw else Object.from_record
+
         for record in self.table.records():
-            yield Object.from_record(self.db, record)
+            yield from_record(self.db, record)
 
     def get(self, dnt: int) -> Object:
         """Retrieve an object by its Directory Number Tag (DNT) value.
@@ -129,7 +150,7 @@ class DataTable:
             raise ValueError(f"Attribute {key!r} is not found in the schema")
 
         index = self.table.find_index(schema.column)
-        record = index.search([encode_value(self.db, key, value)])
+        record = index.search([encode_value(self.db, schema, value)])
         return Object.from_record(self.db, record)
 
     def query(self, query: str, *, optimize: bool = True) -> Iterator[Object]:

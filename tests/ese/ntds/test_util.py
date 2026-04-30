@@ -23,15 +23,18 @@ if TYPE_CHECKING:
 )
 def test_encode_decode_value(goad: NTDS, attribute: str, decoded: Any, encoded: Any) -> None:
     """Test ``encode_value`` and ``decode_value`` coverage."""
-    assert encode_value(goad.db, attribute, decoded) == encoded
-    assert decode_value(goad.db, attribute, encoded) == decoded
+    schema = goad.db.data.schema.lookup_attribute(name=attribute)
+    assert encode_value(goad.db, schema, decoded) == encoded
+    assert decode_value(goad.db, schema, encoded) == decoded
 
 
 def test_oid_to_attrtyp_with_oid_string(goad: NTDS) -> None:
     """Test ``_oid_to_attrtyp`` with OID string format."""
     person_entry = goad.db.data.schema.lookup(name="person")
 
-    result = _oid_to_attrtyp(goad.db, person_entry.oid)
+    oid = goad.db.data.schema.attrtyp_to_oid(person_entry.id)
+
+    result = _oid_to_attrtyp(goad.db, oid)
     assert isinstance(result, int)
     assert result == person_entry.id
 

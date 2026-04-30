@@ -39,6 +39,7 @@ class WAL:
             raise InvalidDatabase("Invalid WAL header magic")
 
         self.checksum_endian = "<" if self.header.magic == WAL_HEADER_MAGIC_LE else ">"
+        self.highest_page_num = max(fr.page_number for commit in self.commits for fr in commit.frames if fr.valid)
 
         self.frame = lru_cache(1024)(self.frame)
 

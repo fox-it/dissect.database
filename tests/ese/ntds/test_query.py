@@ -86,6 +86,18 @@ def test_simple_wildcard(goad: NTDS) -> None:
         assert len(records) == 1
         assert mock_fetch.call_count == 1
 
+    query = Query(goad.db, "(&(sAMAccountName=*odor)(objectCategory=person))")
+    with patch.object(query, "_query_database", wraps=query._query_database) as mock_fetch:
+        records = list(query.process())
+        assert len(records) == 1
+        assert mock_fetch.call_count == 1
+
+    query = Query(goad.db, "(&(sAMAccountName=h*d*r)(objectCategory=person))")
+    with patch.object(query, "_query_database", wraps=query._query_database) as mock_fetch:
+        records = list(query.process())
+        assert len(records) == 1
+        assert mock_fetch.call_count == 1
+
 
 def test_simple_wildcard_in_AND(goad: NTDS) -> None:
     query = Query(goad.db, "(&(objectCategory=person)(sAMAccountName=hod*))")
@@ -102,14 +114,13 @@ def test_invalid_attribute(goad: NTDS) -> None:
         list(query.process())
 
 
-def test_invalid_index(goad: NTDS) -> None:
-    """Test index not found for attribute."""
-    query = Query(goad.db, "(cn=ThisIsNotExistingInTheDB)")
-    with (
-        patch.object(goad.db.data.table, "find_index", return_value=None),
-        pytest.raises(ValueError, match=r"Index for attribute.*not found in the NTDS database"),
-    ):
-        list(query.process())
+def test_no_index(goad: NTDS) -> None:
+    """Test searching for attribute with no index."""
+    schema = goad.db.data.schema.lookup_attribute(name="description")
+    assert goad.db.data.table.find_index([schema.column]) is None
+
+    query = Query(goad.db, "(description=Brainless*)")
+    assert len(list(query.process())) == 1
 
 
 def test_increment_last_char() -> None:
