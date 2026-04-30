@@ -12,6 +12,7 @@ from dissect.database.chromium.cache.c_cache import BlockSizeForFileType, c_cach
 
 try:
     from cramjam import brotli
+
     HAS_CRAMJAM = True
 
 except ImportError:
@@ -217,7 +218,7 @@ class CacheEntryStore:
     @property
     def meta(self) -> bytes:
         addr = CacheAddress(self.disk_cache.index, self.header.data_addr[0])
-        # TODO: Properly unpickle, contains a treasure of data.
+        # TODO: Properly unpickle HTTP response headers
         return addr.data.read()
 
     @property

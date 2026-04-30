@@ -38,12 +38,15 @@ class SimpleDiskCache:
 
         self.path = path
         self.index = SimpleIndexFile(self, path.joinpath("index-dir/the-real-index"))
+        self.last_used = self.index.last_used
         self.cache_files = [
             SimpleCacheFile(self, child) for child in self.children if len(child.name) == 18 and "_" in child.name
         ]
 
     def __repr__(self) -> str:
-        return f"<SimpleDiskCache path='{self.path!s}' cache_files={len(self.cache_files)!r}>"
+        return (
+            f"<SimpleDiskCache path='{self.path!s}' cache_files={len(self.cache_files)!r} last_used={self.last_used!r}>"  # noqa: E501
+        )
 
     def get(self, key: str) -> SimpleCacheFile | None:
         """Return the first matching :class:`SimpleCacheFile` for the given key identifier."""
@@ -93,6 +96,8 @@ class SimpleCacheFile:
         self.header = c_simple.SimpleFileHeader(self.fh)
         self.header_size = len(self.header.dumps())
         self.type = infer_file_type(self.path.name)
+
+        # TODO: Parse the cache key (``HttpCache::GenerateCacheKey``) to a sane format.
         self.key = self.header.key.decode("latin1")
 
     def __repr__(self) -> str:
@@ -100,26 +105,40 @@ class SimpleCacheFile:
 
     def _streams(self) -> None:
         """Parse the stream(s) of this Simple Cache File."""
-
         if self.type == SimpleFileType.STREAM_0_1:
             # We read backwards in the file handle (stream 0 is positioned after stream 1).
 
             # Stream 0
             self.fh.seek(-c_simple.kSimpleEOFSize, os.SEEK_END)
-            eof = c_simple.SimpleFileEOF(self.fh)
-            offset = -c_simple.kSimpleEOFSize - eof.stream_size
-            if eof.flags in (2, 3):
+            eof0 = c_simple.SimpleFileEOF(self.fh)
+
+            if eof0.magic != c_simple.kSimpleFinalMagicNumber:
+                raise ValueError(f"Invalid EOF0 magic header {eof0!r}")
+
+            offset = -c_simple.kSimpleEOFSize - eof0.stream_size
+            if eof0.flags in (2, 3):
                 offset -= 32
             self.fh.seek(offset, os.SEEK_END)
-            self._meta = self.fh.read(eof.stream_size)
+            self._meta = self.fh.read(eof0.stream_size)
 
             # Stream 1
-            self.fh.seek(-(c_simple.kSimpleEOFSize * 2) - eof.stream_size, os.SEEK_END)
-            if eof.flags in (2, 3):
+            self.fh.seek(-(c_simple.kSimpleEOFSize * 2) - eof0.stream_size, os.SEEK_END)
+            if eof0.flags in (2, 3):
                 self.fh.seek(-32, os.SEEK_CUR)
-            eof2 = c_simple.SimpleFileEOF(self.fh)
+
+            eof1 = c_simple.SimpleFileEOF(self.fh)
+            eof1_offset = self.fh.tell()
+
+            if eof1.magic != c_simple.kSimpleFinalMagicNumber:
+                raise ValueError(f"Invalid EOF1 magic header {eof1!r}")
+
+            # Some EOF markers have a stream_size of 0x0 while the data is resident, this is intended behavior
+            # according to source, but older Chromium versions did populate stream_size.
+            # We can determine the size of stream 1 by reading until the beginning of the EOF marker for stream 1.
+            stream_size = eof1.stream_size or (eof1_offset - self.header_size)
+
             self.fh.seek(self.header_size)
-            self._data = self.fh.read(eof2.stream_size)
+            self._data = self.fh.read(stream_size)
 
         elif self.type == SimpleFileType.STREAM_2:
             # Should be simple
@@ -181,7 +200,6 @@ class SimpleFileType(IntEnum):
 
 def infer_file_type(file_name: str) -> SimpleFileType:
     """Infer the :class:`SimpleFileType` based on the name of the :class:`SimpleCacheFile`."""
-
     if file_name.endswith("_0"):
         return SimpleFileType.STREAM_0_1
 

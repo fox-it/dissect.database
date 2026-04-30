@@ -55,7 +55,7 @@ struct SimpleFileEOF {
     uint64      magic;              // kSimpleFinalMagicNumber
     uint32      flags;              // hash type: 0 = ?, 1 = crc32, 2 = sha256, 3 = 1 + 2
     uint32      crc32;
-    int32       stream_size;        // only used in the EOF record for stream 0.
+    uint32      stream_size;        // only used in the EOF record for stream 0.
 };
 
 struct SimpleFileStream_0_1 {

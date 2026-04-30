@@ -9,7 +9,7 @@ from tests._util import absolute_path
 
 def test_chromium_cache() -> None:
     """Test if we can parse Chromium Cache Data from Google Chrome 148 on Windows 11 (24H2)."""
-    path = absolute_path("_data/chromium/cache/Cache_Data")
+    path = absolute_path("_data/chromium/cache/Windows_Cache_Data")
     disk_cache = DiskCache(path)
 
     assert disk_cache.create_time == datetime(2026, 4, 30, 12, 10, 45, 77412, tzinfo=timezone.utc)
@@ -17,7 +17,7 @@ def test_chromium_cache() -> None:
     assert len(disk_cache.block_files) == 4
 
     entry_store = next(disk_cache.entries)
-    assert entry_store.address.address == 0xa0010002
+    assert entry_store.address.address == 0xA0010002
     assert entry_store.state == c_cache.EntryState.ENTRY_NORMAL
     assert entry_store.creation_time == datetime(2026, 4, 30, 12, 11, 48, 207695, tzinfo=timezone.utc)
     assert entry_store.key == "1/0/_dk_http://172.16.82.1 http://172.16.82.1 http://172.16.82.1:8000/"
