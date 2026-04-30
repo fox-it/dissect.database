@@ -109,7 +109,6 @@ def parse_table_columns_constraints(sql: str) -> tuple[str | None, list[str], li
 
 def split_column_def(sql: str, column_def: str) -> tuple[str, str]:
     """Splits the column definition to name and constraint."""
-
     column_parts = column_def.split(maxsplit=1)
     if not column_parts:
         raise InvalidSQL(f"Not a valid CREATE TABLE definition: empty column definition in {sql!r}")
@@ -134,11 +133,9 @@ def get_primary_key_from_constraint(column_type_constraint: str, column_def: str
         )
     matched_group = primary_key_sql.groups()[0]
     primary_key_defs = list(split_sql_list(matched_group))
-    # We only handle single primary keys, no compound keys or
-    # expressions, so a single entry in the list consisting of a single
-    # part.
+    # We only handle single primary keys, no compound keys or expressions, so a single entry in the list consisting of
+    # a single part. For example we parse ``id`` as a primary_key in the constraint ``PRIMARY KEY("id" AUTOINCREMENT)``.
     if len(primary_key_defs) == 1:
         primary_key_parts = primary_key_defs[0].split(maxsplit=1)
-        if len(primary_key_parts) == 1:
-            primary_key = primary_key_parts[0]
+        primary_key = primary_key_parts[0].strip("'\"")
     return primary_key

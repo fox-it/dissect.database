@@ -1,15 +1,21 @@
+from __future__ import annotations
+
 import argparse
 import datetime
 import ipaddress
-from collections.abc import Iterator
+import json
 from pathlib import Path
-from typing import BinaryIO
+from typing import TYPE_CHECKING, BinaryIO
 
 from dissect.util.ts import wintimestamp
 
 from dissect.database.ese.ese import ESE
-from dissect.database.ese.table import Table
 from dissect.database.ese.util import RecordValue
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from dissect.database.ese.table import Table
 
 UalValue = RecordValue | ipaddress.IPv4Address | ipaddress.IPv6Interface | tuple[datetime.datetime]
 
@@ -89,6 +95,7 @@ def convert_day_num_to_date(year: int, day_num: int) -> datetime.datetime:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="dissect.database.ese UAL parser")
+    parser.add_argument("-j", "--json", action="store_true", default=False, help="output in JSON format")
     parser.add_argument("input", help="UAL database to read")
     args = parser.parse_args()
 
@@ -100,7 +107,10 @@ def main() -> None:
                 continue
 
             for record in parser.get_table_records(table.name):
-                print(record)
+                if args.json:
+                    print(json.dumps(record, default=str))
+                else:
+                    print(record)
 
 
 if __name__ == "__main__":

@@ -26,7 +26,7 @@ classifiers = [
 ]
 dependencies = [
     "dissect.cstruct>=4,<5",
-    "dissect.util>=3.5,<4",
+    "dissect.util>=3.24,<4",
 ]
 dynamic = ["version"]
 
@@ -36,9 +36,13 @@ documentation = "https://docs.dissect.tools/en/latest/projects/dissect.database"
 repository = "https://github.com/fox-it/dissect.database"
 
 [project.optional-dependencies]
+full = [
+    "pycryptodome"
+]
 dev = [
+    "dissect.database[full]",
     "dissect.cstruct>=4.0.dev,<5.0.dev",
-    "dissect.util>=3.5.dev,<4.0.dev",
+    "dissect.util>=3.24,<4.0.dev",
 ]
 
 [dependency-groups]
@@ -48,6 +52,7 @@ test = [
 lint = [
     "ruff==0.13.1",
     "vermin",
+    "typing_extensions",
 ]
 build = [
     "build",
@@ -60,6 +65,14 @@ dev = [
     {include-group = "lint"},
     {include-group = "debug"},
 ]
+
+[project.scripts]
+dissect-ntds = "dissect.database.ese.ntds.tools.ntds:main"
+dissect-ual = "dissect.database.ese.tools.ual:main"
+dissect-sru = "dissect.database.ese.tools.sru:main"
+dissect-certlog = "dissect.database.ese.tools.certlog:main"
+dissect-rpm = "dissect.database.bsd.tools.rpm:main"
+dissect-impacket = "dissect.database.ese.tools.impacket:main"
 
 [tool.ruff]
 line-length = 120
@@ -94,7 +107,7 @@ select = [
   "SLOT",
   "SIM",
   "TID",
-  "TCH",
+  "TC",
   "PTH",
   "PLC",
   "TRY",
@@ -102,8 +115,25 @@ select = [
   "PERF",
   "FURB",
   "RUF",
+  "D"
 ]
-ignore = ["E203", "B904", "UP024", "ANN002", "ANN003", "ANN204", "ANN401", "SIM105", "TRY003"]
+ignore = [
+    "E203", "B904", "UP024", "ANN002", "ANN003", "ANN204", "ANN401", "SIM105", "TRY003", "PLC0415",
+    # Ignore some pydocstyle rules for now as they require a larger cleanup
+    "D1",
+    "D205",
+    "D301",
+    "D417",
+    # Seems bugged: https://github.com/astral-sh/ruff/issues/16824
+    "D402",
+]
+future-annotations = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-type-checking]
+strict = true
 
 [tool.ruff.lint.per-file-ignores]
 "tests/_docs/**" = ["INP001"]
@@ -112,6 +142,7 @@ ignore = ["E203", "B904", "UP024", "ANN002", "ANN003", "ANN204", "ANN401", "SIM1
 [tool.ruff.lint.isort]
 known-first-party = ["dissect.database"]
 known-third-party = ["dissect"]
+required-imports = ["from __future__ import annotations"]
 
 [tool.setuptools.packages.find]
 include = ["dissect.*"]

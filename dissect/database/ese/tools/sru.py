@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO
 
@@ -8,11 +9,12 @@ from dissect.util.sid import read_sid
 from dissect.util.ts import oatimestamp, wintimestamp
 
 from dissect.database.ese.ese import ESE
-from dissect.database.ese.record import Record, serialise_record_column_values
+from dissect.database.ese.record import serialise_record_column_values
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from dissect.database.ese.record import Record
     from dissect.database.ese.table import Table
     from dissect.database.ese.util import RecordValue
 
@@ -148,24 +150,32 @@ class Entry:
         column_values = serialise_record_column_values(self.record)
         return f"<Entry provider={self.table.name!r} {column_values}>"
 
+    def as_dict(self) -> dict:
+        ret = self.record.as_dict()
+        ret["provider"] = self.table.name
+        return ret
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="dissect.database.ese SRU parser")
     parser.add_argument("input", help="SRU database to read")
     parser.add_argument("-p", "--provider", help="filter records from this provider")
+    parser.add_argument("-j", "--json", action="store_true", default=False, help="output in JSON format")
     args = parser.parse_args()
 
     with Path(args.input).open("rb") as fh:
         parser = SRU(fh)
 
         if args.provider in NAME_TO_GUID_MAP:
-            for e in parser.get_table_entries(table_name=args.provider):
-                print(e)
+            generator = parser.get_table_entries(table_name=args.provider)
         elif args.provider:
-            for e in parser.get_table_entries(table_guid=args.provider):
-                print(e)
+            generator = parser.get_table_entries(table_guid=args.provider)
         else:
-            for e in parser.entries():
+            generator = parser.entries()
+        for e in generator:
+            if args.json:
+                print(json.dumps(e.as_dict(), default=str))
+            else:
                 print(e)
 
 

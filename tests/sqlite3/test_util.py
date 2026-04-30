@@ -155,6 +155,21 @@ testdata = [
         ),
         id="create-table-firefox-foreign-in-column-name",
     ),
+    # Primary key constraint with multiple parts, but not a compound/composite constraint.
+    pytest.param(
+        'CREATE TABLE "example"("foo" INTEGER, "bar" TEXT NOT NULL, PRIMARY KEY("foo" AUTOINCREMENT))',
+        (
+            "foo",
+            [
+                ("foo", "INTEGER"),
+                ("bar", "TEXT NOT NULL"),
+            ],
+            [
+                'PRIMARY KEY("foo" AUTOINCREMENT)',
+            ],
+        ),
+        id="primary-key-constraint-multiple-parts",
+    ),
 ]
 
 

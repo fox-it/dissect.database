@@ -71,7 +71,6 @@ def test_parse_value_encoding(windows_search_db: BinaryIO) -> None:
     Resources:
         - https://github.com/fox-it/dissect.esedb/pull/48
     """
-
     db = ESE(windows_search_db)
     table = db.table("SystemIndex_PropertyStore")
 

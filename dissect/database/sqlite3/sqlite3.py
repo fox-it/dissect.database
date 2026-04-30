@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import itertools
 import re
-import struct
 from functools import lru_cache
 from io import BytesIO
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO
 
 from dissect.database.sqlite3.c_sqlite3 import c_sqlite3
@@ -15,10 +15,15 @@ from dissect.database.sqlite3.exception import (
     NoCellData,
 )
 from dissect.database.sqlite3.util import parse_table_columns_constraints
+from dissect.database.sqlite3.wal import WAL
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from types import TracebackType
 
+    from typing_extensions import Self
+
+    from dissect.database.sqlite3.wal import Checkpoint
 
 ENCODING = {
     1: "utf-8",
@@ -47,19 +52,49 @@ SERIAL_TYPES = {
     9: lambda fh: 1,
 }
 
+# See https://sqlite.org/fileformat2.html#magic_header_string
 SQLITE3_HEADER_MAGIC = b"SQLite format 3\x00"
-
-WAL_HEADER_MAGIC_LE = 0x377F0682
-WAL_HEADER_MAGIC_BE = 0x377F0683
-WAL_HEADER_MAGIC = {WAL_HEADER_MAGIC_LE, WAL_HEADER_MAGIC_BE}
 
 
 class SQLite3:
-    def __init__(self, fh: BinaryIO, wal_fh: BinaryIO | None = None):
-        self.fh = fh
-        self.wal = WAL(wal_fh) if wal_fh else None
+    """SQLite3 database class.
 
-        self.header = c_sqlite3.header(fh)
+    Loads a SQLite3 database from the given file-like object or path. If a path is provided (or can be deduced
+    from the file-like object), a WAL file will be automatically looked for with a few common suffixes.
+    Optionally a WAL file-like object or path can be directly provided to read changes from the WAL (this takes
+    priority over the aforementioned WAL lookup). Additionally, a specific checkpoint from the WAL can be applied.
+
+    Args:
+        fh: The path or file-like object to open a SQLite3 database on.
+        wal: The path or file-like object to open a SQLite3 WAL file on.
+        checkpoint: The checkpoint to apply from the WAL file. Can be a :class:`Checkpoint` object or an integer index.
+
+    Raises:
+        ~dissect.database.sqlite3.exception.InvalidDatabase: If the file-like object does not look like a SQLite3
+            database based on the header magic.
+
+    References:
+        - https://sqlite.org/fileformat2.html
+    """
+
+    def __init__(
+        self,
+        fh: Path | BinaryIO,
+        wal: WAL | Path | BinaryIO | None = None,
+        checkpoint: Checkpoint | int | None = None,
+    ):
+        if isinstance(fh, Path):
+            path = fh
+            fh = path.open("rb")
+        else:
+            path = None
+
+        self.fh = fh
+        self.path = path
+        self.wal = None
+        self.checkpoint = None
+
+        self.header = c_sqlite3.header(self.fh)
         if self.header.magic != SQLITE3_HEADER_MAGIC:
             raise InvalidDatabase("Invalid header magic")
 
@@ -72,10 +107,63 @@ class SQLite3:
         if self.usable_page_size < 480:
             raise InvalidDatabase("Usable page size is too small")
 
+        if wal:
+            self.wal = wal if isinstance(wal, WAL) else WAL(wal)
+        else:
+            # Check for WAL sidecar next to the DB.
+            # If we have a path, we can deduce the WAL path.
+            # If we don't have a path, we can try to get it from the file handle.
+            if path is None:
+                # By deducing the path at this point and not earlier, we can keep the original passed
+                # path to indicate if we should close the file handle later on.
+                name = getattr(fh, "name", None)
+                path = Path(name) if name else None
+
+            if path is not None:
+                wal_path = path.with_name(f"{path.name}-wal")
+                if wal_path.exists() and wal_path.stat().st_size > 0:
+                    self.wal = WAL(wal_path)
+
+        # If a checkpoint index was provided, resolve it to a Checkpoint object.
+        if self.wal and isinstance(checkpoint, int):
+            if checkpoint < 0 or checkpoint >= len(self.wal.checkpoints):
+                raise IndexError("WAL checkpoint index out of range")
+            self.checkpoint = self.wal.checkpoints[checkpoint]
+        else:
+            self.checkpoint = checkpoint
+
+        # Determine the highest page count we have encountered while parsing the SQLite3 header and optionally WAL.
+        self.page_count = max(self.header.page_count, self.wal.highest_page_num) if self.wal else self.header.page_count
+
         self.page = lru_cache(256)(self.page)
 
-    def open_wal(self, fh: BinaryIO) -> None:
-        self.wal = WAL(fh)
+    def __repr__(self) -> str:
+        return f"<SQLite3 path={self.path} fh={self.fh} wal={self.wal} checkpoint={bool(self.checkpoint)} pages={self.page_count}>"  # noqa: E501
+
+    def __enter__(self) -> Self:
+        """Return ``self`` upon entering the runtime context."""
+        return self
+
+    def __exit__(self, _: type[BaseException] | None, __: BaseException | None, ___: TracebackType | None) -> bool:
+        self.close()
+        return False
+
+    def close(self) -> None:
+        """Close the database and WAL."""
+        # Only close DB handle if we opened it using a path
+        if self.path is not None:
+            self.fh.close()
+
+        if self.wal is not None:
+            self.wal.close()
+
+    def checkpoints(self) -> Iterator[SQLite3]:
+        """Yield instances of the database at all available checkpoints in the WAL file, if applicable."""
+        if not self.wal:
+            return
+
+        for checkpoint in self.wal.checkpoints:
+            yield SQLite3(self.fh, self.wal, checkpoint)
 
     def table(self, name: str) -> Table | None:
         name = name.lower()
@@ -108,11 +196,42 @@ class SQLite3:
             yield Index(self, *cell.values)
 
     def raw_page(self, num: int) -> bytes:
+        """Retrieve the raw frame data for the given page number.
+
+        Reads the page from a checkpoint, if this class was initialized with a WAL checkpoint.
+
+        If a WAL is available, will first check if the WAL contains a more recent version of the page,
+        otherwise it will read the page from the database file.
+
+        References:
+            - https://sqlite.org/fileformat2.html#reader_algorithm
+        """
         # Only throw an out of bounds exception if the header contains a page_count.
         # Some old versions of SQLite3 do not set/update the page_count correctly.
-        if (num < 1 or num > self.header.page_count) and self.header.page_count > 0:
+        if (num < 1 or num > self.page_count) and self.page_count > 0:
             raise InvalidPageNumber("Page number exceeds boundaries")
-        if num == 1:  # Page 1 is root
+
+        data = None
+        if self.checkpoint is not None and (frame := self.checkpoint.get(num)):
+            # If a specific WAL checkpoint was provided, use it instead of the on-disk page.
+            data = frame.data
+
+        elif self.wal:
+            # Check if the latest valid instance of the page is committed (either the frame itself
+            # is the commit frame or it is included in a commit's frames). If so, return that frame's data.
+            for commit in reversed(self.wal.commits):
+                if (frame := commit.get(num)) and frame.valid:
+                    data = frame.data
+                    break
+
+        if data is not None:
+            if num == 1:
+                # Page 1 has a database header that needs to be stripped
+                return data[len(c_sqlite3.header) :]
+            return data
+
+        # Else we read the page from the database file.
+        if num == 1:  # Page 1 is root, skip header
             self.fh.seek(len(c_sqlite3.header))
         else:
             self.fh.seek((num - 1) * self.page_size)
@@ -122,7 +241,7 @@ class SQLite3:
         return Page(self, num)
 
     def pages(self) -> Iterator[Page]:
-        for i in range(self.header.page_count):
+        for i in range(self.page_count):
             yield self.page(i + 1)
 
     def cells(self) -> Iterator[Cell]:
@@ -143,7 +262,7 @@ class Column:
         self.default_value = self._parse_default_value_from_description(description)
 
     def _parse_default_value_from_description(self, description: str) -> bool | str | int | float | None:
-        """Find the default from the description string"""
+        """Find the default from the description string."""
         if "DEFAULT" not in description.upper():
             return None
 
@@ -159,14 +278,13 @@ class Column:
         return [x for x in tokens if x and x != " "]
 
     def _get_default_value(self, tokens: list[str]) -> str:
-        """Retrieve the default from the tokens"""
-
+        """Retrieve the default from the tokens."""
         # The +1 is to account for the space after the default
         value_index = [x.upper() for x in tokens].index("DEFAULT") + 1
         return tokens[value_index]
 
     def _parse_default_value(self, value: str) -> bool | str | int | float | None:
-        """Parses the default value
+        """Parses the default value.
 
         The value can hold an expression surrounded by ().
         This can be a literal, so these values get stripped.
@@ -177,7 +295,7 @@ class Column:
             return None
 
     def _parse_literal(self, value: str) -> bool | str | int | float:
-        """Tries to convert a literal from a string to any type
+        """Tries to convert a literal from a string to any type.
 
         CURRENT_(TIME|DATE|TIMESTAMP) isn't being taken into account.
         """
@@ -269,7 +387,6 @@ class Row:
         If there are any cell values with unknown column names
         they get added to the unknown list.
         """
-
         row_values = {}
         unknowns = []
 
@@ -402,7 +519,6 @@ class Cell:
         if not self._data:
             offset = self._offset + self._record_offset
             page_data = self.page.data
-            page_size = self.page.sqlite.page_size
 
             if self.size <= self.max_payload_size:
                 size = max(self.size, 4)
@@ -435,7 +551,7 @@ class Cell:
                     # overflow_size is the size of the page data without the
                     # extra 4 bytes for the next overflow page, so it needs to
                     # be added.
-                    data_size = min(overflow_size + 4, page_size)
+                    data_size = min(overflow_size + 4, self.page.sqlite.usable_page_size)
                     page_buf = self.page.sqlite.raw_page(overflow_page)[:data_size]
 
                     overflow_page = c_sqlite3.uint32(page_buf[:4])
@@ -463,127 +579,6 @@ class Cell:
             self._read_record()
 
         return self._values
-
-
-class WAL:
-    def __init__(self, fh: BinaryIO):
-        self.fh = fh
-        self.header = c_sqlite3.wal_header(fh)
-
-        if self.header.magic not in WAL_HEADER_MAGIC:
-            raise InvalidDatabase("Invalid header magic")
-
-        self.checksum_endian = "<" if self.header.magic == WAL_HEADER_MAGIC_LE else ">"
-        self._checkpoints = None
-
-        self.frame = lru_cache(1024)(self.frame)
-
-    def frame(self, frame_idx: int) -> WALFrame:
-        frame_size = len(c_sqlite3.wal_frame) + self.header.page_size
-        offset = len(c_sqlite3.wal_header) + frame_idx * frame_size
-        return WALFrame(self, offset)
-
-    def frames(self) -> Iterator[WALFrame]:
-        frame_idx = 0
-        while True:
-            try:
-                yield self.frame(frame_idx)
-                frame_idx += 1
-            except EOFError:  # noqa: PERF203
-                break
-
-    def checkpoints(self) -> list[WALCheckpoint]:
-        if not self._checkpoints:
-            checkpoints = []
-            frames = []
-
-            for frame in self.frames():
-                frames.append(frame)
-
-                if frame.page_count != 0:
-                    checkpoints.append(WALCheckpoint(self, frames))
-                    frames = []
-
-            self._checkpoints = checkpoints
-
-        return self._checkpoints
-
-
-class WALFrame:
-    def __init__(self, wal: WAL, offset: int):
-        self.wal = wal
-        self.offset = offset
-
-        self.fh = wal.fh
-        self._data = None
-
-        self.fh.seek(offset)
-        self.header = c_sqlite3.wal_frame(self.fh)
-
-    def __repr__(self) -> str:
-        return f"<WALFrame page_number={self.page_number} page_count={self.page_count}>"
-
-    @property
-    def valid(self) -> bool:
-        salt1_match = self.header.salt1 == self.wal.header.salt1
-        salt2_match = self.header.salt2 == self.wal.header.salt2
-
-        return salt1_match and salt2_match
-
-    @property
-    def data(self) -> bytes:
-        if not self._data:
-            self.fh.seek(self.offset + len(c_sqlite3.wal_frame))
-            self._data = self.fh.read(self.wal.header.page_size)
-        return self._data
-
-    @property
-    def page_number(self) -> int:
-        return self.header.page_number
-
-    @property
-    def page_count(self) -> int:
-        return self.header.page_count
-
-
-class WALCheckpoint:
-    def __init__(self, wal: WAL, frames: list[WALFrame]):
-        self.wal = wal
-        self.frames = frames
-        self._page_map = None
-
-    def __contains__(self, page: int) -> bool:
-        return page in self.page_map
-
-    def __getitem__(self, page: int) -> WALFrame:
-        return self.page_map[page]
-
-    def __repr__(self) -> str:
-        return f"<WALCheckpoint frames={len(self.frames)}>"
-
-    @property
-    def page_map(self) -> dict[int, WALFrame]:
-        if not self._page_map:
-            self._page_map = {frame.page_number: frame for frame in self.frames}
-
-        return self._page_map
-
-    def get(self, page: int, default: Any = None) -> WALFrame:
-        return self.page_map.get(page, default)
-
-
-def wal_checksum(buf: bytes, endian: str = ">") -> tuple[int, int]:
-    """For future use, will be used when WAL is fully implemented"""
-
-    s0 = s1 = 0
-    num_ints = len(buf) // 4
-    arr = struct.unpack(f"{endian}{num_ints}I", buf)
-
-    for int_num in range(0, num_ints, 2):
-        s0 = (s0 + (arr[int_num] + s1)) & 0xFFFFFFFF
-        s1 = (s1 + (arr[int_num + 1] + s0)) & 0xFFFFFFFF
-
-    return s0, s1
 
 
 def walk_tree(sqlite: SQLite3, page: Page) -> Iterator[Cell]:

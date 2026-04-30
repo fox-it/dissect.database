@@ -20,6 +20,17 @@ This module is also automatically installed if you install the `dissect` package
 
 ## Tools
 
+Some CLI tools related to specific databases exists. These tools allow you to dump or inspect database content.
+
+| Commands           | Description                                                                                                                                                       |
+|--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `dissect-ntds`     | Windows NTDS (Active Directory database).                                                                                                                         |
+| `dissect-ual`      | Windows [User Access Logging](https://learn.microsoft.com/en-us/windows-server/administration/user-access-logging/get-started-with-user-access-logging) database. |
+| `dissect-sru`      | Windows System Resources And Usage Monitor database.                                                                                                              |
+| `dissect-certlog`  | Windows [AD CS database](https://learn.microsoft.com/en-us/windows-server/identity/ad-cs/active-directory-certificate-services-overview) database.                |
+| `dissect-rpm`      | [Red Hat Package Manager](https://rpm.org/) database.                                                                                                             |
+| `dissect-impacket` | Impacket compatibility shim for `secretsdump.py`.                                                                                                                 |
+
 ### Impacket compatibility shim for secretsdump.py
 
 Impacket does not ([yet](https://github.com/fortra/impacket/pull/1452)) have native support for `dissect.database`,
@@ -27,7 +38,7 @@ so in the meantime a compatibility shim is provided. To use this shim, simply in
 instructions above, and execute `secretsdump.py` like so:
 
 ```bash
-python -m dissect.database.ese.tools.impacket /path/to/impacket/examples/secretsdump.py -h
+dissect-impacket /path/to/impacket/examples/secretsdump.py -h
 ```
 
 Impacket `secretsdump.py` will now use `dissect.database` for parsing the `NTDS.dit` file, resulting in a significant performance improvement!

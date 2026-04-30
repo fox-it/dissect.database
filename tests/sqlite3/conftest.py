@@ -1,20 +1,25 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, BinaryIO
+from typing import TYPE_CHECKING
 
 import pytest
 
-from tests._util import open_file
+from tests._util import absolute_path
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from pathlib import Path
 
 
 @pytest.fixture
-def sqlite_db() -> Iterator[BinaryIO]:
-    yield from open_file("_data/sqlite3/test.sqlite")
+def sqlite_db() -> Path:
+    return absolute_path("_data/sqlite3/test.sqlite")
 
 
 @pytest.fixture
-def empty_db() -> Iterator[BinaryIO]:
-    yield from open_file("_data/sqlite3/empty.sqlite")
+def sqlite_wal() -> Path:
+    return absolute_path("_data/sqlite3/test.sqlite-wal")
+
+
+@pytest.fixture
+def empty_db() -> Path:
+    return absolute_path("_data/sqlite3/empty.sqlite")
