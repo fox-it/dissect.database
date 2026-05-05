@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, BinaryIO
 
 from dissect.database.ese.ese import ESE
 from dissect.database.ese.exception import KeyNotFoundError
-from dissect.database.ese.ntds.objects import DomainDNS, Object, Server
+from dissect.database.ese.ntds.objects import Object
 from dissect.database.ese.ntds.pek import PEK
 from dissect.database.ese.ntds.query import Query
 from dissect.database.ese.ntds.schema import Schema
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from dissect.database.ese.index import Index
-    from dissect.database.ese.ntds.objects import DMD, NTDSDSA, Top
+    from dissect.database.ese.ntds.objects import DMD, NTDSDSA, DomainDNS, Server, Top
 
 
 class Database:
