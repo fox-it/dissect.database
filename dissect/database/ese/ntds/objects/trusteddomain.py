@@ -24,26 +24,26 @@ class TrustedDomain(Leaf):
     }
 
     @property
-    def trust_type(self) -> TrustType:
+    def trust_type(self) -> TrustType | None:
         """Return the trustType of this trusted domain."""
         return self.get("trustType")
 
     @property
-    def trust_direction(self) -> TrustDirection:
+    def trust_direction(self) -> TrustDirection | None:
         """Return the trustDirection of this trusted domain."""
         return self.get("trustDirection")
 
     @property
-    def trust_attributes(self) -> TrustAttribute:
+    def trust_attributes(self) -> TrustAttribute | None:
         """Return the trustAttributes of this trusted domain."""
         return self.get("trustAttributes")
 
     @property
-    def trust_partner(self) -> str:
+    def trust_partner(self) -> str | None:
         """Return the trustPartner of this trusted domain."""
         return self.get("trustPartner")
 
     @property
-    def security_identifier(self) -> str:
+    def security_identifier(self) -> str | None:
         """Return the securityIdentifier of this trusted domain."""
         return self.get("securityIdentifier")
