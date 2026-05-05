@@ -108,7 +108,7 @@ class User(OrganizationalPerson):
         return self.get("accountExpires")
 
     @property
-    def admin_count(self) -> int:
+    def admin_count(self) -> int | None:
         """Return the user's adminCount."""
         return self.get("adminCount")
 

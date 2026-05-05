@@ -30,7 +30,7 @@ class Group(Top):
         return self.get("mail")
 
     @property
-    def admin_count(self) -> int:
+    def admin_count(self) -> int | None:
         """Return the group's adminCount."""
         return self.get("adminCount")
 

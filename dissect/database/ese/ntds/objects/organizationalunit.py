@@ -25,17 +25,17 @@ class OrganizationalUnit(Top):
     }
 
     @property
-    def gp_link(self) -> str:
+    def gp_link(self) -> str | None:
         """Return the group policy link of the organizational unit."""
         return self.get("gPLink")
 
     @property
-    def gp_options(self) -> int:
+    def gp_options(self) -> int | None:
         """Return the group policy options of the organizational unit."""
         return self.get("gPOptions")
 
     @property
-    def telephone_number(self) -> str:
+    def telephone_number(self) -> str | None:
         """Return the telephone number of this organizational unit."""
         return self.get("telephoneNumber")
 
