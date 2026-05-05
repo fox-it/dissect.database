@@ -57,6 +57,11 @@ class Object:
     def __getattr__(self, name: str) -> Any:
         return self.get(name)
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Object):
+            return NotImplemented
+        return self.record == other.record
+
     @classmethod
     def from_record(cls, db: Database, record: Record) -> Object:
         """Create an Object instance from a database record.

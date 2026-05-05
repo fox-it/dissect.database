@@ -320,3 +320,34 @@ def test_backup_keys(goad: NTDS) -> None:
         hashlib.sha256(keys[1].public_key).hexdigest()
         == "398fef9281677096b18785d0ad000251d41f76b82e28687718d6a9812ddaca8a"
     )
+
+
+def test_fve_recovery_information(fve: NTDS) -> None:
+    """Test retrieval of BitLocker recovery information."""
+    computer = next(c for c in fve.computers() if c.name == "WIN11")
+    assert isinstance(computer, Computer)
+
+    recovery_info = list(computer.fve_recovery_information())
+    assert len(recovery_info) == 1
+    assert recovery_info[0].volume_guid == UUID("616127c1-403a-4bdf-9213-42c285cf9ee7")
+    assert recovery_info[0].recovery_guid == UUID("1d3184e4-ff3f-44f8-9255-32d1728f6172")
+    assert recovery_info[0].recovery_password == "197307-494857-485111-648725-619432-662057-360844-079310"
+    assert recovery_info[0].key_package == bytes.fromhex(
+        "d40100000100000030000000d4010000c12761613a40df4b921342c285cf9ee7"
+        "0100000000000000a0bad003caa5dc015000030005000100a039ebd4c8a5dc01"
+        "090000003a621f05e8ca419a50af679b12eef8b0dba5cef0249ab9a509164767"
+        "2ff5d3ea058671c43643fbc6f503f5fb966f6e61acda9b5d44ad4730ca200fe9"
+        "3c01020008000100e484311d3ffff844925532d1728f61721040cdd6c8a5dc01"
+        "00000008ac0000000300010000100000b351f88395b15fc67a7bcbf9132ba131"
+        "4000120005000100a039ebd4c8a5dc0105000000373c16060ab99c0619679931"
+        "1b2f3cfccb4ca31f6ae9dbd41c5c67a605674db0b96512e4184c815bc4d38ad1"
+        "5000130005000100a039ebd4c8a5dc01060000002ee39c79df7a782cead1fb91"
+        "73b073b5d512e054c9700c69076cf7a374e066b13b56fec03e12fa623acaaab0"
+        "702141d694cb726163f5b4da002a5cc85000000005000100a039ebd4c8a5dc01"
+        "07000000df655b5d65e9a8d969c990083a846ca8c34708334d4710b5fb532887"
+        "a9689ff9e1191521f5abe368cf5476e82cd2ecad01ba90b6065cd7e87447a8ad"
+        "1c00000015000100f06475dec8a5dc01f06475dec8a5dc011000020018000f00"
+        "0f00010000400e04000000000020000000000000"
+    )
+
+    assert recovery_info[0].computer() == computer

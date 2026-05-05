@@ -29,7 +29,7 @@ class MSFVERecoveryInformation(Top):
         return UUID(bytes_le=self.get("msFVE-RecoveryGuid"))
 
     @property
-    def recovery_password(self) -> str:
+    def recovery_password(self) -> str | None:
         """Return the recovery password associated with this recovery information."""
         return self.get("msFVE-RecoveryPassword")
 

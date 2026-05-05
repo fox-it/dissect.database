@@ -35,6 +35,13 @@ def adam() -> Iterator[NTDS]:
 
 
 @pytest.fixture(scope="module")
+def fve() -> Iterator[NTDS]:
+    """NTDS file with BitLocker recovery information."""
+    for fh in open_file_gz("_data/ese/ntds/fve/ntds.dit.gz"):
+        yield NTDS(fh)
+
+
+@pytest.fixture(scope="module")
 def large() -> Iterator[NTDS]:
     """Large NTDS file for performance testing.
 
