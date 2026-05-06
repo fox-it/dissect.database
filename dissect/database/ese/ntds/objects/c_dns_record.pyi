@@ -143,3 +143,4 @@ class _c_dns_record(__cs__.cstruct):
 
 # Technically `c_dns_record` is an instance of `_c_dns_record`, but then we can't use it in type hints
 c_dns_record: TypeAlias = _c_dns_record
+DNS_RECORD_TYPE: TypeAlias = _c_dns_record.DNS_RECORD_TYPE

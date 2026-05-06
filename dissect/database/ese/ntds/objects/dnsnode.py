@@ -284,9 +284,9 @@ class DnsRecord:
 
     def __init__(self, dns_records_bytes: bytes):
         self.raw: bytes = dns_records_bytes
-        self.c_record_header: c_dns_record.DNS_RECORD_HEADER = c_dns_record.DNS_RECORD_HEADER(dns_records_bytes)
-        self.type: c_dns_record.DNS_RECORD_TYPE = self.c_record_header.Type
-        self.ttl_seconds: int = swap32(self.c_record_header.TtlSeconds)
+        self.header = c_dns_record.DNS_RECORD_HEADER(dns_records_bytes)
+        self.type: c_dns_record.DNS_RECORD_TYPE = self.header.Type
+        self.ttl_seconds: int = swap32(self.header.TtlSeconds)
         self.timestamp: datetime.datetime | None = self.get_timestamp_as_datetime()
 
     def __repr__(self):
@@ -297,12 +297,12 @@ class DnsRecord:
 
     def get_timestamp_as_datetime(self) -> datetime.datetime | None:
         """Timestamp is stored in hours."""
-        if self.c_record_header.TimeStamp == 0:
+        if self.header.TimeStamp == 0:
             return None
         try:
             # Windows timestamp is hours since 1601-01-01
             base_date = datetime.datetime(1601, 1, 1, tzinfo=datetime.timezone.utc)
-            return base_date + datetime.timedelta(hours=self.c_record_header.TimeStamp)
+            return base_date + datetime.timedelta(hours=self.header.TimeStamp)
         except OverflowError:
             log.warning("Overflow error will trying to parse dns node timestamp")
             return None
@@ -320,7 +320,7 @@ class DnsRecord:
         | TombStonedRecord
         | None
     ):
-        data = bytearray(self.c_record_header.Data)
+        data = bytearray(self.header.Data)
 
         # Process most common DNS records types
         match self.type:
