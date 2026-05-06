@@ -3,38 +3,15 @@ from __future__ import annotations
 import datetime
 import logging
 import socket
-import struct
 from functools import cached_property
 from typing import Any, NamedTuple
+
+from dissect.cstruct.utils import swap16, swap32
 
 from dissect.database.ese.ntds.objects.c_dns_record import DNS_RECORD_TYPE, c_dns_record
 from dissect.database.ese.ntds.objects.top import Top
 
 log = logging.getLogger(__name__)
-
-
-def swap_endianess(data: int, int_len: int = 2, unsigned: bool = True) -> int:
-    """Swap endianess for a integer value.
-
-    Args:
-        data: integer to conver
-        int_len: 1, 2, 4 or 8
-        unsigned: if integer must be considered a signed or unsigned int
-    """
-    struct_letter = "h"
-    match int_len:
-        case 1:
-            struct_letter = "b"
-        case 2:
-            struct_letter = "h"
-        case 4:
-            struct_letter = "i"
-        case 8:
-            struct_letter = "q"
-
-    if unsigned:
-        struct_letter = struct_letter.upper()
-    return struct.unpack(f">{struct_letter}", struct.pack(f"<{struct_letter}", int(data)))[0]
 
 
 def parse_rfc1035_dns_name(data: bytes) -> str:
@@ -139,9 +116,9 @@ class SOARecord(NamedTuple):
                 # Serial does not match value seen using DNS request/management interface
                 # As this is not the most important field, we simply ignore it instead a showing an errored value
                 # serial=swap_endianess(dns_rpc_record_soa.Serial, int_len=4),
-                refresh=swap_endianess(dns_rpc_record_soa.Refresh, int_len=4),
-                retry=swap_endianess(dns_rpc_record_soa.Retry, int_len=4),
-                minimum_ttl=swap_endianess(dns_rpc_record_soa.MinimumTtl, int_len=4),
+                refresh=swap32(dns_rpc_record_soa.Refresh),
+                retry=swap32(dns_rpc_record_soa.Retry),
+                minimum_ttl=swap32(dns_rpc_record_soa.MinimumTtl),
                 zone_administrator_email=parse_rfc1035_dns_name(dns_rpc_record_soa.ZoneAdministratorEmail.dnsName),
             )
         except EOFError:
@@ -223,7 +200,7 @@ class NamePreferenceRecord(NamedTuple):
         try:
             dns_rpc_record_name_preference = c_dns_record.DNS_RPC_RECORD_NAME_PREFERENCE(data)
             return cls(
-                preference=swap_endianess(dns_rpc_record_name_preference.Preference, 2),
+                preference=swap16(dns_rpc_record_name_preference.Preference),
                 name_exchange=parse_rfc1035_dns_name(dns_rpc_record_name_preference.nameExchange.dnsName),
             )
         except EOFError:
@@ -251,8 +228,8 @@ class SRVRecord(NamedTuple):
             target = parse_rfc1035_dns_name(dns_rpc_record_srv.nameTarget.dnsName)
             return SRVRecord(
                 priority=dns_rpc_record_srv.Priority,
-                weight=swap_endianess(dns_rpc_record_srv.Weight, 2),
-                port=swap_endianess(dns_rpc_record_srv.Port, 2),
+                weight=swap16(dns_rpc_record_srv.Weight),
+                port=swap16(dns_rpc_record_srv.Port),
                 name_target=target,
             )
         except EOFError:
@@ -295,11 +272,14 @@ class DnsRecord:
         self.raw: bytes = dns_records_bytes
         self.c_record_header: c_dns_record.DNS_RECORD_HEADER = c_dns_record.DNS_RECORD_HEADER(dns_records_bytes)
         self.type: c_dns_record.DNS_RECORD_TYPE = self.c_record_header.Type
-        self.ttl_seconds: int = swap_endianess(self.c_record_header.TtlSeconds, int_len=4)
+        self.ttl_seconds: int = swap32(self.c_record_header.TtlSeconds)
         self.timestamp: datetime.datetime | None = self.get_timestamp_as_datetime()
 
     def __repr__(self):
-        return f"<DnsRecord type={self.type.name!r} ttl_seconds={self.ttl_seconds!r} timestamp={self.timestamp} data={self.data}>"
+        return (
+            f"<DnsRecord type={self.type.name!r} ttl_seconds={self.ttl_seconds!r} "
+            f"timestamp={self.timestamp} data={self.data}>"
+        )
 
     def get_timestamp_as_datetime(self) -> datetime.datetime | None:
         """Timestamp is stored in hours."""
