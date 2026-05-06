@@ -115,7 +115,7 @@ class SOARecord(NamedTuple):
                 name_primary_server=parse_rfc1035_dns_name(dns_rpc_record_soa.namePrimaryServer.dnsName),
                 # Serial does not match value seen using DNS request/management interface
                 # As this is not the most important field, we simply ignore it instead a showing an errored value
-                # serial=swap_endianess(dns_rpc_record_soa.Serial, int_len=4),
+                # serial=swap32(dns_rpc_record_soa.Serial, int_len=4),
                 refresh=swap32(dns_rpc_record_soa.Refresh),
                 retry=swap32(dns_rpc_record_soa.Retry),
                 minimum_ttl=swap32(dns_rpc_record_soa.MinimumTtl),
@@ -237,18 +237,15 @@ class SRVRecord(NamedTuple):
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/db37cab7-f121-43ba-81c5-ca0e198d4b9a
         """
-        try:
-            dns_rpc_record_srv = c_dns_record.DNS_RPC_RECORD_SRV(data)
-            target = parse_rfc1035_dns_name(dns_rpc_record_srv.nameTarget.dnsName)
-            return SRVRecord(
-                priority=dns_rpc_record_srv.Priority,
-                weight=swap16(dns_rpc_record_srv.Weight),
-                port=swap16(dns_rpc_record_srv.Port),
-                name_target=target,
-            )
-        except EOFError:
-            log.warning("Error while processing SRV record %s", data)
-            return None
+        log.warning("Date : %s", data)
+        dns_rpc_record_srv = c_dns_record.DNS_RPC_RECORD_SRV(data)
+        target = parse_rfc1035_dns_name(dns_rpc_record_srv.nameTarget.dnsName)
+        return SRVRecord(
+            priority=dns_rpc_record_srv.Priority,
+            weight=swap16(dns_rpc_record_srv.Weight),
+            port=swap16(dns_rpc_record_srv.Port),
+            name_target=target,
+        )
 
 
 class TombStonedRecord(NamedTuple):
@@ -287,7 +284,6 @@ class DnsRecord:
         self.header = c_dns_record.DNS_RECORD_HEADER(dns_records_bytes)
         self.type: c_dns_record.DNS_RECORD_TYPE = self.header.Type
         self.ttl_seconds: int = swap32(self.header.TtlSeconds)
-        self.timestamp: datetime.datetime | None = self.get_timestamp_as_datetime()
 
     def __repr__(self):
         return (
@@ -295,17 +291,14 @@ class DnsRecord:
             f"timestamp={self.timestamp} data={self.data}>"
         )
 
-    def get_timestamp_as_datetime(self) -> datetime.datetime | None:
+    @property
+    def timestamp(self) -> datetime.datetime | None:
         """Timestamp is stored in hours."""
         if self.header.TimeStamp == 0:
             return None
-        try:
-            # Windows timestamp is hours since 1601-01-01
-            base_date = datetime.datetime(1601, 1, 1, tzinfo=datetime.timezone.utc)
-            return base_date + datetime.timedelta(hours=self.header.TimeStamp)
-        except OverflowError:
-            log.warning("Overflow error will trying to parse dns node timestamp")
-            return None
+        # Windows timestamp is hours since 1601-01-01
+        base_date = datetime.datetime(1601, 1, 1, tzinfo=datetime.timezone.utc)
+        return base_date + datetime.timedelta(hours=self.header.TimeStamp)
 
     @property
     def data(
@@ -318,16 +311,18 @@ class DnsRecord:
         | NamePreferenceRecord
         | StringRecord
         | TombStonedRecord
+        | SRVRecord
+        | SOARecord
         | None
     ):
-        data = bytearray(self.header.Data)
+        header_data = self.header.Data
 
         # Process most common DNS records types
         match self.type:
             case DNS_RECORD_TYPE.A:
-                return DnsARecord.from_bytes(data)
+                return DnsARecord.from_bytes(header_data)
             case c_dns_record.DNS_RECORD_TYPE.AAAA:
-                return DnsAAAARecord.from_bytes(data)
+                return DnsAAAARecord.from_bytes(header_data)
             case (
                 DNS_RECORD_TYPE.PTR
                 | DNS_RECORD_TYPE.NS
@@ -339,13 +334,13 @@ class DnsRecord:
                 | DNS_RECORD_TYPE.MD
                 | DNS_RECORD_TYPE.MF
             ):
-                return NodeNameRecord.from_bytes(data)
+                return NodeNameRecord.from_bytes(header_data)
             case DNS_RECORD_TYPE.MX | DNS_RECORD_TYPE.AFSDB | DNS_RECORD_TYPE.RT:
-                return NamePreferenceRecord.from_bytes(data)
+                return NamePreferenceRecord.from_bytes(header_data)
             case DNS_RECORD_TYPE.SRV:
-                return SRVRecord.from_bytes(data)
+                return SRVRecord.from_bytes(header_data)
             case DNS_RECORD_TYPE.SOA:
-                return SOARecord.from_bytes(data)
+                return SOARecord.from_bytes(header_data)
             case (
                 DNS_RECORD_TYPE.HINFO
                 | DNS_RECORD_TYPE.ISDN
@@ -353,10 +348,10 @@ class DnsRecord:
                 | DNS_RECORD_TYPE.X25
                 | DNS_RECORD_TYPE.LOC
             ):
-                return StringRecord.from_bytes(data)
+                return StringRecord.from_bytes(header_data)
             case DNS_RECORD_TYPE.ZERO:
-                return TombStonedRecord.from_bytes(data)
-        return data
+                return TombStonedRecord.from_bytes(header_data)
+        return header_data
 
     def as_dict(self) -> dict[str, Any]:
         return {

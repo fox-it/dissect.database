@@ -63,7 +63,7 @@ typedef struct DNS_RECORD_HEADER {
     uint32             TtlSeconds;  // Big Endian
     uint32             Reserved;    // MUST be 0x00000000.
     uint32             TimeStamp;
-    BYTE               Data[DataLength];
+    char               Data[DataLength];
 };
 
 // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/3fd41adc-c69e-407b-979e-721251403132
