@@ -3,12 +3,14 @@ from __future__ import annotations
 import gzip
 import zlib
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 from dissect.cstruct.utils import u32
 from dissect.util.stream import RangeStream
 from dissect.util.ts import webkittimestamp
 
 from dissect.database.chromium.cache.c_cache import BlockSizeForFileType, c_cache
+from dissect.database.chromium.cache.util import parse_cache_key
 
 try:
     from cramjam import brotli
@@ -78,10 +80,29 @@ class DiskCache:
                 yield entry
 
                 # An EntryStore can point to a next address for another EntryStore
-                if entry.next != 0:
-                    address = CacheAddress(self.index, entry.next)
-                else:
+                if entry.next == 0:
                     break
+                address = CacheAddress(self.index, entry.next)
+
+    def get_key(self, key: str) -> CacheEntryStore | None:
+        """Get the :class:`CacheEntryStore` for the given ``key``."""
+        for entry in self.entries:
+            if key == entry.key:
+                return entry
+        return None
+
+    def get_url(self, resource_url: str) -> CacheEntryStore | None:
+        """Get the :class:`CacheEntrystore` for the given resource url."""
+        for entry in self.entries:
+            if resource_url == entry.resource_url:
+                return entry
+        return None
+
+    def get_host(self, host: str) -> Iterator[CacheEntryStore]:
+        """Get all :class:`CacheEntryStore` for the given host."""
+        for entry in self.entries:
+            if urlsplit(entry.resource_url).hostname == host:
+                yield entry
 
 
 class CacheIndexFile:
@@ -211,6 +232,10 @@ class CacheEntryStore:
             self.key = key_addr.data.read(self.header.key_len).decode()
         else:
             self.key = self.header.key.decode().strip("\x00")
+
+        self.credential_key, self.upload_data_identifier, self.isolation_key, self.resource_url = parse_cache_key(
+            self.key
+        )
 
     def __repr__(self):
         return f"<CacheEntryStore address=0x{self.address.address:x} state={self.state.name!r} creation_time={self.creation_time!s} key={self.key!r} next={self.next!r}>"  # noqa: E501

@@ -5,13 +5,16 @@ import os
 import zlib
 from enum import IntEnum
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 from cramjam import brotli
 from dissect.util.ts import webkittimestamp
 
 from dissect.database.chromium.cache.c_simple import c_simple
+from dissect.database.chromium.cache.util import parse_cache_key
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
 
@@ -45,15 +48,28 @@ class SimpleDiskCache:
 
     def __repr__(self) -> str:
         return (
-            f"<SimpleDiskCache path='{self.path!s}' cache_files={len(self.cache_files)!r} last_used={self.last_used!r}>"  # noqa: E501
+            f"<SimpleDiskCache path='{self.path!s}' cache_files={len(self.cache_files)!r} last_used={self.last_used!r}>"
         )
 
-    def get(self, key: str) -> SimpleCacheFile | None:
-        """Return the first matching :class:`SimpleCacheFile` for the given key identifier."""
+    def get_key(self, key: str) -> SimpleCacheFile | None:
+        """Return the first matching :class:`SimpleCacheFile` for the given ``key`` identifier."""
         for cache_file in self.cache_files:
             if cache_file.key == key:
                 return cache_file
         return None
+
+    def get_url(self, resource_url: str) -> SimpleCacheFile | None:
+        """Get the first matching :class:`SimpleCacheFile` for the given resource url."""
+        for cache_file in self.cache_files:
+            if resource_url == cache_file.resource_url:
+                return cache_file
+        return None
+
+    def get_host(self, host: str) -> Iterator[SimpleCacheFile]:
+        """Get all :class:`CacheEntryStore` for the given host."""
+        for cache_file in self.cache_files:
+            if urlsplit(cache_file.resource_url).hostname == host:
+                yield cache_file
 
 
 class SimpleIndexFile:
@@ -97,8 +113,10 @@ class SimpleCacheFile:
         self.header_size = len(self.header.dumps())
         self.type = infer_file_type(self.path.name)
 
-        # TODO: Parse the cache key (``HttpCache::GenerateCacheKey``) to a sane format.
         self.key = self.header.key.decode("latin1")
+        self.credential_key, self.upload_data_identifier, self.isolation_key, self.resource_url = parse_cache_key(
+            self.key
+        )
 
     def __repr__(self) -> str:
         return f"<SimpleCacheFile key={self.key!r} type={self.type.name!r} path='{self.path.name!s}'>"

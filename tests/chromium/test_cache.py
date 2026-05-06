@@ -25,3 +25,7 @@ def test_chromium_cache() -> None:
 
     assert entry_store.data.startswith(b"<!doctype html>\n\n")
     assert b"HTTP/1.0 200 OK\00" in entry_store.meta
+
+    assert disk_cache.get_key("1/0/_dk_http://172.16.82.1 http://172.16.82.1 http://172.16.82.1:8000/")
+    assert disk_cache.get_url("http://172.16.82.1:8000/")
+    assert next(disk_cache.get_host("172.16.82.1"))
