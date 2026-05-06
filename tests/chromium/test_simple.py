@@ -38,6 +38,8 @@ def test_chromium_simple_cache() -> None:
 
     cache_file = simple_disk_cache.get_url("http://172.16.82.1:8000/")
     assert b"HTTP/1.0 200 OK\x00" in cache_file.meta
-    assert b"<!doctype html>" in cache_file.data
+    assert cache_file.data.startswith(b"<!doctype html>")
+    assert cache_file.data.endswith(b"\n</body>\n</html>\n")
+    assert len(cache_file.data) == 25451
 
     assert simple_disk_cache.get_key("1/0/_dk_http://172.16.82.1 http://172.16.82.1 http://172.16.82.1:8000/")

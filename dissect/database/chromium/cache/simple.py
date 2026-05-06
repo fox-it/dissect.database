@@ -144,8 +144,8 @@ class SimpleCacheFile:
             if eof0.flags in (2, 3):
                 self.fh.seek(-32, os.SEEK_CUR)
 
-            eof1 = c_simple.SimpleFileEOF(self.fh)
             eof1_offset = self.fh.tell()
+            eof1 = c_simple.SimpleFileEOF(self.fh)
 
             if eof1.magic != c_simple.kSimpleFinalMagicNumber:
                 raise ValueError(f"Invalid EOF1 magic header {eof1!r}")
