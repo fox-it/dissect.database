@@ -121,7 +121,7 @@ class NTDS:
 
     def dns_nodes(self) -> Iterator[DnsNode]:
         """Get all DnsNode objects from the database."""
-        yield from self.search(objectClass="DnsNode")
+        yield from self.search(objectClass="dnsNode")
 
     def backup_keys(self) -> Iterator[BackupKey]:
         """Get all DPAPI backup keys from the database."""

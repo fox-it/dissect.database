@@ -82,7 +82,7 @@ class DnsARecord(NamedTuple):
 
     @classmethod
     def from_bytes(cls, data: bytes) -> DnsARecord | None:
-        """Parse A record (IPv4 address).
+        """Parse ``A`` record (IPv4 address).
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/117c2ff9-9094-45b2-83c2-5e44518e0bac
@@ -102,7 +102,7 @@ class DnsAAAARecord(NamedTuple):
 
     @classmethod
     def from_bytes(cls, data: bytes) -> DnsAAAARecord | None:
-        """Parse AAAA record (IPv4 address).
+        """Parse ``AAAA`` record (IPv4 address).
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/ee33fef1-6e82-42d0-8107-0f6d21be072a
@@ -145,7 +145,7 @@ class SOARecord(NamedTuple):
                 zone_administrator_email=parse_rfc1035_dns_name(dns_rpc_record_soa.ZoneAdministratorEmail.dnsName),
             )
         except EOFError:
-            log.warning("Error while processing SOA record %s", data)
+            log.warning("Error parsing SOA record %s", data)
             return None
 
 
@@ -169,7 +169,7 @@ class NodeNameRecord(NamedTuple):
         try:
             return NodeNameRecord(parse_rfc1035_dns_name(c_dns_record.DNS_RPC_NAME(data).dnsName))
         except EOFError:
-            log.warning("Error while processing node name record %s", data)
+            log.warning("Error parsing node name record %s", data)
             return None
 
 
@@ -299,7 +299,7 @@ class DnsRecord:
         self.timestamp: datetime.datetime | None = self.get_timestamp_as_datetime()
 
     def __repr__(self):
-        return f"type={self.type.name!r} ttl_seconds={self.ttl_seconds!r} timestamp={self.timestamp} data={self.data}"
+        return f"<DnsRecord type={self.type.name!r} ttl_seconds={self.ttl_seconds!r} timestamp={self.timestamp} data={self.data}>"
 
     def get_timestamp_as_datetime(self) -> datetime.datetime | None:
         """Timestamp is stored in hours."""
@@ -328,7 +328,7 @@ class DnsRecord:
     ):
         data = bytearray(self.c_record_header.Data)
 
-        # Process most commons DNS records type
+        # Process most common DNS records types
         match self.type:
             case DNS_RECORD_TYPE.A:
                 return DnsARecord.from_bytes(data)
@@ -385,7 +385,7 @@ class DnsNode(Top):
     __object_class__ = "dnsNode"
 
     def __repr_body__(self) -> str:
-        return f"dns_name={self.distinguished_name_as_dns_name}, records=|{'|'.join(repr(d) for d in self.dns_record)}|"
+        return f"dns_name={self.distinguished_name_as_dns_name} records=|{'|'.join(repr(d) for d in self.dns_record)}|"
 
     @property
     def dns_record(self) -> list[DnsRecord]:

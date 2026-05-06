@@ -56,18 +56,18 @@ enum DNS_RECORD_TYPE : uint16 {
 typedef struct DNS_RECORD_HEADER {
     uint16             DataLength;
     DNS_RECORD_TYPE    Type;
-    uint8              Version; // Must be 0x05
-    uint8              Rank; // Must be 0x05
-    uint16             Flags; // Must be 0x00
+    uint8              Version;     // Must be 0x05
+    uint8              Rank;        // Must be 0x05
+    uint16             Flags;       // Must be 0x00
     uint32             Serial;
-    uint32             TtlSeconds; // Big Endian
-    uint32             Reserved; // MUST be 0x00000000.
+    uint32             TtlSeconds;  // Big Endian
+    uint32             Reserved;    // MUST be 0x00000000.
     uint32             TimeStamp;
     BYTE               Data[DataLength];
 };
 
 // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/3fd41adc-c69e-407b-979e-721251403132
-// MS docs indicate that structure is 4 byte aligned, and that The string MUST NOT be null-terminated.
+// MS docs indicate that structure is 4 byte aligned, and that the string MUST NOT be null-terminated.
 // But observed reality is a null terminated string (null char not counted in NameLength)
 typedef struct DNS_RPC_NAME{
     uint8 NameLength;
