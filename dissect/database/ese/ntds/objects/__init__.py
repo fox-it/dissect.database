@@ -68,6 +68,7 @@ from dissect.database.ese.ntds.objects.msds_resourceproperty import MSDSResource
 from dissect.database.ese.ntds.objects.msds_resourcepropertylist import MSDSResourcePropertyList
 from dissect.database.ese.ntds.objects.msds_shadowprincipalcontainer import MSDSShadowPrincipalContainer
 from dissect.database.ese.ntds.objects.msds_valuetype import MSDSValueType
+from dissect.database.ese.ntds.objects.msfve_recoveryinformation import MSFVERecoveryInformation
 from dissect.database.ese.ntds.objects.msimaging_psps import MSImagingPSPs
 from dissect.database.ese.ntds.objects.mskds_provserverconfiguration import MSKDSProvServerConfiguration
 from dissect.database.ese.ntds.objects.msmqenterprisesettings import MSMQEnterpriseSettings
@@ -174,6 +175,7 @@ __all__ = [
     "MSDSResourcePropertyList",
     "MSDSShadowPrincipalContainer",
     "MSDSValueType",
+    "MSFVERecoveryInformation",
     "MSImagingPSPs",
     "MSKDSProvServerConfiguration",
     "MSMQEnterpriseSettings",

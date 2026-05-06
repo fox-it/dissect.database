@@ -7,10 +7,35 @@ from uuid import UUID
 import pytest
 
 from dissect.database.ese.ntds.objects import Computer, Group, GroupPolicyContainer, Server, SubSchema, User
-from dissect.database.ese.ntds.util import SAMAccountType
+from dissect.database.ese.ntds.util import (
+    SAMAccountType,
+    SystemFlagAttribute,
+    SystemFlagCrossRef,
+    TrustAttribute,
+    TrustDirection,
+    TrustType,
+    UserAccountControl,
+)
 
 if TYPE_CHECKING:
     from dissect.database.ese.ntds import NTDS
+
+
+def test_dsa(goad: NTDS) -> None:
+    """Test retrieval of the NTDS DSA object and its associated domain and features."""
+    dsa = goad.db.dsa()
+    assert dsa is not None
+    assert dsa.domain() is not None
+    assert dsa.domain().name == "sevenkingdoms"
+    assert [f.name for f in dsa.features()] == ["Recycle Bin Feature"]
+
+
+def test_dc(goad: NTDS) -> None:
+    """Test retrieval of the domain controller objects and their associated computer and managedBy links."""
+    dc = goad.db.dc()
+    assert dc.name == "KINGSLANDING"
+    assert dc.computer() is not None
+    assert dc.computer().name == "KINGSLANDING"
 
 
 def test_groups(goad: NTDS) -> None:
@@ -259,6 +284,27 @@ def test_object_repr(goad: NTDS) -> None:
     )
 
 
+def test_object_as_dict(goad: NTDS) -> None:
+    """Test the as_dict method of the Object class."""
+    user = next(goad.search(sAMAccountName="jon.snow"))
+    assert isinstance(user, User)
+
+    user_dict = user.as_dict()
+    assert isinstance(user_dict, dict)
+    assert user_dict["sAMAccountName"] == "jon.snow"
+    assert user_dict["cn"] == "jon.snow"
+    assert user_dict["l"] == "Castel Black"
+    assert user_dict["objectSid"] == "S-1-5-21-459184689-3312531310-188885708-1118"
+
+    # Specifically test that the decoders are applied when using as_dict
+    assert (
+        user_dict["userAccountControl"]
+        == UserAccountControl.NORMAL_ACCOUNT
+        | UserAccountControl.DONT_EXPIRE_PASSWORD
+        | UserAccountControl.TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION
+    )
+
+
 def test_all_memberships(large: NTDS) -> None:
     """Test all memberships of all users."""
     for user in large.users():
@@ -303,3 +349,100 @@ def test_backup_keys(goad: NTDS) -> None:
         hashlib.sha256(keys[1].public_key).hexdigest()
         == "398fef9281677096b18785d0ad000251d41f76b82e28687718d6a9812ddaca8a"
     )
+
+
+def test_domains(goad: NTDS) -> None:
+    """Test retrieval of domain objects."""
+    domains = sorted(goad.domains(), key=lambda x: x.distinguished_name)
+    assert len(domains) == 5
+    assert [x.distinguished_name for x in domains] == [
+        "DC=DOMAINDNSZONES,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "DC=DOMAINDNSZONES,DC=SEVENKINGDOMS,DC=LOCAL",
+        "DC=FORESTDNSZONES,DC=SEVENKINGDOMS,DC=LOCAL",
+        "DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "DC=SEVENKINGDOMS,DC=LOCAL",
+    ]
+
+    domain = domains[-1]
+    assert domain.behavior_version == 7
+
+
+def test_trusts(goad: NTDS) -> None:
+    """Test retrieval of trust objects."""
+    trusts = sorted(goad.trusts(), key=lambda x: x.distinguished_name)
+    assert len(trusts) == 3
+    assert trusts[0].distinguished_name == "CN=ESSOS.LOCAL,CN=SYSTEM,DC=SEVENKINGDOMS,DC=LOCAL"
+    assert trusts[0].trust_type == TrustType.UPLEVEL
+    assert trusts[0].trust_direction == TrustDirection.BIDIRECTIONAL
+    assert trusts[0].trust_attributes == TrustAttribute.FOREST_TRANSITIVE | TrustAttribute.TREAT_AS_EXTERNAL
+    assert trusts[0].trust_partner == "essos.local"
+    assert trusts[0].security_identifier == "S-1-5-21-1398578290-1256418943-189470967"
+
+
+def test_organizational_units(goad: NTDS) -> None:
+    ous = sorted(goad.organizational_units(), key=lambda x: x.distinguished_name)
+    assert len(ous) == 10
+    assert [x.distinguished_name for x in ous] == [
+        "OU=CROWNLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=DOMAIN CONTROLLERS,DC=NORTH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=DOMAIN CONTROLLERS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=DORNE,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=IRONISLANDS\nDEL:D58E6F7A-DA60-40AE-88C1-27A4FCEE1190,CN=DELETED OBJECTS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=REACH,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=RIVERLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=STORMLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=VALE,DC=SEVENKINGDOMS,DC=LOCAL",
+        "OU=WESTERLANDS,DC=SEVENKINGDOMS,DC=LOCAL",
+    ]
+
+    dc_ou = ous[2]
+    assert (
+        dc_ou.gp_link
+        == "[LDAP://CN={6AC1786C-016F-11D2-945F-00C04fB984F9},CN=Policies,CN=System,DC=sevenkingdoms,DC=local;0]"
+    )
+    assert dc_ou.gp_options is None
+
+
+def test_system_flags(goad: NTDS) -> None:
+    """Test the difference between system flags on attributeSchema and crossRef objects."""
+    crossref = next(goad.search(objectClass="crossRef"))
+    assert crossref.system_flags == SystemFlagCrossRef.CR_NTDS_NC
+
+    attribute = next(goad.search(objectClass="attributeSchema", name="ANR"))
+    assert (
+        attribute.system_flags
+        == SystemFlagAttribute.ATTR_IS_CONSTRUCTED
+        | SystemFlagAttribute.SCHEMA_BASE_OBJECT
+        | SystemFlagAttribute.DOMAIN_DISALLOW_RENAME
+    )
+
+
+def test_fve_recovery_information(fve: NTDS) -> None:
+    """Test retrieval of BitLocker recovery information."""
+    computer = next(c for c in fve.computers() if c.name == "WIN11")
+    assert isinstance(computer, Computer)
+
+    recovery_info = list(computer.fve_recovery_information())
+    assert len(recovery_info) == 1
+    assert recovery_info[0].volume_guid == UUID("616127c1-403a-4bdf-9213-42c285cf9ee7")
+    assert recovery_info[0].recovery_guid == UUID("1d3184e4-ff3f-44f8-9255-32d1728f6172")
+    assert recovery_info[0].recovery_password == "197307-494857-485111-648725-619432-662057-360844-079310"
+    assert recovery_info[0].key_package == bytes.fromhex(
+        "d40100000100000030000000d4010000c12761613a40df4b921342c285cf9ee7"
+        "0100000000000000a0bad003caa5dc015000030005000100a039ebd4c8a5dc01"
+        "090000003a621f05e8ca419a50af679b12eef8b0dba5cef0249ab9a509164767"
+        "2ff5d3ea058671c43643fbc6f503f5fb966f6e61acda9b5d44ad4730ca200fe9"
+        "3c01020008000100e484311d3ffff844925532d1728f61721040cdd6c8a5dc01"
+        "00000008ac0000000300010000100000b351f88395b15fc67a7bcbf9132ba131"
+        "4000120005000100a039ebd4c8a5dc0105000000373c16060ab99c0619679931"
+        "1b2f3cfccb4ca31f6ae9dbd41c5c67a605674db0b96512e4184c815bc4d38ad1"
+        "5000130005000100a039ebd4c8a5dc01060000002ee39c79df7a782cead1fb91"
+        "73b073b5d512e054c9700c69076cf7a374e066b13b56fec03e12fa623acaaab0"
+        "702141d694cb726163f5b4da002a5cc85000000005000100a039ebd4c8a5dc01"
+        "07000000df655b5d65e9a8d969c990083a846ca8c34708334d4710b5fb532887"
+        "a9689ff9e1191521f5abe368cf5476e82cd2ecad01ba90b6065cd7e87447a8ad"
+        "1c00000015000100f06475dec8a5dc01f06475dec8a5dc011000020018000f00"
+        "0f00010000400e04000000000020000000000000"
+    )
+
+    assert recovery_info[0].computer() == computer

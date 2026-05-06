@@ -31,7 +31,7 @@ class ESE:
         impacket_compat: Whether to make the output impacket compatible.
 
     Raises:
-        InvalidDatabase: If the file-like object does not look like an ESE database.
+        ~dissect.database.ese.exception.InvalidDatabase: If the file-like object does not look like an ESE database.
     """
 
     def __init__(self, fh: BinaryIO, impacket_compat: bool = False):
