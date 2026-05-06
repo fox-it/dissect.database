@@ -148,7 +148,9 @@ def test_dns_nodes(goad: NTDS) -> None:
     assert len(dns_nodes) == 113
     # there is no really guaranty regarding record order, thus we select them using name
     a_record = next(node for node in dns_nodes if node.name == "WINTERFELL.north").dns_record[0]
-    assert repr(a_record) == "type='A' ttl_seconds=3600 timestamp=None data=DnsARecord(ipv4_address='10.0.2.15')"
+    assert repr(a_record) == (
+        "<DnsRecord type='A' ttl_seconds=3600 timestamp=None data=DnsARecord(ipv4_address='10.0.2.15')>"
+    )
     assert isinstance(a_record.data, DnsARecord)
     assert a_record.data.ipv4_address == "10.0.2.15"
     assert a_record.data.ip_address == "10.0.2.15"
@@ -170,8 +172,8 @@ def test_dns_nodes(goad: NTDS) -> None:
     assert srv_record.ttl_seconds == 600
 
     assert (
-        repr(srv_record) == "type='SRV' ttl_seconds=600 timestamp=2025-12-18 17:00:00+00:00 "
-        "data=SRVRecord(name_target='winterfell.north.sevenkingdoms.local', port=389, weight=100, priority=0)"
+        repr(srv_record) == "<DnsRecord type='SRV' ttl_seconds=600 timestamp=2025-12-18 17:00:00+00:00 "
+        "data=SRVRecord(name_target='winterfell.north.sevenkingdoms.local', port=389, weight=100, priority=0)>"
     )
 
     assert srv_record.as_dict() == {
@@ -210,7 +212,7 @@ def test_dns_nodes(goad: NTDS) -> None:
     assert aaaa_record.ttl_seconds == 0
 
     assert repr(aaaa_record) == (
-        "type='AAAA' ttl_seconds=0 timestamp=None data=DnsAAAARecord(ipv6_address='2001:500:9f::42')"
+        "<DnsRecord type='AAAA' ttl_seconds=0 timestamp=None data=DnsAAAARecord(ipv6_address='2001:500:9f::42')>"
     )
     assert aaaa_record.as_dict() == {
         "data": {

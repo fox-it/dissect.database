@@ -127,18 +127,24 @@ class SOARecord(NamedTuple):
 
 
 class NodeNameRecord(NamedTuple):
-    """The DNS_RPC_RECORD_NODE_NAME structure contains information about a DNS record of any of the following types:
-    DNS_TYPE_PTR, DNS_TYPE_NS, DNS_TYPE_CNAME, DNS_TYPE_DNAME, DNS_TYPE_MB, DNS_TYPE_MR,
-    DNS_TYPE_MG, DNS_TYPE_MD, DNS_TYPE_MF.
+    """The DNS_RPC_RECORD_NODE_NAME structure contains information about a DNS record of any of the following types.
+
+    - DNS_TYPE_PTR
+    - DNS_TYPE_NS
+    - DNS_TYPE_CNAME
+    - DNS_TYPE_DNAME
+    - DNS_TYPE_MB
+    - DNS_TYPE_MR,
+    - DNS_TYPE_MG
+    - DNS_TYPE_MD
+    - DNS_TYPE_MF
     """
 
     name_node: str
 
     @classmethod
     def from_bytes(cls, data: bytes) -> NodeNameRecord | None:
-        """Parse Node Name type record, used for following record type :
-        DNS_TYPE_PTR, DNS_TYPE_N, DNS_TYPE_CNAM, DNS_TYPE_DNAM,
-        DNS_TYPE_M, DNS_TYPE_M, DNS_TYPE_M, DNS_TYPE_M, DNS_TYPE_MF.
+        """Parse Node Name type record (E.g CNAME, PTR).
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/8f986756-f151-4f5b-bfcf-0d85be8b0d7e
@@ -151,16 +157,20 @@ class NodeNameRecord(NamedTuple):
 
 
 class StringRecord(NamedTuple):
-    """The DNS_RPC_RECORD_STRING structure contains information about a DNS record of any of the following types:
-    DNS_TYPE_HINFO, DNS_TYPE_ISDN, DNS_TYPE_TXT, DNS_TYPE_X25, DNS_TYPE_LOC.
+    """The DNS_RPC_RECORD_STRING structure contains information about a DNS record of any of the following types.
+
+    - DNS_TYPE_HINFO
+    - DNS_TYPE_ISDN
+    - DNS_TYPE_TXT
+    - DNS_TYPE_X25
+    - DNS_TYPE_LOC
     """
 
     stringData: str
 
     @classmethod
     def from_bytes(cls, data: bytes) -> StringRecord | None:
-        """Parse Node Name type record, used for following record type :
-        DNS_TYPE_HINFO, DNS_TYPE_ISDN, DNS_TYPE_TXT, DNS_TYPE_X25, DNS_TYPE_LOC.
+        """Parse Node Name type record (E.g TXT).
 
         Test using GUI does not allow to create record with a line length > 255 char.
 
@@ -184,7 +194,11 @@ class StringRecord(NamedTuple):
 
 class NamePreferenceRecord(NamedTuple):
     """The DNS_RPC_RECORD_NAME_PREFERENCE structure specifies information about a DNS
-    record of any of the following types: DNS_TYPE_MX, DNS_TYPE_AFSDB, DNS_TYPE_RT.
+    record of any of the following types.
+
+    - DNS_TYPE_MX
+    - DNS_TYPE_AFSDB
+    - DNS_TYPE_RT
     """
 
     name_exchange: str
@@ -378,8 +392,8 @@ class DnsNode(Top):
     def distinguished_name_as_dns_name(self) -> str:
         """Create a DNS name from node and parent names.
 
-        E.g :
-            * DC=NORTH,DC=SEVENKINGDOMS.LOCAL,CN=MICROSOFTDNS,DC=DOMAINDNSZONES,DC=SEVENKINGDOMS,DC=LOCAL ->
+        Examples:
+            DC=NORTH,DC=SEVENKINGDOMS.LOCAL,CN=MICROSOFTDNS,DC=DOMAINDNSZONES,DC=SEVENKINGDOMS,DC=LOCAL ->
                 north.sevenkingdoms.local
         """
         node = self.distinguished_name
