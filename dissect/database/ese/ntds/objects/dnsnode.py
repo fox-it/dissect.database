@@ -58,16 +58,19 @@ class DnsARecord(NamedTuple):
         return self.ipv4_address
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> DnsARecord | None:
+    def from_bytes(cls, data: bytes) -> DnsARecord:
         """Parse ``A`` record (IPv4 address).
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/117c2ff9-9094-45b2-83c2-5e44518e0bac
+
+        Raises:
+            EOFError: Issue while unpacking structure.
         """
         if len(data) >= 4:
             ip = socket.inet_ntop(socket.AF_INET, data[:4])
             return cls(ipv4_address=ip)
-        return None
+        raise EOFError("A records with less than 4 bytes")
 
 
 class DnsAAAARecord(NamedTuple):
@@ -78,16 +81,19 @@ class DnsAAAARecord(NamedTuple):
         return self.ipv6_address
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> DnsAAAARecord | None:
+    def from_bytes(cls, data: bytes) -> DnsAAAARecord:
         """Parse ``AAAA`` record (IPv4 address).
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/ee33fef1-6e82-42d0-8107-0f6d21be072a
+
+        Raises:
+            EOFError: Issue while unpacking structure.
         """
         if len(data) >= 16:
             ip = socket.inet_ntop(socket.AF_INET6, data[:16])
             return cls(ipv6_address=ip)
-        return None
+        raise EOFError("AAAA records with less than 16 bytes")
 
 
 class SOARecord(NamedTuple):
@@ -108,22 +114,21 @@ class SOARecord(NamedTuple):
 
         References:
             https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/dcd3ec16-d6bf-4bb4-9128-6172f9e5f066
+
+        Raises:
+            EOFError: Issue while unpacking structure.
         """
-        try:
-            dns_rpc_record_soa = c_dns_record.DNS_RPC_RECORD_SOA(data)
-            return cls(
-                name_primary_server=parse_rfc1035_dns_name(dns_rpc_record_soa.namePrimaryServer.dnsName),
-                # Serial does not match value seen using DNS request/management interface
-                # As this is not the most important field, we simply ignore it instead a showing an errored value
-                # serial=swap32(dns_rpc_record_soa.Serial, int_len=4),
-                refresh=swap32(dns_rpc_record_soa.Refresh),
-                retry=swap32(dns_rpc_record_soa.Retry),
-                minimum_ttl=swap32(dns_rpc_record_soa.MinimumTtl),
-                zone_administrator_email=parse_rfc1035_dns_name(dns_rpc_record_soa.ZoneAdministratorEmail.dnsName),
-            )
-        except EOFError:
-            log.warning("Error parsing SOA record %s", data)
-            return None
+        dns_rpc_record_soa = c_dns_record.DNS_RPC_RECORD_SOA(data)
+        return cls(
+            name_primary_server=parse_rfc1035_dns_name(dns_rpc_record_soa.namePrimaryServer.dnsName),
+            # Serial does not match value seen using DNS request/management interface
+            # As this is not the most important field, we simply ignore it instead a showing an errored value
+            # serial=swap32(dns_rpc_record_soa.Serial, int_len=4),
+            refresh=swap32(dns_rpc_record_soa.Refresh),
+            retry=swap32(dns_rpc_record_soa.Retry),
+            minimum_ttl=swap32(dns_rpc_record_soa.MinimumTtl),
+            zone_administrator_email=parse_rfc1035_dns_name(dns_rpc_record_soa.ZoneAdministratorEmail.dnsName),
+        )
 
 
 class NodeNameRecord(NamedTuple):
@@ -148,12 +153,11 @@ class NodeNameRecord(NamedTuple):
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/8f986756-f151-4f5b-bfcf-0d85be8b0d7e
+
+        Raises:
+            EOFError: Issue while unpacking structure.
         """
-        try:
-            return NodeNameRecord(parse_rfc1035_dns_name(c_dns_record.DNS_RPC_NAME(data).dnsName))
-        except EOFError:
-            log.warning("Error parsing node name record %s", data)
-            return None
+        return NodeNameRecord(parse_rfc1035_dns_name(c_dns_record.DNS_RPC_NAME(data).dnsName))
 
 
 class StringRecord(NamedTuple):
@@ -176,20 +180,19 @@ class StringRecord(NamedTuple):
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/69166ff5-36c1-4542-9243-13b8931fa447
+
+        Raises:
+            EOFError: Issue while unpacking structure.
         """
         records = []
-        try:
-            data_consumed = 0
+        data_consumed = 0
 
-            while data_consumed < len(data):
-                rpc_name = c_dns_record.DNS_RPC_NAME(data[data_consumed:])
-                data_consumed += len(rpc_name)
+        while data_consumed < len(data):
+            rpc_name = c_dns_record.DNS_RPC_NAME(data[data_consumed:])
+            data_consumed += len(rpc_name)
 
-                records.append(rpc_name.dnsName.decode("utf-8", errors="backslashreplace"))
-            return cls("\n".join(records))
-        except EOFError:
-            log.warning("Error while processing node name record %s : %s", data, records, exc_info=True)
-            return None
+            records.append(rpc_name.dnsName.decode("utf-8", errors="backslashreplace"))
+        return cls("\n".join(records))
 
 
 class NamePreferenceRecord(NamedTuple):
@@ -210,16 +213,15 @@ class NamePreferenceRecord(NamedTuple):
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/f647d391-6614-4c3e-b38b-4df971590eb6
+
+        Raises:
+            EOFError: Issue while unpacking structure.
         """
-        try:
-            dns_rpc_record_name_preference = c_dns_record.DNS_RPC_RECORD_NAME_PREFERENCE(data)
-            return cls(
-                preference=swap16(dns_rpc_record_name_preference.Preference),
-                name_exchange=parse_rfc1035_dns_name(dns_rpc_record_name_preference.nameExchange.dnsName),
-            )
-        except EOFError:
-            log.warning("Error while processing name preference record %s", data)
-            return None
+        dns_rpc_record_name_preference = c_dns_record.DNS_RPC_RECORD_NAME_PREFERENCE(data)
+        return cls(
+            preference=swap16(dns_rpc_record_name_preference.Preference),
+            name_exchange=parse_rfc1035_dns_name(dns_rpc_record_name_preference.nameExchange.dnsName),
+        )
 
 
 class SRVRecord(NamedTuple):
@@ -236,6 +238,9 @@ class SRVRecord(NamedTuple):
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/db37cab7-f121-43ba-81c5-ca0e198d4b9a
+
+        Raises:
+            EOFError: Issue while unpacking structure.
         """
         log.warning("Date : %s", data)
         dns_rpc_record_srv = c_dns_record.DNS_RPC_RECORD_SRV(data)
@@ -260,16 +265,15 @@ class TombStonedRecord(NamedTuple):
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/69166ff5-36c1-4542-9243-13b8931fa447
+
+        Raises:
+            EOFError: Issue while unpacking structure.
         """
-        try:
-            ts_hundred_nano_seconds = c_dns_record.DNS_RPC_RECORD_TS(data).EntombedTime
-            if ts_hundred_nano_seconds == 0:
-                return None
-            base_date = datetime.datetime(1601, 1, 1, tzinfo=datetime.timezone.utc)
-            return TombStonedRecord(base_date + datetime.timedelta(microseconds=ts_hundred_nano_seconds / 10))
-        except EOFError:
-            log.warning("Error while processing node name record%s", data)
+        ts_hundred_nano_seconds = c_dns_record.DNS_RPC_RECORD_TS(data).EntombedTime
+        if ts_hundred_nano_seconds == 0:
             return None
+        base_date = datetime.datetime(1601, 1, 1, tzinfo=datetime.timezone.utc)
+        return TombStonedRecord(base_date + datetime.timedelta(microseconds=ts_hundred_nano_seconds / 10))
 
 
 class DnsRecord:
@@ -293,7 +297,11 @@ class DnsRecord:
 
     @property
     def timestamp(self) -> datetime.datetime | None:
-        """Timestamp is stored in hours."""
+        """Timestamp is stored in hours since 1601-01-01.
+
+        Raises:
+            OverflowError: Number of hours cause an overflow.
+        """
         if self.header.TimeStamp == 0:
             return None
         # Windows timestamp is hours since 1601-01-01
@@ -315,6 +323,11 @@ class DnsRecord:
         | SOARecord
         | None
     ):
+        """Parse the data part of a record, which contains a structure that depends on the record type.
+
+        Raises:
+            EOFError: Issue while unpacking structure.
+        """
         header_data = self.header.Data
 
         # Process most common DNS records types
@@ -354,12 +367,23 @@ class DnsRecord:
         return header_data
 
     def as_dict(self) -> dict[str, Any]:
+        try:
+            data = self.data
+        except EOFError:
+            log.warning("Issue while processing dns record : fail to parse data. Record type : %s.", str(self.type.name))
+            data = None
+
+        try:
+            timestamp = self.timestamp
+        except OverflowError:
+            log.warning("Issue while processing dns record : invalid record timestamp.")
+            timestamp = None
         return {
             "type": str(self.type.name),
             "ttl_seconds": self.ttl_seconds,
-            "timestamp": self.timestamp,
+            "timestamp": timestamp,
             # isinstance(X, NamedTuple) does not work, but NamedTuple are subtype of tuple
-            "data": self.data._asdict() if isinstance(self.data, tuple) else self.data,
+            "data": data._asdict() if isinstance(data, tuple) else data,
         }
 
 

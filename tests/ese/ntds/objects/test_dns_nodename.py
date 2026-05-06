@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import datetime
+import logging
 import typing
+
+import pytest
 
 from dissect.database.ese.ntds.objects.c_dns_record import DNS_RECORD_TYPE
 from dissect.database.ese.ntds.objects.dnsnode import (
     DnsAAAARecord,
     DnsARecord,
+    DnsRecord,
     NamePreferenceRecord,
     NodeNameRecord,
     SOARecord,
@@ -18,7 +22,6 @@ from dissect.database.ese.ntds.objects.dnsnode import (
 
 if typing.TYPE_CHECKING:
     from dissect.database.ese.ntds import NTDS
-    from dissect.database.ese.ntds.objects.dnsnode import DnsRecord
 
 
 def test_parse_dns_name() -> None:
@@ -139,7 +142,8 @@ def test_parse_name_a_record() -> None:
     """Test an A (IpV4) record."""
     assert DnsARecord.from_bytes(b"\xc0\xa8d\x1d").ipv4_address == "192.168.100.29"
     # Error
-    assert DnsARecord.from_bytes(b"\xc0") is None
+    with pytest.raises(EOFError):
+        DnsARecord.from_bytes(b"\xc0")
 
 
 def test_dns_nodes(goad: NTDS) -> None:
@@ -222,3 +226,37 @@ def test_dns_nodes(goad: NTDS) -> None:
         "ttl_seconds": 0,
         "type": "AAAA",
     }
+
+
+def test_errored_dns_node(caplog : pytest.LogCaptureFixture) -> None:
+    errored_record = (
+        b"\x04\x00\x01\x00\x05\x80\x00\x00\x19\x00\x00\x00\x00\x00\x0e\x10\x00\x00\x00\x00\x00\x00\x00\x00\n\x00\x02"
+    )
+    with pytest.raises(EOFError):
+        _ = DnsRecord(errored_record)
+
+    a_record = DnsRecord(
+        b"\x03\x00\x01\x00\x05\x80\x00\x00\x19\x00\x00\x00\x00\x00\x0e\x10\x00\x00\x00\x00\x00\x00\x00\x00\n\x00\x02"
+    )
+    with pytest.raises(EOFError):
+        _ = a_record.data
+    with caplog.at_level(logging.WARNING):
+        assert a_record.as_dict() == {"data": None, "timestamp": None, "ttl_seconds": 3600, "type": "A"}
+        assert "Issue while processing dns record : fail to parse data. Record type : A." in caplog.text
+    overflow_timestamp_record = DnsRecord(
+        b"\x04\x00\x01\x00\x05\x80\x00\x00\x19\x00\x00\x00\x00\x00\x0e"
+        b"\x10\x00\x00\x00\x00\xff\xff\xff\xff\n\x00\x02\x02"
+    )
+
+    with pytest.raises(OverflowError):
+        _ = overflow_timestamp_record.timestamp
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        assert overflow_timestamp_record.as_dict() == {
+            "data": {"ipv4_address": "10.0.2.2"},
+            "timestamp": None,
+            "ttl_seconds": 3600,
+            "type": "A",
+        }
+        assert "Issue while processing dns record : invalid record timestamp." in caplog.text

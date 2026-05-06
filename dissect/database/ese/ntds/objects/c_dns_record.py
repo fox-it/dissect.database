@@ -57,7 +57,7 @@ typedef struct DNS_RECORD_HEADER {
     uint16             DataLength;
     DNS_RECORD_TYPE    Type;
     uint8              Version;     // Must be 0x05
-    uint8              Rank;        // Must be 0x05
+    uint8              Rank;
     uint16             Flags;       // Must be 0x00
     uint32             Serial;
     uint32             TtlSeconds;  // Big Endian
