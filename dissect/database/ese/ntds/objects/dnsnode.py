@@ -428,4 +428,5 @@ class DnsNode(Top):
         ret = super().as_dict()
         ret["distinguished_name_as_dns_name"] = self.distinguished_name_as_dns_name
         ret["dns_records"] = [r.as_dict() for r in self.dns_record]
+        del ret["dnsRecord"]
         return ret
