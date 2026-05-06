@@ -228,7 +228,7 @@ def test_dns_nodes(goad: NTDS) -> None:
     }
 
 
-def test_errored_dns_node(caplog : pytest.LogCaptureFixture) -> None:
+def test_errored_dns_node(caplog: pytest.LogCaptureFixture) -> None:
     errored_record = (
         b"\x04\x00\x01\x00\x05\x80\x00\x00\x19\x00\x00\x00\x00\x00\x0e\x10\x00\x00\x00\x00\x00\x00\x00\x00\n\x00\x02"
     )

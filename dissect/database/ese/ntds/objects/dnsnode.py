@@ -370,7 +370,9 @@ class DnsRecord:
         try:
             data = self.data
         except EOFError:
-            log.warning("Issue while processing dns record : fail to parse data. Record type : %s.", str(self.type.name))
+            log.warning(
+                "Issue while processing dns record : fail to parse data. Record type : %s.", str(self.type.name)
+            )
             data = None
 
         try:
