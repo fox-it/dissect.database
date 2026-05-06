@@ -11,3 +11,8 @@ class PKIEnrollmentService(Top):
     """
 
     __object_class__ = "pKIEnrollmentService"
+
+    @property
+    def dns_host_name(self) -> str | None:
+        """Return the dNSHostName of this PKI Enrollment Service."""
+        return self.get("dNSHostName")

@@ -11,3 +11,8 @@ class Configuration(Top):
     """
 
     __object_class__ = "configuration"
+
+    @property
+    def gp_link(self) -> str | None:
+        """Return the group policy link of the configuration."""
+        return self.get("gPLink")

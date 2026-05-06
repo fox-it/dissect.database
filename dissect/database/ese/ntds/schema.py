@@ -7,7 +7,7 @@ from dissect.database.ese.ntds.c_ds import c_ds
 
 if TYPE_CHECKING:
     from dissect.database.ese.ntds.database import Database
-    from dissect.database.ese.ntds.util import SearchFlags
+    from dissect.database.ese.ntds.util import SearchFlag
 
 # These are fixed columns in the NTDS database
 # They do not exist in the schema, but are required for basic operation
@@ -121,7 +121,7 @@ class AttributeEntry(NamedTuple):
     om_object_class: bytes | None
     is_single_valued: bool
     link_id: int | None
-    search_flags: SearchFlags | None
+    search_flags: SearchFlag | None
 
 
 class Schema:
@@ -202,7 +202,7 @@ class Schema:
         # This _should_ have all the attribute and class schema entries
         # We used to perform an index search on objectClass (ATTc0, INDEX_00000000), but apparently
         # not all databases have this index
-        dmd = db.data.dmd()
+        dmd = db.dmd()
 
         # We bootstrapped these earlier
         attribute_schema = self.lookup_class(name="attributeSchema")
@@ -232,7 +232,7 @@ class Schema:
                 )
 
         # Load user-defined OID prefixes
-        if (prefix_map := db.data.dmd().get("prefixMap")) is not None:
+        if (prefix_map := dmd.get("prefixMap")) is not None:
             self._oid_idx_to_prefix_index.update(parse_prefix_map(prefix_map))
             # Rebuild the reverse index
             self._oid_prefix_to_idx_index = {prefix: idx for idx, prefix in self._oid_idx_to_prefix_index.items()}
@@ -255,7 +255,7 @@ class Schema:
         om_object_class: bytes | None,
         is_single_valued: bool,
         link_id: int | None,
-        search_flags: SearchFlags | None,
+        search_flags: SearchFlag | None,
     ) -> None:
         entry = AttributeEntry(
             dnt=dnt,
