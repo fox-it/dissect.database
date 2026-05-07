@@ -58,7 +58,7 @@ class _c_dns_record(__cs__.cstruct):
         TtlSeconds: _c_dns_record.uint32
         Reserved: _c_dns_record.uint32
         TimeStamp: _c_dns_record.uint32
-        Data: __cs__.Array[_c_dns_record.uint8]
+        Data: __cs__.CharArray
         @overload
         def __init__(
             self,
@@ -71,7 +71,7 @@ class _c_dns_record(__cs__.cstruct):
             TtlSeconds: _c_dns_record.uint32 | None = ...,
             Reserved: _c_dns_record.uint32 | None = ...,
             TimeStamp: _c_dns_record.uint32 | None = ...,
-            Data: __cs__.Array[_c_dns_record.uint8] | None = ...,
+            Data: __cs__.CharArray | None = ...,
         ): ...
         @overload
         def __init__(self, fh: bytes | memoryview | bytearray | BinaryIO, /): ...
