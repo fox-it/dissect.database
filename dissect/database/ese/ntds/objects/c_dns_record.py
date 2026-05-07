@@ -54,60 +54,56 @@ enum DNS_RECORD_TYPE : WORD {
 
 // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/6912b338-5472-4f59-b912-0edb536b6ed8
 typedef struct DNS_RECORD_HEADER {
-    WORD               DataLength;
-    DNS_RECORD_TYPE    Type;
-    BYTE               Version;     // Must be 0x05
-    BYTE               Rank;
-    WORD               Flags;       // Must be 0x00
-    DWORD              Serial;
-    DWORD              TtlSeconds;  // Big Endian
-    DWORD              Reserved;    // MUST be 0x00000000.
-    DWORD              TimeStamp;
-    CHAR               Data[DataLength];
+    WORD                DataLength;
+    DNS_RECORD_TYPE     Type;
+    BYTE                Version;            // Must be 0x05
+    BYTE                Rank;
+    WORD                Flags;              // Must be 0x00
+    DWORD               Serial;
+    DWORD               TtlSeconds;         // Big Endian
+    DWORD               Reserved;           // MUST be 0x00000000.
+    DWORD               TimeStamp;
+    CHAR                Data[DataLength];
 };
 
 // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/3fd41adc-c69e-407b-979e-721251403132
 // MS docs indicate that structure is 4 byte aligned, and that the string MUST NOT be null-terminated.
 // But observed reality is a null terminated string (null char not counted in NameLength)
 typedef struct DNS_RPC_NAME{
-    BYTE  NameLength;
-    CHAR  dnsName[NameLength];
-}
+    BYTE                NameLength;
+    CHAR                dnsName[NameLength];
+};
 
 // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/db37cab7-f121-43ba-81c5-ca0e198d4b9a
 typedef struct DNS_RPC_RECORD_SRV {
-    WORD               Priority;
-    WORD               Weight;
-    WORD               Port;
-    DNS_RPC_NAME       nameTarget;
+    WORD                Priority;
+    WORD                Weight;
+    WORD                Port;
+    DNS_RPC_NAME        nameTarget;
 };
-
 
 // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/f647d391-6614-4c3e-b38b-4df971590eb6
 typedef struct DNS_RPC_RECORD_NAME_PREFERENCE {
-    WORD             Preference;
-    DNS_RPC_NAME     nameExchange;
+    WORD                Preference;
+    DNS_RPC_NAME        nameExchange;
 };
-
 
 // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/dcd3ec16-d6bf-4bb4-9128-6172f9e5f066
 typedef struct DNS_RPC_RECORD_SOA {
-    DWORD             Serial;
-    DWORD             Refresh;
-    DWORD             Retry;
-    DWORD             Expire;
-    DWORD             MinimumTtl;
-    DNS_RPC_NAME      namePrimaryServer;
-    BYTE              _pad;
-    DNS_RPC_NAME      ZoneAdministratorEmail;
+    DWORD               Serial;
+    DWORD               Refresh;
+    DWORD               Retry;
+    DWORD               Expire;
+    DWORD               MinimumTtl;
+    DNS_RPC_NAME        namePrimaryServer;
+    BYTE                _pad;
+    DNS_RPC_NAME        ZoneAdministratorEmail;
 };
-
 
 // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/def7736a-dd09-4b4a-b8d6-6a702a7ecde0
 typedef struct DNS_RPC_RECORD_TS {
-    QWORD             EntombedTime;
+    QWORD               EntombedTime;
 };
-
 """
 c_dns_record = cstruct(dns_record_def)
 DNS_RECORD_TYPE = c_dns_record.DNS_RECORD_TYPE

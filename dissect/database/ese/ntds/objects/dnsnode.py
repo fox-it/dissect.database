@@ -82,7 +82,7 @@ class DnsAAAARecord(NamedTuple):
 
     @classmethod
     def from_bytes(cls, data: bytes) -> DnsAAAARecord:
-        """Parse ``AAAA`` record (IPv4 address).
+        """Parse ``AAAA`` record (IPv6 address).
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/ee33fef1-6e82-42d0-8107-0f6d21be072a
@@ -97,7 +97,7 @@ class DnsAAAARecord(NamedTuple):
 
 
 class SOARecord(NamedTuple):
-    """The DNS_RPC_RECORD_SOA structure contains information about an SOA record."""
+    """The ``DNS_RPC_RECORD_SOA`` structure contains information about a ``SOA`` record."""
 
     name_primary_server: str
     # Serial does not match value seen using DNS request/management interface
@@ -110,7 +110,7 @@ class SOARecord(NamedTuple):
 
     @classmethod
     def from_bytes(cls, data: bytes) -> SOARecord | None:
-        """Parse SOA records.
+        """Parse ``SOA`` records.
 
         References:
             https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/dcd3ec16-d6bf-4bb4-9128-6172f9e5f066
@@ -132,7 +132,7 @@ class SOARecord(NamedTuple):
 
 
 class NodeNameRecord(NamedTuple):
-    """The DNS_RPC_RECORD_NODE_NAME structure contains information about a DNS record of any of the following types.
+    """The DNS_RPC_RECORD_NODE_NAME structure contains information about a DNS record of any of the following types:
 
     - DNS_TYPE_PTR
     - DNS_TYPE_NS
@@ -149,7 +149,7 @@ class NodeNameRecord(NamedTuple):
 
     @classmethod
     def from_bytes(cls, data: bytes) -> NodeNameRecord | None:
-        """Parse Node Name type record (E.g CNAME, PTR).
+        """Parse Node Name type record (e.g ``CNAME``, ``PTR``).
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/8f986756-f151-4f5b-bfcf-0d85be8b0d7e
@@ -161,7 +161,7 @@ class NodeNameRecord(NamedTuple):
 
 
 class StringRecord(NamedTuple):
-    """The DNS_RPC_RECORD_STRING structure contains information about a DNS record of any of the following types.
+    """The ``DNS_RPC_RECORD_STRING`` structure contains information about a DNS record of any of the following types:
 
     - DNS_TYPE_HINFO
     - DNS_TYPE_ISDN
@@ -174,7 +174,7 @@ class StringRecord(NamedTuple):
 
     @classmethod
     def from_bytes(cls, data: bytes) -> StringRecord | None:
-        """Parse Node Name type record (E.g TXT).
+        """Parse Node Name type record (E.g ``TXT``).
 
         Test using GUI does not allow to create record with a line length > 255 char.
 
@@ -196,8 +196,8 @@ class StringRecord(NamedTuple):
 
 
 class NamePreferenceRecord(NamedTuple):
-    """The DNS_RPC_RECORD_NAME_PREFERENCE structure specifies information about a DNS
-    record of any of the following types.
+    """The ``DNS_RPC_RECORD_NAME_PREFERENCE`` structure specifies information about a DNS
+    record of any of the following types:
 
     - DNS_TYPE_MX
     - DNS_TYPE_AFSDB
@@ -209,7 +209,7 @@ class NamePreferenceRecord(NamedTuple):
 
     @classmethod
     def from_bytes(cls, data: bytes) -> NamePreferenceRecord | None:
-        """Parse DNS_RPC_RECORD_NAME_PREFERENCE record (E.g Mx).
+        """Parse ``DNS_RPC_RECORD_NAME_PREFERENCE`` record (e.g ``MX``).
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/f647d391-6614-4c3e-b38b-4df971590eb6
@@ -217,7 +217,7 @@ class NamePreferenceRecord(NamedTuple):
         Raises:
             EOFError: Issue while unpacking structure.
         """
-        dns_rpc_record_name_preference = c_dns_record.DNS_RPC_RECORD_NAME_PREFERENCE(data)
+        record = c_dns_record.DNS_RPC_RECORD_NAME_PREFERENCE(data)
         return cls(
             preference=swap16(dns_rpc_record_name_preference.Preference),
             name_exchange=parse_rfc1035_dns_name(dns_rpc_record_name_preference.nameExchange.dnsName),
@@ -225,7 +225,7 @@ class NamePreferenceRecord(NamedTuple):
 
 
 class SRVRecord(NamedTuple):
-    """SRV ressource records."""
+    """``SRV`` ressource records."""
 
     name_target: str
     port: int
@@ -234,7 +234,7 @@ class SRVRecord(NamedTuple):
 
     @classmethod
     def from_bytes(cls, data: bytes) -> SRVRecord | None:
-        """Parse SRV record.
+        """Parse ``SRV`` record.
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/db37cab7-f121-43ba-81c5-ca0e198d4b9a
@@ -254,14 +254,14 @@ class SRVRecord(NamedTuple):
 
 
 class TombStonedRecord(NamedTuple):
-    """ZERO ressource records."""
+    """``ZERO`` resource records."""
 
     entombed_time: datetime.datetime
 
     @classmethod
     def from_bytes(cls, data: bytes) -> TombStonedRecord | None:
-        """The DNS_RPC_RECORD_TS specifies information for a node that has been tombstoned,
-        used for following record type : DNS_TYPE_ZERO.
+        """The ``DNS_RPC_RECORD_TS`` specifies information for a node that has been tombstoned,
+        used for record type ``DNS_TYPE_ZERO``.
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/69166ff5-36c1-4542-9243-13b8931fa447
@@ -286,10 +286,10 @@ class DnsRecord:
     def __init__(self, dns_records_bytes: bytes):
         self.raw: bytes = dns_records_bytes
         self.header = c_dns_record.DNS_RECORD_HEADER(dns_records_bytes)
-        self.type: c_dns_record.DNS_RECORD_TYPE = self.header.Type
-        self.ttl_seconds: int = swap32(self.header.TtlSeconds)
+        self.type = self.header.Type
+        self.ttl_seconds = swap32(self.header.TtlSeconds)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"<DnsRecord type={self.type.name!r} ttl_seconds={self.ttl_seconds!r} "
             f"timestamp={self.timestamp} data={self.data}>"
@@ -371,17 +371,17 @@ class DnsRecord:
             data = self.data
         except EOFError:
             log.warning(
-                "Issue while processing dns record : fail to parse data. Record type : %s.", str(self.type.name)
+                "Error processing DNS record: failed to parse data (record type: %s)", self.type.name
             )
             data = None
 
         try:
             timestamp = self.timestamp
         except OverflowError:
-            log.warning("Issue while processing dns record : invalid record timestamp.")
+            log.warning("Error processing DNS record: invalid record timestamp")
             timestamp = None
         return {
-            "type": str(self.type.name),
+            "type": self.type.name,
             "ttl_seconds": self.ttl_seconds,
             "timestamp": timestamp,
             # isinstance(X, NamedTuple) does not work, but NamedTuple are subtype of tuple
@@ -425,8 +425,7 @@ class DnsNode(Top):
         return ".".join(ret).replace("\n", "\\n")
 
     def as_dict(self) -> dict[str, Any]:
-        ret = super().as_dict()
-        ret["distinguished_name_as_dns_name"] = self.distinguished_name_as_dns_name
-        ret["dns_records"] = [r.as_dict() for r in self.dns_record]
-        del ret["dnsRecord"]
-        return ret
+        result = super().as_dict()
+        result["distinguished_name_as_dns_name"] = self.distinguished_name_as_dns_name
+        result["dns_record"] = [r.as_dict() for r in self.dns_record]
+        return result
