@@ -172,7 +172,7 @@ class StringRecord(NamedTuple):
         - DNS_TYPE_LOC.
     """
 
-    stringData: str
+    string_data: str
 
     @classmethod
     def from_bytes(cls, data: bytes) -> StringRecord | None:

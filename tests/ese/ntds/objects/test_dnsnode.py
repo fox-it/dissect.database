@@ -62,7 +62,7 @@ def test_parse_dns_string_record() -> None:
         b"|TXT record made for dissect. Quite long to test if there is some limit size, "
         b"like over 64 characters or something like that.\x004Two new line above, "
         b"and an special char (euro) : \xe2\x82\xac"
-    ).stringData == (
+    ).string_data == (
         "TXT record made for dissect. Quite long to test if there is some limit size, "
         "like over 64 characters or something like that.\n\n"
         "Two new line above, and an special char (euro) : €"
@@ -72,19 +72,19 @@ def test_parse_dns_string_record() -> None:
         b"\xd6this is a very long record, with a size over 255, as string size is stored on a unint."
         b" Very vey very very very very very very very very vey very very very very very very very very vey very very"
         b" very very very veryg\x00\x00\nA new line\x17And we continue tthis i"
-    ).stringData == (
+    ).string_data == (
         "this is a very long record, with a size over 255, as string size is stored on a unint. Very vey"
         " very very very very very very very very vey very very very very very very very very vey very"
         " very very very very veryg\n\n\nA new line\nAnd we continue tthis i"
     )
-    assert StringRecord.from_bytes(b"\x01q\x02qw\x03qwe\x04qwer\x05qwert\x06qwerty\x08qwertyui").stringData == (
+    assert StringRecord.from_bytes(b"\x01q\x02qw\x03qwe\x04qwer\x05qwert\x06qwerty\x08qwertyui").string_data == (
         "q\nqw\nqwe\nqwer\nqwert\nqwerty\nqwertyui"
     )
 
 
 def test_parse_dns_string_null_record() -> None:
     """Test an empty TXT record."""
-    assert StringRecord.from_bytes(b"\x00").stringData == ""
+    assert StringRecord.from_bytes(b"\x00").string_data == ""
 
 
 def test_parse_name_preference_record() -> None:
