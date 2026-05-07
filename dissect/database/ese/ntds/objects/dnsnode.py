@@ -118,31 +118,32 @@ class SOARecord(NamedTuple):
         Raises:
             EOFError: Issue while unpacking structure.
         """
-        dns_rpc_record_soa = c_dns_record.DNS_RPC_RECORD_SOA(data)
+        record = c_dns_record.DNS_RPC_RECORD_SOA(data)
         return cls(
-            name_primary_server=parse_rfc1035_dns_name(dns_rpc_record_soa.namePrimaryServer.dnsName),
+            name_primary_server=parse_rfc1035_dns_name(record.namePrimaryServer.dnsName),
             # Serial does not match value seen using DNS request/management interface
             # As this is not the most important field, we simply ignore it instead a showing an errored value
             # serial=swap32(dns_rpc_record_soa.Serial, int_len=4),
-            refresh=swap32(dns_rpc_record_soa.Refresh),
-            retry=swap32(dns_rpc_record_soa.Retry),
-            minimum_ttl=swap32(dns_rpc_record_soa.MinimumTtl),
-            zone_administrator_email=parse_rfc1035_dns_name(dns_rpc_record_soa.ZoneAdministratorEmail.dnsName),
+            refresh=swap32(record.Refresh),
+            retry=swap32(record.Retry),
+            minimum_ttl=swap32(record.MinimumTtl),
+            zone_administrator_email=parse_rfc1035_dns_name(record.ZoneAdministratorEmail.dnsName),
         )
 
 
 class NodeNameRecord(NamedTuple):
-    """The DNS_RPC_RECORD_NODE_NAME structure contains information about a DNS record of any of the following types:
+    """The DNS_RPC_RECORD_NODE_NAME structure contains information about a DNS record referring to another DNS name.
 
-    - DNS_TYPE_PTR
-    - DNS_TYPE_NS
-    - DNS_TYPE_CNAME
-    - DNS_TYPE_DNAME
-    - DNS_TYPE_MB
-    - DNS_TYPE_MR,
-    - DNS_TYPE_MG
-    - DNS_TYPE_MD
-    - DNS_TYPE_MF
+    This corresponds to the following types:
+        - DNS_TYPE_PTR
+        - DNS_TYPE_NS
+        - DNS_TYPE_CNAME
+        - DNS_TYPE_DNAME
+        - DNS_TYPE_MB
+        - DNS_TYPE_MR
+        - DNS_TYPE_MG
+        - DNS_TYPE_MD
+        - DNS_TYPE_MF.
     """
 
     name_node: str
@@ -161,13 +162,14 @@ class NodeNameRecord(NamedTuple):
 
 
 class StringRecord(NamedTuple):
-    """The ``DNS_RPC_RECORD_STRING`` structure contains information about a DNS record of any of the following types:
+    """The ``DNS_RPC_RECORD_STRING`` structure contains information about a DNS record containing text data.
 
-    - DNS_TYPE_HINFO
-    - DNS_TYPE_ISDN
-    - DNS_TYPE_TXT
-    - DNS_TYPE_X25
-    - DNS_TYPE_LOC
+    This corresponds to the following types:
+        - DNS_TYPE_HINFO
+        - DNS_TYPE_ISDN
+        - DNS_TYPE_TXT
+        - DNS_TYPE_X25
+        - DNS_TYPE_LOC.
     """
 
     stringData: str
@@ -197,11 +199,12 @@ class StringRecord(NamedTuple):
 
 class NamePreferenceRecord(NamedTuple):
     """The ``DNS_RPC_RECORD_NAME_PREFERENCE`` structure specifies information about a DNS
-    record of any of the following types:
+    record referring to another DNS name with a preference.
 
-    - DNS_TYPE_MX
-    - DNS_TYPE_AFSDB
-    - DNS_TYPE_RT
+    This corresponds to the following types:
+        - DNS_TYPE_MX
+        - DNS_TYPE_AFSDB
+        - DNS_TYPE_RT.
     """
 
     name_exchange: str
@@ -219,8 +222,8 @@ class NamePreferenceRecord(NamedTuple):
         """
         record = c_dns_record.DNS_RPC_RECORD_NAME_PREFERENCE(data)
         return cls(
-            preference=swap16(dns_rpc_record_name_preference.Preference),
-            name_exchange=parse_rfc1035_dns_name(dns_rpc_record_name_preference.nameExchange.dnsName),
+            preference=swap16(record.Preference),
+            name_exchange=parse_rfc1035_dns_name(record.nameExchange.dnsName),
         )
 
 
@@ -242,13 +245,12 @@ class SRVRecord(NamedTuple):
         Raises:
             EOFError: Issue while unpacking structure.
         """
-        log.warning("Date : %s", data)
-        dns_rpc_record_srv = c_dns_record.DNS_RPC_RECORD_SRV(data)
-        target = parse_rfc1035_dns_name(dns_rpc_record_srv.nameTarget.dnsName)
+        record = c_dns_record.DNS_RPC_RECORD_SRV(data)
+        target = parse_rfc1035_dns_name(record.nameTarget.dnsName)
         return SRVRecord(
-            priority=dns_rpc_record_srv.Priority,
-            weight=swap16(dns_rpc_record_srv.Weight),
-            port=swap16(dns_rpc_record_srv.Port),
+            priority=record.Priority,
+            weight=swap16(record.Weight),
+            port=swap16(record.Port),
             name_target=target,
         )
 
@@ -269,11 +271,11 @@ class TombStonedRecord(NamedTuple):
         Raises:
             EOFError: Issue while unpacking structure.
         """
-        ts_hundred_nano_seconds = c_dns_record.DNS_RPC_RECORD_TS(data).EntombedTime
-        if ts_hundred_nano_seconds == 0:
+        record = c_dns_record.DNS_RPC_RECORD_TS(data).EntombedTime
+        if record == 0:
             return None
         base_date = datetime.datetime(1601, 1, 1, tzinfo=datetime.timezone.utc)
-        return TombStonedRecord(base_date + datetime.timedelta(microseconds=ts_hundred_nano_seconds / 10))
+        return TombStonedRecord(base_date + datetime.timedelta(microseconds=record / 10))
 
 
 class DnsRecord:
@@ -284,6 +286,11 @@ class DnsRecord:
     """
 
     def __init__(self, dns_records_bytes: bytes):
+        """Unpack dns_records_bytes.
+
+        Raises:
+            EOFError: Issue while unpacking structure.
+        """
         self.raw: bytes = dns_records_bytes
         self.header = c_dns_record.DNS_RECORD_HEADER(dns_records_bytes)
         self.type = self.header.Type
@@ -370,9 +377,7 @@ class DnsRecord:
         try:
             data = self.data
         except EOFError:
-            log.warning(
-                "Error processing DNS record: failed to parse data (record type: %s)", self.type.name
-            )
+            log.warning("Error processing DNS record: failed to parse data (record type: %s)", self.type.name)
             data = None
 
         try:
