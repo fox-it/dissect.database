@@ -242,7 +242,7 @@ def test_errored_dns_node(caplog: pytest.LogCaptureFixture) -> None:
         _ = a_record.data
     with caplog.at_level(logging.WARNING):
         assert a_record.as_dict() == {"data": None, "timestamp": None, "ttl_seconds": 3600, "type": "A"}
-        assert "Issue while processing dns record : fail to parse data. Record type : A." in caplog.text
+        assert "Error processing DNS record: failed to parse data (record type: A)" in caplog.text
     overflow_timestamp_record = DnsRecord(
         b"\x04\x00\x01\x00\x05\x80\x00\x00\x19\x00\x00\x00\x00\x00\x0e"
         b"\x10\x00\x00\x00\x00\xff\xff\xff\xff\n\x00\x02\x02"
@@ -259,4 +259,4 @@ def test_errored_dns_node(caplog: pytest.LogCaptureFixture) -> None:
             "ttl_seconds": 3600,
             "type": "A",
         }
-        assert "Issue while processing dns record : invalid record timestamp." in caplog.text
+        assert "Error processing DNS record: invalid record timestamp" in caplog.text
