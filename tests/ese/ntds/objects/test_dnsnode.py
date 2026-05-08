@@ -6,7 +6,7 @@ import typing
 
 import pytest
 
-from dissect.database.ese.ntds.objects.c_dns_record import DNS_RECORD_TYPE
+from dissect.database.ese.ntds.objects.c_dnsnode import DNS_RECORD_TYPE
 from dissect.database.ese.ntds.objects.dnsnode import (
     DnsAAAARecord,
     DnsARecord,

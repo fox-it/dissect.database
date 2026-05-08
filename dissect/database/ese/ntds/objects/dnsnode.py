@@ -9,7 +9,7 @@ from typing import Any, ClassVar, NamedTuple
 
 from dissect.cstruct.utils import swap16, swap32
 
-from dissect.database.ese.ntds.objects.c_dns_record import DNS_RECORD_TYPE, c_dns_record
+from dissect.database.ese.ntds.objects.c_dnsnode import DNS_RECORD_TYPE, c_dns_record
 from dissect.database.ese.ntds.objects.top import Top
 
 if typing.TYPE_CHECKING:
