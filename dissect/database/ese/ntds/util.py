@@ -405,6 +405,9 @@ class DN(str):
 
     __slots__ = ("object", "parent")
 
+    object: Object
+    parent: DN | None
+
     def __new__(cls, value: str, object: Object, parent: DN | None = None):
         instance = super().__new__(cls, value)
         instance.object = object

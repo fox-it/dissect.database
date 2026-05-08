@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 
 def parse_rfc1035_dns_name(data: bytes) -> str:
-    """Parse DNS name as specified in rfc1035#section-3.1 format.
+    """Parse DNS name as specified in ``rfc1035#section-3.1`` format.
 
     References:
         - https://datatracker.ietf.org/doc/html/rfc1035#section-3.1
@@ -54,6 +54,8 @@ def parse_rfc1035_dns_name(data: bytes) -> str:
 
 
 class DnsARecord(NamedTuple):
+    """``A`` resource records."""
+
     ipv4_address: str
 
     @property
@@ -77,6 +79,8 @@ class DnsARecord(NamedTuple):
 
 
 class DnsAAAARecord(NamedTuple):
+    """``AAAA`` resource records."""
+
     ipv6_address: str
 
     @property
@@ -135,25 +139,25 @@ class SOARecord(NamedTuple):
 
 
 class NodeNameRecord(NamedTuple):
-    """The DNS_RPC_RECORD_NODE_NAME structure contains information about a DNS record referring to another DNS name.
+    """The ``DNS_RPC_RECORD_NODE_NAME`` structure contains information about a DNS record referring to another DNS name.
 
     This corresponds to the following types:
-        - DNS_TYPE_PTR
-        - DNS_TYPE_NS
-        - DNS_TYPE_CNAME
-        - DNS_TYPE_DNAME
-        - DNS_TYPE_MB
-        - DNS_TYPE_MR
-        - DNS_TYPE_MG
-        - DNS_TYPE_MD
-        - DNS_TYPE_MF.
+        - ``DNS_TYPE_PTR``
+        - ``DNS_TYPE_NS``
+        - ``DNS_TYPE_CNAME``
+        - ``DNS_TYPE_DNAME``
+        - ``DNS_TYPE_MB``
+        - ``DNS_TYPE_MR``
+        - ``DNS_TYPE_MG``
+        - ``DNS_TYPE_MD``
+        - ``DNS_TYPE_MF``
     """
 
     name_node: str
 
     @classmethod
     def from_bytes(cls, data: bytes) -> NodeNameRecord | None:
-        """Parse Node Name type record (e.g ``CNAME``, ``PTR``).
+        """Parse Node Name type record (e.g. ``CNAME``, ``PTR``).
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/8f986756-f151-4f5b-bfcf-0d85be8b0d7e
@@ -168,18 +172,18 @@ class StringRecord(NamedTuple):
     """The ``DNS_RPC_RECORD_STRING`` structure contains information about a DNS record containing text data.
 
     This corresponds to the following types:
-        - DNS_TYPE_HINFO
-        - DNS_TYPE_ISDN
-        - DNS_TYPE_TXT
-        - DNS_TYPE_X25
-        - DNS_TYPE_LOC.
+        - ``DNS_TYPE_HINFO``
+        - ``DNS_TYPE_ISDN``
+        - ``DNS_TYPE_TXT``
+        - ``DNS_TYPE_X25``
+        - ``DNS_TYPE_LOC``
     """
 
     string_data: str
 
     @classmethod
     def from_bytes(cls, data: bytes) -> StringRecord | None:
-        """Parse Node Name type record (E.g ``TXT``).
+        """Parse Node Name type record (e.g. ``TXT``).
 
         Test using GUI does not allow to create record with a line length > 255 char.
 
@@ -205,9 +209,9 @@ class NamePreferenceRecord(NamedTuple):
     record referring to another DNS name with a preference.
 
     This corresponds to the following types:
-        - DNS_TYPE_MX
-        - DNS_TYPE_AFSDB
-        - DNS_TYPE_RT.
+        - ``DNS_TYPE_MX``
+        - ``DNS_TYPE_AFSDB``
+        - ``DNS_TYPE_RT``
     """
 
     name_exchange: str
@@ -215,7 +219,7 @@ class NamePreferenceRecord(NamedTuple):
 
     @classmethod
     def from_bytes(cls, data: bytes) -> NamePreferenceRecord | None:
-        """Parse ``DNS_RPC_RECORD_NAME_PREFERENCE`` record (e.g ``MX``).
+        """Parse ``DNS_RPC_RECORD_NAME_PREFERENCE`` record (e.g. ``MX``).
 
         References:
             - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/f647d391-6614-4c3e-b38b-4df971590eb6
@@ -231,7 +235,7 @@ class NamePreferenceRecord(NamedTuple):
 
 
 class SRVRecord(NamedTuple):
-    """``SRV`` ressource records."""
+    """``SRV`` resource records."""
 
     name_target: str
     port: int
@@ -282,20 +286,15 @@ class TombStonedRecord(NamedTuple):
 
 
 class DnsRecord:
-    """The dnsRecord attribute is used to store DNS resource record definitions.
+    """DNS resource record definitions.
 
     References:
         - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dnsp/6912b338-5472-4f59-b912-0edb536b6ed8
     """
 
-    def __init__(self, dns_records_bytes: bytes):
-        """Unpack dns_records_bytes.
-
-        Raises:
-            EOFError: Issue while unpacking structure.
-        """
-        self.raw: bytes = dns_records_bytes
-        self.header = c_dns_record.DNS_RECORD_HEADER(dns_records_bytes)
+    def __init__(self, data: bytes):
+        self.raw = data
+        self.header = c_dns_record.DNS_RECORD_HEADER(data)
         self.type = self.header.Type
         self.ttl_seconds = swap32(self.header.TtlSeconds)
 
@@ -377,6 +376,7 @@ class DnsRecord:
         return header_data
 
     def as_dict(self) -> dict[str, Any]:
+        """Return a dictionary representation of the record, with parsed data if possible."""
         try:
             data = self.data
         except EOFError:
@@ -406,15 +406,14 @@ class DnsNode(Top):
     """
 
     __object_class__ = "dnsNode"
-
     __decoders__: ClassVar[DecoderMap] = {"dnsRecord": lambda x, value: [DnsRecord(x) for x in value] if value else []}
 
     def __repr_body__(self) -> str:
-        return f"dns_name={self.distinguished_name_as_dns_name} records=|{'|'.join(repr(d) for d in self.dns_record)}|"
+        return f"dns_name={self.dns_name} dns_record={self.dns_record}"
 
     @property
     def dns_record(self) -> list[DnsRecord]:
-        """Return dns records as objects.
+        """Return DNS records as objects.
 
         Raises:
             EOFError: Issue while unpacking structure.
@@ -422,7 +421,7 @@ class DnsNode(Top):
         return self.get("dnsRecord")
 
     @cached_property
-    def distinguished_name_as_dns_name(self) -> str:
+    def dns_name(self) -> str:
         """Create a DNS name from node and parent names.
 
         Examples:
@@ -438,7 +437,7 @@ class DnsNode(Top):
 
     def as_dict(self) -> dict[str, Any]:
         result = super().as_dict()
-        result["distinguished_name_as_dns_name"] = self.distinguished_name_as_dns_name
+        result["dns_name"] = self.dns_name
         if "dnsRecord" in result:
             result["dnsRecord"] = [r.as_dict() for r in result.get("dnsRecord", [])]
         return result

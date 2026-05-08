@@ -164,8 +164,7 @@ def test_dns_nodes(goad: NTDS) -> None:
     srv_record = next(
         node
         for node in dns_nodes
-        if node.distinguished_name_as_dns_name
-        == "_ldap._tcp.3c45e4c9-7d10-44d6-ba1f-6177134e58fd.domains._msdcs.sevenkingdoms.local"
+        if node.dns_name == "_ldap._tcp.3c45e4c9-7d10-44d6-ba1f-6177134e58fd.domains._msdcs.sevenkingdoms.local"
     ).dns_record[0]
     assert isinstance(srv_record.data, SRVRecord)
     assert srv_record.data.name_target == "winterfell.north.sevenkingdoms.local"
@@ -187,7 +186,7 @@ def test_dns_nodes(goad: NTDS) -> None:
         "type": "SRV",
     }
 
-    _msdcs = next(node for node in dns_nodes if node.distinguished_name_as_dns_name == "_msdcs.sevenkingdoms.local")
+    _msdcs = next(node for node in dns_nodes if node.dns_name == "_msdcs.sevenkingdoms.local")
     # Test using the DecoderMap
     soa_record: DnsRecord = next(record for record in _msdcs.get("dnsRecord") if record.type == DNS_RECORD_TYPE.SOA)
     assert isinstance(soa_record.data, SOARecord)
@@ -207,9 +206,7 @@ def test_dns_nodes(goad: NTDS) -> None:
     assert ns_records.timestamp is None
     assert ns_records.ttl_seconds == 3600
 
-    aaaa_record = next(
-        node for node in dns_nodes if node.distinguished_name_as_dns_name == "l.root-servers.net.RootDNSServers"
-    ).dns_record[0]
+    aaaa_record = next(node for node in dns_nodes if node.dns_name == "l.root-servers.net.RootDNSServers").dns_record[0]
     assert isinstance(aaaa_record.data, DnsAAAARecord)
     assert aaaa_record.data.ipv6_address == "2001:500:9f::42"
     assert aaaa_record.data.ip_address == "2001:500:9f::42"
