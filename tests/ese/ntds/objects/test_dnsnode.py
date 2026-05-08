@@ -188,7 +188,8 @@ def test_dns_nodes(goad: NTDS) -> None:
     }
 
     _msdcs = next(node for node in dns_nodes if node.distinguished_name_as_dns_name == "_msdcs.sevenkingdoms.local")
-    soa_record: DnsRecord = next(record for record in _msdcs.dns_record if record.type == DNS_RECORD_TYPE.SOA)
+    # Test using the DecoderMap
+    soa_record: DnsRecord = next(record for record in _msdcs.get("dnsRecord") if record.type == DNS_RECORD_TYPE.SOA)
     assert isinstance(soa_record.data, SOARecord)
     assert soa_record.data.name_primary_server == "winterfell.north.sevenkingdoms.local"
     assert soa_record.data.refresh == 900

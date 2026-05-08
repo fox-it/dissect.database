@@ -3,14 +3,17 @@ from __future__ import annotations
 import datetime
 import logging
 import socket
+import typing
 from functools import cached_property
-from typing import Any, NamedTuple
+from typing import Any, ClassVar, NamedTuple
 
 from dissect.cstruct.utils import swap16, swap32
 
 from dissect.database.ese.ntds.objects.c_dns_record import DNS_RECORD_TYPE, c_dns_record
 from dissect.database.ese.ntds.objects.top import Top
 
+if typing.TYPE_CHECKING:
+    from dissect.database.ese.ntds.objects.object import DecoderMap
 log = logging.getLogger(__name__)
 
 
@@ -404,15 +407,19 @@ class DnsNode(Top):
 
     __object_class__ = "dnsNode"
 
+    __decoders__: ClassVar[DecoderMap] = {"dnsRecord": lambda x, value: [DnsRecord(x) for x in value] if value else []}
+
     def __repr_body__(self) -> str:
         return f"dns_name={self.distinguished_name_as_dns_name} records=|{'|'.join(repr(d) for d in self.dns_record)}|"
 
     @property
     def dns_record(self) -> list[DnsRecord]:
-        dns_record = self.get("dnsRecord")
-        if dns_record is None:
-            return []
-        return [DnsRecord(x) for x in dns_record]
+        """Return dns records as objects.
+
+        Raises:
+            EOFError: Issue while unpacking structure.
+        """
+        return self.get("dnsRecord")
 
     @cached_property
     def distinguished_name_as_dns_name(self) -> str:
@@ -432,5 +439,6 @@ class DnsNode(Top):
     def as_dict(self) -> dict[str, Any]:
         result = super().as_dict()
         result["distinguished_name_as_dns_name"] = self.distinguished_name_as_dns_name
-        result["dns_record"] = [r.as_dict() for r in self.dns_record]
+        if "dnsRecord" in result:
+            result["dnsRecord"] = [r.as_dict() for r in result.get("dnsRecord", [])]
         return result
