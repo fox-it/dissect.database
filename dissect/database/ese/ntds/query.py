@@ -124,6 +124,7 @@ class Query:
         Yields:
             Records matching any condition in the OR operation.
         """
+        records = list(records) if records is not None else None
         for child in filter.children:
             yield from self._process_query(child, records=records)
 
@@ -186,8 +187,10 @@ def _process_wildcard_tail(index: Index, filter_value: str) -> Iterator[Record]:
 
     # Yield all records in range
     record = cursor.record()
-    while record is not None and record != end:
+    while record is not None:
         yield record
+        if record == end:
+            break
         record = cursor.next()
 
 

@@ -11,3 +11,8 @@ class CertificationAuthority(Top):
     """
 
     __object_class__ = "certificationAuthority"
+
+    @property
+    def dns_host_name(self) -> str | None:
+        """Return the dNSHostName of this Certification Authority."""
+        return self.get("dNSHostName")
