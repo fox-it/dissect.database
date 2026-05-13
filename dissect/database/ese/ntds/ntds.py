@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
     from dissect.database.ese.ntds.objects import (
         Computer,
+        DnsNode,
         DomainDNS,
         Group,
         GroupPolicyContainer,
@@ -117,6 +118,10 @@ class NTDS:
     def secrets(self) -> Iterator[Secret]:
         """Get all secret objects from the database."""
         yield from self.search(objectClass="secret")
+
+    def dns_nodes(self) -> Iterator[DnsNode]:
+        """Get all DnsNode objects from the database."""
+        yield from self.search(objectClass="dnsNode")
 
     def backup_keys(self) -> Iterator[BackupKey]:
         """Get all DPAPI backup keys from the database."""
