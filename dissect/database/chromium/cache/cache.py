@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import gzip
 import zlib
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, BinaryIO
 from urllib.parse import urlsplit
 
 from dissect.cstruct.utils import u32
@@ -59,9 +59,7 @@ class DiskCache:
         self.create_time = webkittimestamp(self.index.header.create_time)
         self.num_entries = self.index.header.num_entries
 
-        self.block_files = [
-            CacheBlockFile(self, path.joinpath(name)) for name in ("data_0", "data_1", "data_2", "data_3")
-        ]
+        self.block_files = [CacheBlockFile(self, file) for file in self.children if file.name.startswith("data_")]
 
     def __repr__(self) -> str:
         return f"<DiskCache path='{self.path!s}' create_time={self.create_time!s} entries={self.num_entries!r}>"
@@ -72,11 +70,14 @@ class DiskCache:
                 return block_file
         return None
 
-    @property
     def entries(self) -> Iterator[CacheEntryStore]:
+        seen: set[int] = set()
+
+        # Iterate entries referenced in the index
         for address in self.index.addresses:
             while address.is_initialized:
                 entry = CacheEntryStore(self, address)
+                seen.add(entry.header.hash)
                 yield entry
 
                 # An EntryStore can point to a next address for another EntryStore
@@ -84,23 +85,41 @@ class DiskCache:
                     break
                 address = CacheAddress(self.index, entry.next)
 
+        # Sometimes the index is not used, so we have to iterate all block files manually.
+        # TODO: Calculate store.header.hash to see if the entry is valid.
+        for block_file in self.block_files:
+            for i in range(block_file.header.max_entries):
+                entry_offset = c_cache.kBlockHeaderSize + (i * block_file.entry_size)
+                block_file.fh.seek(entry_offset)
+                try:
+                    store = CacheEntryStore(self, None, block_file.fh)
+                    if (
+                        store.state in (0, 1, 2)
+                        and not any(store.header.padding)
+                        and store.key
+                        and store.header.hash not in seen
+                    ):
+                        yield store
+                except Exception:
+                    pass
+
     def get_key(self, key: str) -> CacheEntryStore | None:
         """Get the :class:`CacheEntryStore` for the given ``key``."""
-        for entry in self.entries:
+        for entry in self.entries():
             if key == entry.key:
                 return entry
         return None
 
     def get_url(self, resource_url: str) -> CacheEntryStore | None:
         """Get the :class:`CacheEntrystore` for the given resource url."""
-        for entry in self.entries:
+        for entry in self.entries():
             if resource_url == entry.resource_url:
                 return entry
         return None
 
     def get_host(self, host: str) -> Iterator[CacheEntryStore]:
         """Get all :class:`CacheEntryStore` for the given host."""
-        for entry in self.entries:
+        for entry in self.entries():
             if urlsplit(entry.resource_url).hostname == host:
                 yield entry
 
@@ -118,25 +137,23 @@ class CacheIndexFile:
 
         self.fh = path.open("rb")
         self.header = c_cache.IndexHeader(self.fh)
+        self.addr_offset = self.fh.tell()
+
+        if self.header.magic != c_cache.kIndexMagic:
+            raise ValueError(f"Unexpected index header {self.header.magic!r}")
 
     def __repr__(self) -> str:
         return f"<CacheIndexFile path='{self.path!s}' addresses={len([a for a in self.addresses if a.address])!r}>"
 
     @property
-    def addresses(self) -> Iterator[CacheAddress]:
+    def addresses(self) -> list[CacheAddress]:
         """Yield :class:`CacheAddress` from the index table."""
-        if hasattr(self, "_addresses"):
-            yield from self._addresses
-            return
-
-        self._addresses = []
-
+        addresses = []
+        self.fh.seek(self.addr_offset)
         for _ in range(self.header.table_len):
             addr = CacheAddress(self, u32(self.fh.read(4)))
-            self._addresses.append(addr)
-            yield addr
-
-    # TODO: get(address)?
+            addresses.append(addr)
+        return addresses
 
 
 class CacheBlockFile:
@@ -218,11 +235,15 @@ class CacheAddress:
 class CacheEntryStore:
     """Represents a Cache EntryStore object."""
 
-    def __init__(self, disk_cache: DiskCache, addr: CacheAddress):
+    def __init__(self, disk_cache: DiskCache, addr: CacheAddress | None, data: BinaryIO | None = None):
+        if not addr and not data:
+            raise ValueError("addr or data required")
+
         self.disk_cache = disk_cache
         self.address = addr
 
-        self.header = c_cache.EntryStore(self.address.data)
+        header_data = addr.data if isinstance(addr, CacheAddress) else data
+        self.header = c_cache.EntryStore(header_data)
         self.state = c_cache.EntryState(self.header.state)
         self.creation_time = webkittimestamp(self.header.creation_time)
         self.next = self.header.next
@@ -238,30 +259,32 @@ class CacheEntryStore:
         )
 
     def __repr__(self):
-        return f"<CacheEntryStore address=0x{self.address.address:x} state={self.state.name!r} creation_time={self.creation_time!s} key={self.key!r} next={self.next!r}>"  # noqa: E501
+        return f"<CacheEntryStore address=0x{self.address.address if self.address else 0:x} state={self.state.name!r} creation_time={self.creation_time!s} key={self.key!r} next={self.next!r}>"  # noqa: E501
 
     @property
     def meta(self) -> bytes:
         addr = CacheAddress(self.disk_cache.index, self.header.data_addr[0])
+        size = self.header.data_size[0]
         # TODO: Properly unpickle HTTP response headers
-        return addr.data.read()
+        return addr.data.read(size)
 
     @property
     def data(self) -> bytes:
         addr = CacheAddress(self.disk_cache.index, self.header.data_addr[1])
+        size = self.header.data_size[1]
         header = addr.data.read(4)
 
         if header[0:2] == b"\x1f\x8b":
-            return gzip.decompress(addr.data.read())
+            return gzip.decompress(addr.data.read(size))
 
         meta = self.meta
         if b"content-encoding:br" in meta:
             if not HAS_CRAMJAM:
                 raise RuntimeError("Missing required dependency cramjam to decode brotli data")
 
-            return brotli.decompress(addr.data.read()).read()
+            return brotli.decompress(addr.data.read(size)).read()
 
         if b"content-encoding:deflate" in meta:
-            return zlib.decompress(addr.data.read(), -zlib.MAX_WBITS)
+            return zlib.decompress(addr.data.read(size), -zlib.MAX_WBITS)
 
-        return addr.data.read()
+        return addr.data.read(size)

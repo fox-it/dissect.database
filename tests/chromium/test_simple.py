@@ -1,18 +1,28 @@
 from __future__ import annotations
 
+import tarfile
+from typing import TYPE_CHECKING
+
 from dissect.database.chromium.cache.simple import SimpleDiskCache
 from tests._util import absolute_path
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-def test_chromium_simple_cache() -> None:
+
+def test_chromium_simple_cache(tmp_path: Path) -> None:
     """Test if we can parse Chromium Cache Data from Google Chrome 147 on Ubuntu 24.04 LTS."""
-    path = absolute_path("_data/chromium/cache/Linux_Cache_Data")
-    simple_disk_cache = SimpleDiskCache(path)
+    path = absolute_path("_data/chromium/cache/Linux_Cache_Data.tgz")
+
+    with tarfile.open(path) as tf:
+        tf.extractall(tmp_path, filter="data")
+
+    simple_disk_cache = SimpleDiskCache(tmp_path)
 
     assert len(simple_disk_cache.cache_files) == 19
     assert len(list(simple_disk_cache.get_host("172.16.82.1"))) == 19
 
-    assert sorted(cache_file.resource_url for cache_file in simple_disk_cache.cache_files) == sorted(
+    assert sorted(cache_file.resource_url for cache_file in simple_disk_cache.entries()) == sorted(
         [
             "http://172.16.82.1:8000/webfiles/1750011834072/presentation/shared-ro/webfonts/RO-SerifWeb-Italic.woff2",
             "http://172.16.82.1:8000/binaries/medium/content/gallery/rijksoverheid/content-afbeeldingen/home/2026/energiemaatregelen-anp-556197185.jpg",

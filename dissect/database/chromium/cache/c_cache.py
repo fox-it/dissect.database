@@ -41,6 +41,7 @@ enum FileType {
 
 /* Index file format. */
 typedef uint32_t CacheAddr;
+#define kIndexMagic                 0xC103CAC3
 
 struct LruData {
     int32       padding_1[2];
@@ -88,7 +89,7 @@ struct BlockFileHeader {
     int32       hints[4];
     int32       updating;
     int32       user[5];
-    // char        allocation_map[4 * 2028];
+    // int32    allocation_map[2028];
     // total header should be exactly kBlockHeaderSize bytes long (8192).
 };
 
@@ -122,7 +123,10 @@ struct EntryStore {
     uint32      flags;                  // Any combination of EntryFlags.
     int32       padding[4];
     uint32      self_hash;              // The hash of EntryStore up to this point.
-    char        key[256 - 24 * 4];      // null terminated
+
+    // char     key[256 - 24 * 4];      // null terminated, continues in consecutive block if larger
+    char        key[key_len];           // For convienience sake we read the entire key length,
+                                        // possibly exceeding the bounds of the entry store size.
 };
 """
 

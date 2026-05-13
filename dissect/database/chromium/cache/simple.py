@@ -7,11 +7,18 @@ from enum import IntEnum
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
-from cramjam import brotli
 from dissect.util.ts import webkittimestamp
 
 from dissect.database.chromium.cache.c_simple import c_simple
 from dissect.database.chromium.cache.util import parse_cache_key
+
+try:
+    from cramjam import brotli
+
+    HAS_CRAMJAM = True
+
+except ImportError:
+    HAS_CRAMJAM = False
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -42,34 +49,36 @@ class SimpleDiskCache:
         self.path = path
         self.index = SimpleIndexFile(self, path.joinpath("index-dir/the-real-index"))
         self.last_used = self.index.last_used
-        self.cache_files = [
-            SimpleCacheFile(self, child) for child in self.children if len(child.name) == 18 and "_" in child.name
-        ]
+        self.cache_files = [child for child in self.children if len(child.name) == 18 and "_" in child.name]
 
     def __repr__(self) -> str:
         return (
             f"<SimpleDiskCache path='{self.path!s}' cache_files={len(self.cache_files)!r} last_used={self.last_used!r}>"
         )
 
+    def entries(self) -> Iterator[SimpleCacheFile]:
+        for file in self.cache_files:
+            yield SimpleCacheFile(self, file)
+
     def get_key(self, key: str) -> SimpleCacheFile | None:
         """Return the first matching :class:`SimpleCacheFile` for the given ``key`` identifier."""
-        for cache_file in self.cache_files:
-            if cache_file.key == key:
-                return cache_file
+        for entry in self.entries():
+            if entry.key == key:
+                return entry
         return None
 
     def get_url(self, resource_url: str) -> SimpleCacheFile | None:
         """Get the first matching :class:`SimpleCacheFile` for the given resource url."""
-        for cache_file in self.cache_files:
-            if resource_url == cache_file.resource_url:
-                return cache_file
+        for entry in self.entries():
+            if resource_url == entry.resource_url:
+                return entry
         return None
 
     def get_host(self, host: str) -> Iterator[SimpleCacheFile]:
         """Get all :class:`CacheEntryStore` for the given host."""
-        for cache_file in self.cache_files:
-            if urlsplit(cache_file.resource_url).hostname == host:
-                yield cache_file
+        for entry in self.entries():
+            if urlsplit(entry.resource_url).hostname == host:
+                yield entry
 
 
 class SimpleIndexFile:
@@ -200,6 +209,9 @@ class SimpleCacheFile:
             return gzip.decompress(self._data)
 
         if b"content-encoding:br" in self.meta:
+            if not HAS_CRAMJAM:
+                raise RuntimeError("Missing required dependency cramjam to decode brotli data")
+
             return brotli.decompress(self._data).read()
 
         if b"content-encoding:deflate" in self.meta:
