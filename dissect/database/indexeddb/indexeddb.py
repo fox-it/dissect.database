@@ -145,7 +145,7 @@ class ObjectStore:
         self.database = database
         self.metadata = metadata
 
-        self.name = self.metadata.get(int.to_bytes(0)).value.decode("utf-16-be")
+        self.name = self.metadata.get(b"\x00").value.decode("utf-16-be")
         # TODO: Research if num of records is stored in metadata.
 
         self.records = list(self._iter_records())

@@ -94,7 +94,7 @@ class Key:
     state: c_leveldb.RecordState
     sequence: int
     key: str
-    value: str
+    value: str | None
 
     def __init__(self, raw_key: bytes, raw_value: bytes, state: c_leveldb.RecordState, sequence: int):
         self._raw_key = raw_key
@@ -149,6 +149,24 @@ class RecordKey(Key):
         super().__init__(raw_key, raw_value, state, sequence)
         self.store = store
 
+        _, _, buf = self._raw_key.removeprefix(self.prefix).partition(b"\x00")
+        if buf[0] == 0x00:
+            self.key = buf[1:].decode("utf-16-le")
+        elif buf[0] == 0x01:
+            self.key = buf[1:].decode("iso-8859-1")
+        else:
+            raise ValueError(f"Unexpected raw key format {self._raw_key!r}")
+
+        buf = self._raw_value
+        if not buf:
+            self.value = None
+        elif buf[0] == 0x00:
+            self.value = buf[1:].decode("utf-16-le")
+        elif buf[0] == 0x01:
+            self.value = buf[1:].decode("iso-8859-1")
+        else:
+            raise ValueError(f"Unexpected raw value format {self._raw_value!r}")
+
     @cached_property
     def meta(self) -> dict:
         """Calculate the metadata that likely belongs to this key.
@@ -185,25 +203,3 @@ class RecordKey(Key):
                 break
 
         return meta
-
-    def _decode_key(self) -> None:
-        _, _, buf = self._raw_key.removeprefix(self.prefix).partition(b"\x00")
-
-        if buf[0] == 0x00:
-            self.key = buf[1:].decode("utf-16-le")
-
-        if buf[0] == 0x01:
-            self.key = buf[1:].decode("iso-8859-1")
-
-    def _decode_value(self) -> None:
-        buf = self._raw_value
-
-        if not buf:
-            self.value = None
-            return
-
-        if buf[0] == 0x00:
-            self.value = buf[1:].decode("utf-16-le")
-
-        if buf[0] == 0x01:
-            self.value = buf[1:].decode("iso-8859-1")

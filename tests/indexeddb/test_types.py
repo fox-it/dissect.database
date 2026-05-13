@@ -65,7 +65,8 @@ def test_indexeddb_different_types() -> None:
     # Array buffers
     record = object_store.get("the_one_with_array_buffers")
     assert record.value["id"] == "the_one_with_array_buffers"
-    assert bytes(record.value["array_buffer"]) == bytes.fromhex(
+    # Workaround casting ``bytes()`` for cpython3.10 and cpython3.11
+    assert record.value["array_buffer"].data.tobytes() == bytes.fromhex(
         "0100000002000000030000000400000005000000060000000000000000000000"
         "0000000000000000000000000000000000000000000000000000000000000000"
         "0000000000000000000000000000000000000000000000000000000000000000"
