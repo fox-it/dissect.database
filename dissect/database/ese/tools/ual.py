@@ -34,6 +34,7 @@ class UAL:
         "InsertDate",
         "LastAccess",
         "LastSeen",
+        "LastSeenActive",  # Present in VIRTUALMACHINES table
     )
 
     def __init__(self, fh: BinaryIO):
@@ -49,6 +50,9 @@ class UAL:
             return None
 
         for record in table.records():
+            if record._data.is_empty or not record._data.matches_schema():
+                continue
+
             record_data = {}
 
             last_access_year = None

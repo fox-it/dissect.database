@@ -199,6 +199,27 @@ class RecordData:
         self._get_tag_field = lru_cache(4096)(self._get_tag_field)
         self._find_tag_field_idx = lru_cache(4096)(self._find_tag_field_idx)
 
+    @property
+    def is_empty(self) -> bool:
+        """Return whether the record is a tombstone or empty (has no defined column data)."""
+        return self._last_fixed_id == 0 and self._last_variable_id == 0 and self._tagged_data_count == 0
+
+    def matches_schema(self) -> bool:
+        """Check if the record column layout is compatible with the table schema.
+
+        A record can have fewer columns than the table defines — missing columns are null.
+        A record with more columns most likely is corrupted (or written with another schema)
+        and cannot be parsed.
+        """
+        num_fixed, num_variable, num_tagged = self.table.column_counts
+        return all(
+            (
+                self._last_fixed_id <= num_fixed,
+                (self._last_variable_id - 127) <= num_variable,
+                self._tagged_data_count <= num_tagged,
+            )
+        )
+
     def get(self, column: Column, raw: bool = False, errors: str | None = "backslashreplace") -> RecordValue:
         """Retrieve the value for the specified column.
 
@@ -401,6 +422,8 @@ class RecordData:
             if not tag_field.is_null:
                 offset = self._tagged_data_start
                 value = self.data[offset + data_start : offset + data_end]
+            else:
+                value = None
         else:
             # If the column has a default, use that
             # If not, this defaults to None

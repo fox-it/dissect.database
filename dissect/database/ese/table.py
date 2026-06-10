@@ -115,6 +115,19 @@ class Table:
         """Return a list of all the column names."""
         return list(self._column_name_map.keys())
 
+    @cached_property
+    def column_counts(self) -> tuple[int, int, int]:
+        """Return the number of fixed, variable and tagged columns in this table.
+
+        Returns:
+            A tuple of (fixed, variable, tagged) column counts.
+        """
+        return (
+            sum(c.is_fixed for c in self.columns),
+            sum(c.is_variable for c in self.columns),
+            sum(c.is_tagged for c in self.columns),
+        )
+
     @property
     def primary_index(self) -> Index | None:
         # It's generally the first index, but loop just in case
