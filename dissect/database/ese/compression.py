@@ -87,10 +87,12 @@ def decompress_size(buf: bytes) -> int | None:
     identifier = buf[0] >> 3
 
     if identifier == COMPRESSION_SCHEME.COMPRESS_7BITASCII:
-        return ((buf[0] & 7) + (8 * len(buf))) // 7
+        # Low 3 header bits hold the valid bit count of the final packed byte
+        # (compression.cxx:2135-2137); the rest are full 8-bit bytes.
+        return ((len(buf) - 2) * 8 + (buf[0] & 7) + 1) // 7
 
     if identifier == COMPRESSION_SCHEME.COMPRESS_7BITUNICODE:
-        return 2 * (((buf[0] & 7) + (8 * len(buf))) // 7)
+        return 2 * (((len(buf) - 2) * 8 + (buf[0] & 7) + 1) // 7)
 
     if identifier == COMPRESSION_SCHEME.COMPRESS_XPRESS:
         return struct.unpack("<H", buf[1:3])[0]
