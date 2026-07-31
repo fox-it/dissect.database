@@ -19,3 +19,8 @@ class Top(Object):
     def display_name(self) -> str | None:
         """Return the displayName for this object."""
         return self.get("displayName")
+
+    @property
+    def description(self) -> str | None:
+        """Return the description for this object."""
+        return self.get("description")

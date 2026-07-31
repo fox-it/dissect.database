@@ -70,7 +70,8 @@ class SQLite3:
         checkpoint: The checkpoint to apply from the WAL file. Can be a :class:`Checkpoint` object or an integer index.
 
     Raises:
-        InvalidDatabase: If the file-like object does not look like a SQLite3 database based on the header magic.
+        ~dissect.database.sqlite3.exception.InvalidDatabase: If the file-like object does not look like a SQLite3
+            database based on the header magic.
 
     References:
         - https://sqlite.org/fileformat2.html

@@ -24,6 +24,16 @@ class Group(Top):
         """Return the group's sAMAccountName."""
         return self.get("sAMAccountName")
 
+    @property
+    def mail(self) -> str | None:
+        """Return the mail address of this group."""
+        return self.get("mail")
+
+    @property
+    def admin_count(self) -> int | None:
+        """Return the group's adminCount."""
+        return self.get("adminCount")
+
     def managed_by(self) -> Iterator[Object]:
         """Return the objects that manage this group."""
         self._assert_local()

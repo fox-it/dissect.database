@@ -11,3 +11,8 @@ class CrossRefContainer(Top):
     """
 
     __object_class__ = "crossRefContainer"
+
+    @property
+    def behavior_version(self) -> int | None:
+        """Return the msDS-Behavior-Version of this cross-reference container."""
+        return self.get("msDS-Behavior-Version")

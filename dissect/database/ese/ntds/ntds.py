@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
     from dissect.database.ese.ntds.objects import (
         Computer,
+        DnsNode,
         DomainDNS,
         Group,
         GroupPolicyContainer,
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
         TrustedDomain,
         User,
     )
+    from dissect.database.ese.ntds.objects.organizationalunit import OrganizationalUnit
     from dissect.database.ese.ntds.pek import PEK
 
 
@@ -41,18 +43,18 @@ class NTDS:
     def __init__(self, fh: BinaryIO):
         self.db = Database(fh)
 
+    @property
+    def pek(self) -> PEK | None:
+        """Return the PEK associated with the root domain."""
+        return self.db.pek
+
     def root(self) -> Object:
         """Return the root object of the Active Directory."""
         return self.db.data.root()
 
-    def root_domain(self) -> DomainDNS | None:
+    def domain(self) -> DomainDNS | None:
         """Return the root domain object of the Active Directory."""
-        return self.db.data.root_domain()
-
-    @property
-    def pek(self) -> PEK | None:
-        """Return the PEK associated with the root domain."""
-        return self.db.data.pek
+        return self.db.domain()
 
     def walk(self) -> Iterator[Object]:
         """Walk through all objects in the NTDS database."""
@@ -83,11 +85,11 @@ class NTDS:
 
     def groups(self) -> Iterator[Group]:
         """Get all group objects from the database."""
-        yield from self.search(objectCategory="group")
+        yield from self.search(objectClass="group")
 
     def servers(self) -> Iterator[Server]:
         """Get all server objects from the database."""
-        yield from self.search(objectCategory="server")
+        yield from self.search(objectClass="server")
 
     def users(self) -> Iterator[User]:
         """Get all user objects from the database."""
@@ -95,7 +97,11 @@ class NTDS:
 
     def computers(self) -> Iterator[Computer]:
         """Get all computer objects from the database."""
-        yield from self.search(objectCategory="computer")
+        yield from self.search(objectClass="computer")
+
+    def domains(self) -> Iterator[DomainDNS]:
+        """Get all domain objects from the database."""
+        yield from self.search(objectClass="domainDNS")
 
     def trusts(self) -> Iterator[TrustedDomain]:
         """Get all trust objects from the database."""
@@ -105,9 +111,17 @@ class NTDS:
         """Get all group policy objects (GPO) objects from the database."""
         yield from self.search(objectClass="groupPolicyContainer")
 
+    def organizational_units(self) -> Iterator[OrganizationalUnit]:
+        """Get all organizational unit (OU) objects from the database."""
+        yield from self.search(objectClass="organizationalUnit")
+
     def secrets(self) -> Iterator[Secret]:
         """Get all secret objects from the database."""
         yield from self.search(objectClass="secret")
+
+    def dns_nodes(self) -> Iterator[DnsNode]:
+        """Get all DnsNode objects from the database."""
+        yield from self.search(objectClass="dnsNode")
 
     def backup_keys(self) -> Iterator[BackupKey]:
         """Get all DPAPI backup keys from the database."""

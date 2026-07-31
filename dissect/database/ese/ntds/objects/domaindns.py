@@ -19,3 +19,8 @@ class DomainDNS(Domain):
         if (pek := self.get("pekList")) is not None:
             return PEK(pek)
         return None
+
+    @property
+    def behavior_version(self) -> int | None:
+        """Return the msDS-Behavior-Version of this domain DNS object."""
+        return self.get("msDS-Behavior-Version")
