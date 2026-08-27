@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, Literal
 
-from dissect.database.bbolt.c_bbolt import c_bbolt
+from dissect.database.bbolt.c_bbolt import BucketLeafFlag, PageFlag, c_bbolt
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -53,15 +53,19 @@ class Bbolt:
 
             for inode in page.inodes():
                 if inode.key == part:
-                    if inode.flags == 1:
+                    if inode.flags == BucketLeafFlag:
                         if inode.value.startswith(16 * b"\x00"):
                             page = Page(self, 0, inode._value_offset + 0x10)
                         else:
                             pgid = c_bbolt.InBucket(inode.value).root if not inode.pgid else inode.pgid
                             page = Page(self, pgid)
 
-                    # If the new page has an inode 0 with flags=BucketLeafFlag, read that bucket instead
-                    if page.count and (inode_nested := page.inode(0)).flags == 1 and inode_nested.key == part:
+                    # If the new page has an inode 0 with BucketLeafFlag, read that bucket instead
+                    if (
+                        page.count
+                        and (inode_nested := page.inode(0)).flags == BucketLeafFlag
+                        and inode_nested.key == part
+                    ):
                         page = Page(self, 0, inode_nested._value_offset + 0x10)
 
                     # Spec dictates we should ignore pages with no inodes
@@ -115,7 +119,7 @@ class Page:
         self.count = self.page.count
         self.overflow = self.page.overflow
 
-        if self.flags == c_bbolt.PageFlag.Leaf and self.count:
+        if self.flags == PageFlag.Leaf and self.count:
             self.key = self.inode(0).key
         else:
             self.key = None
@@ -130,10 +134,10 @@ class Page:
 
         offset = self.offset + self.page.size + (i * 16)
 
-        if self.flags == c_bbolt.PageFlag.Leaf:
+        if self.flags == PageFlag.Leaf:
             return InodeLeaf(self, c_bbolt.leafPageElement, offset)
 
-        if self.flags == c_bbolt.PageFlag.Branch:
+        if self.flags == PageFlag.Branch:
             return InodeBranch(self, c_bbolt.branchPageElement, offset)
 
         raise NotImplementedError(self.pgid, self.flags)
@@ -148,9 +152,9 @@ class Page:
         for i in range(self.count):
             element_offset = offset + (i * 16)
 
-            if self.flags == c_bbolt.PageFlag.Leaf:
+            if self.flags == PageFlag.Leaf:
                 yield InodeLeaf(self, c_bbolt.leafPageElement, element_offset)
-            elif self.flags == c_bbolt.PageFlag.Branch:
+            elif self.flags == PageFlag.Branch:
                 # For easier enumeration we iterate all inodes from the page this branch inode points to,
                 # and do not yield the branch inode.
                 branch = InodeBranch(self, c_bbolt.branchPageElement, element_offset)

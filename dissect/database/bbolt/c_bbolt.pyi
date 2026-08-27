@@ -5,6 +5,7 @@ import dissect.cstruct as __cs__
 
 class _c_bbolt(__cs__.cstruct):
     Magic: Literal[3977042669] = ...
+    BucketLeafFlag: Literal[1] = ...
     Pgid: TypeAlias = _c_bbolt.uint64
     Txid: TypeAlias = _c_bbolt.uint64
     class PageFlag(__cs__.Enum):
@@ -105,3 +106,6 @@ class _c_bbolt(__cs__.cstruct):
 
 # Technically `c_bbolt` is an instance of `_c_bbolt`, but then we can't use it in type hints
 c_bbolt: TypeAlias = _c_bbolt
+
+PageFlag: TypeAlias = c_bbolt.PageFlag
+BucketLeafFlag: Literal[1]

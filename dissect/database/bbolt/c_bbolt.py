@@ -12,6 +12,7 @@ typedef uint64 Pgid;    // page identifier
 typedef uint64 Txid;    // transaction identifier
 
 #define Magic 0xED0CDAED
+#define BucketLeafFlag 0x01
 
 enum PageFlag: uint16 {
     Branch          = 0x01,
@@ -65,3 +66,6 @@ struct Inode {
 """
 
 c_bbolt = cstruct().load(bbolt_def)
+
+PageFlag = c_bbolt.PageFlag
+BucketLeafFlag = c_bbolt.BucketLeafFlag
