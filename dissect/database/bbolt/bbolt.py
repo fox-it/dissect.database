@@ -79,11 +79,9 @@ class Bbolt:
                             return inode.value
 
                     # We can stop iterating over more inodes of this page, continue to the next path part
-                    found = True
                     break
-
-            # Return early if we did not find the current part in any of the inodes in this page
-            if not found:
+            else:
+                # Return early if we did not find the current part in any of the inodes in this page
                 return None
 
         return None
