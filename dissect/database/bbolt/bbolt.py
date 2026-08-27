@@ -49,13 +49,15 @@ class Bbolt:
         page = self.root
         parts = path.split(sep)
         for i, part in enumerate(parts):
-            found = False
-
+            # Search for the current part in each inode of the current page
             for inode in page.inodes():
                 if inode.key == part:
                     if inode.flags == BucketLeafFlag:
+                        # Read the page inside the inode
                         if inode.value.startswith(16 * b"\x00"):
                             page = Page(self, 0, inode._value_offset + 0x10)
+
+                        # Read the page this inode points to
                         else:
                             pgid = c_bbolt.InBucket(inode.value).root if not inode.pgid else inode.pgid
                             page = Page(self, pgid)
