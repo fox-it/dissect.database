@@ -10,6 +10,8 @@ from tests._util import absolute_path
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest_benchmark.fixture import BenchmarkFixture
+
 
 @pytest.mark.parametrize(
     ("db_as_path"),
@@ -19,7 +21,7 @@ if TYPE_CHECKING:
     ("wal_as_path"),
     [pytest.param(True, id="wal_as_path"), pytest.param(False, id="wal_as_fh")],
 )
-def test_sqlite_wal(sqlite_db: Path, sqlite_wal: Path, db_as_path: bool, wal_as_path: bool) -> None:
+def test_sqlite_wal_checkpoint(sqlite_db: Path, sqlite_wal: Path, db_as_path: bool, wal_as_path: bool) -> None:
     db = sqlite3.SQLite3(
         sqlite_db if db_as_path else sqlite_db.open("rb"),
         sqlite_wal if wal_as_path else sqlite_wal.open("rb"),
@@ -48,6 +50,40 @@ def test_sqlite_wal(sqlite_db: Path, sqlite_wal: Path, db_as_path: bool, wal_as_
     db.close()
 
 
+@pytest.mark.parametrize(
+    ("db_as_path"),
+    [pytest.param(True, id="db_as_path"), pytest.param(False, id="db_as_fh")],
+)
+@pytest.mark.parametrize(
+    ("wal_as_path"),
+    [pytest.param(True, id="wal_as_path"), pytest.param(False, id="wal_as_fh")],
+)
+def test_sqlite_wal_checksum_validation(sqlite_db: Path, sqlite_wal: Path, db_as_path: bool, wal_as_path: bool) -> None:
+    # Test that the WAL checksum validation works as expected
+    # When validate_checksums=True, only entries before the last checkpoint are visible
+    db = sqlite3.SQLite3(
+        sqlite_db if db_as_path else sqlite_db.open("rb"),
+        sqlite_wal if wal_as_path else sqlite_wal.open("rb"),
+        validate_checksums=True,
+    )
+
+    _assert_valid_checksum(db)
+
+    db.close()
+
+    # When validate_checksums=False, entries after the last checkpoint are also visible
+    db = sqlite3.SQLite3(
+        sqlite_db if db_as_path else sqlite_db.open("rb"),
+        sqlite_wal if wal_as_path else sqlite_wal.open("rb"),
+        validate_checksums=False,
+    )
+
+    _assert_invalid_checksum(db)
+
+    db.close()
+
+
+# Assertion functions for test_sqlite_wal_checkpoint()
 def _assert_checkpoint_1(s: sqlite3.SQLite3) -> None:
     # After the first checkpoint the "after checkpoint" entries are present
     table = next(iter(s.tables()))
@@ -165,6 +201,88 @@ def _assert_checkpoint_3(s: sqlite3.SQLite3) -> None:
     assert rows[9].value == 101
 
 
+# Assertion functions for test_sqlite_wal_checksum_validation()
+def _assert_valid_checksum(s: sqlite3.SQLite3) -> None:
+    # If the checksum validation is correct, all entries BEFORE the last checkpoint should be present
+    table = next(iter(s.tables()))
+    rows = list(table.rows())
+
+    assert len(rows) == 11
+
+    assert rows[0].id == 1
+    assert rows[0].name == "testing"
+    assert rows[0].value == 1337
+    assert rows[1].id == 2
+    assert rows[1].name == "omg"
+    assert rows[1].value == 7331
+    assert rows[2].id == 3
+    assert rows[2].name == "A" * 4100
+    assert rows[2].value == 4100
+    assert rows[3].id == 4
+    assert rows[3].name == "B" * 4100
+    assert rows[3].value == 4100
+    assert rows[4].id == 5
+    assert rows[4].name == "negative"
+    assert rows[4].value == -11644473429
+    assert rows[5].id == 6
+    assert rows[5].name == "after checkpoint"
+    assert rows[5].value == 42
+    assert rows[6].id == 7
+    assert rows[6].name == "after checkpoint"
+    assert rows[6].value == 43
+    assert rows[7].id == 8
+    assert rows[7].name == "after checkpoint"
+    assert rows[7].value == 44
+    assert rows[8].id == 9
+    assert rows[8].name == "after checkpoint"
+    assert rows[8].value == 45
+    assert rows[9].id == 10
+    assert rows[9].name == "second checkpoint"
+    assert rows[9].value == 100
+    assert rows[10].id == 11
+    assert rows[10].name == "second checkpoint"
+    assert rows[10].value == 101
+
+
+def _assert_invalid_checksum(s: sqlite3.SQLite3) -> None:
+    # If the checksum validation is incorrect, all entries AFTER the last checkpoint should be present
+    table = next(iter(s.tables()))
+    rows = list(table.rows())
+
+    assert len(rows) == 10
+
+    assert rows[0].id == 1
+    assert rows[0].name == "testing"
+    assert rows[0].value == 1337
+    assert rows[1].id == 2
+    assert rows[1].name == "omg"
+    assert rows[1].value == 7331
+    assert rows[2].id == 3
+    assert rows[2].name == "A" * 4100
+    assert rows[2].value == 4100
+    assert rows[3].id == 4
+    assert rows[3].name == "B" * 4100
+    assert rows[3].value == 4100
+    assert rows[4].id == 5
+    assert rows[4].name == "negative"
+    assert rows[4].value == -11644473429
+    assert rows[5].id == 6
+    assert rows[5].name == "after checkpoint"
+    assert rows[5].value == 42
+    assert rows[6].id == 8
+    assert rows[6].name == "after checkpoint"
+    assert rows[6].value == 44
+    assert rows[7].id == 9
+    assert rows[7].name == "wow"
+    assert rows[7].value == 1234
+    assert rows[8].id == 10
+    assert rows[8].name == "second checkpoint"
+    assert rows[8].value == 100
+    assert rows[9].id == 11
+    assert rows[9].name == "second checkpoint"
+    assert rows[9].value == 101
+
+
 def test_wal_page_count() -> None:
     """Test if we count the page numbers in the SQLite3 and WAL correctly.
 
@@ -186,7 +304,7 @@ def test_wal_page_count() -> None:
         >>> con.commit()
         # Copy page_count.db* files before closing
     """
-    db = sqlite3.SQLite3(absolute_path("_data/sqlite3/page_count.db"))
+    db = sqlite3.SQLite3(absolute_path("_data/sqlite3/page_count.db"), validate_checksums=False)
     table = db.table("t1")
     assert table.sql == "CREATE TABLE t1 (a, b)"
 
@@ -198,3 +316,18 @@ def test_wal_page_count() -> None:
     assert db.wal.highest_page_num == 4
     assert db.header.page_count == 2
     assert db.page_count == 4
+
+
+@pytest.mark.parametrize(
+    ("validate"),
+    [pytest.param(True, id="True"), pytest.param(False, id="False")],
+)
+@pytest.mark.benchmark
+def test_benchmark_wal_checksum_validation(
+    big_sqlite_db: Path, big_sqlite_wal: Path, validate: bool, benchmark: BenchmarkFixture
+) -> None:
+    def benchy() -> None:
+        db = sqlite3.SQLite3(big_sqlite_db, big_sqlite_wal, validate_checksums=validate)
+        list(next(iter(db.tables())))
+
+    benchmark(benchy)

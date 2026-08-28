@@ -23,3 +23,13 @@ def sqlite_wal() -> Path:
 @pytest.fixture
 def empty_db() -> Path:
     return absolute_path("_data/sqlite3/empty.sqlite")
+
+
+@pytest.fixture
+def big_sqlite_db() -> Path:
+    return absolute_path("_data/sqlite3/big.sqlite")
+
+
+@pytest.fixture
+def big_sqlite_wal() -> Path:
+    return absolute_path("_data/sqlite3/big.sqlite-wal")

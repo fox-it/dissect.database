@@ -39,9 +39,24 @@ class WAL:
             raise InvalidDatabase("Invalid WAL header magic")
 
         self.checksum_endian = "<" if self.header.magic == WAL_HEADER_MAGIC_LE else ">"
-        self.highest_page_num = max(fr.page_number for commit in self.commits for fr in commit.frames if fr.valid)
+        self._checksum_struct = struct.Struct(f"{self.checksum_endian}2I")
 
         self.frame = lru_cache(1024)(self.frame)
+        self.frame_size = len(c_sqlite3.wal_frame) + self.header.page_size
+        self.first_frame_offset = len(c_sqlite3.wal_header)
+
+        # Only track the highest valid offset and its seed.
+        # Meaning: all frames with offset < _highest_valid_next_offset are considered valid.
+        # _highest_valid_next_offset initially points at the first frame; seed is checksum over header.
+        self._highest_valid_next_offset: int = self.first_frame_offset
+        self._highest_valid_seed: tuple[int, int] = self.header_checksum_seed
+
+        # First offset that is known to fail checksum validation, or None.
+        self._checksum_failed_offset: int | None = None
+
+        self.highest_page_num = max(
+            fr.page_number for commit in self.commits for fr in commit.frames if fr.is_valid_salt()
+        )
 
     def close(self) -> None:
         """Close the WAL."""
@@ -50,8 +65,7 @@ class WAL:
             self.fh.close()
 
     def frame(self, frame_idx: int) -> Frame:
-        frame_size = len(c_sqlite3.wal_frame) + self.header.page_size
-        offset = len(c_sqlite3.wal_header) + frame_idx * frame_size
+        offset = self.first_frame_offset + frame_idx * self.frame_size
         return Frame(self, offset)
 
     def frames(self) -> Iterator[Frame]:
@@ -62,6 +76,59 @@ class WAL:
                 frame_idx += 1
             except EOFError:  # noqa: PERF203
                 break
+
+    def seed_for_offset(self, offset: int) -> tuple[int, int] | None:
+        """Return checksum seed after processing frames up to and including the frame at target_offset.
+
+        Verify stored checksums for each frame as we walk. If a mismatch is found, update the WAL's
+        highest-known-valid-next-offset and return None. On success (no mismatches) update the
+        highest-known-valid-next-offset and seed and return the computed seed.
+
+        References:
+            - https://sqlite.org/fileformat2.html#wal_file_format
+            - https://github.com/sqlite/sqlite/blob/master/src/wal.c#L995-L1047
+        """
+        # If the target offset is before the first frame, return the initial seed calculated from the WAL header.
+        if offset < self.first_frame_offset:
+            return self.header_checksum_seed
+
+        # If the target offset is at or beyond the first known checksum failure, return None.
+        if self._checksum_failed_offset is not None and offset >= self._checksum_failed_offset:
+            return None
+
+        # Start from the highest verified offset we know (saves re-checking earlier frames).
+        current_offset = self._highest_valid_next_offset
+        seed = self._highest_valid_seed
+
+        while current_offset <= offset:
+            # Read frame header
+            self.fh.seek(current_offset)
+            frame_hdr_bytes = self.fh.read(len(c_sqlite3.wal_frame))
+            if len(frame_hdr_bytes) < len(c_sqlite3.wal_frame):
+                raise EOFError("Incomplete frame header while calculating checksum")
+
+            # Checksum first 16 bytes of frame header
+            seed = calculate_checksum(frame_hdr_bytes[:16], seed=seed, endian=self.checksum_endian)
+
+            # Read and checksum page data
+            page_data = self.fh.read(self.header.page_size)
+            if len(page_data) < self.header.page_size:
+                raise EOFError("Incomplete page data while calculating checksum")
+            seed = calculate_checksum(page_data, seed=seed, endian=self.checksum_endian)
+
+            # Compare computed seed to stored checksums in this frame header.
+            checksum1, checksum2 = self._checksum_struct.unpack(frame_hdr_bytes[-8:])
+            if (seed[0], seed[1]) != (checksum1, checksum2):
+                self._checksum_failed_offset = current_offset
+                return None
+
+            current_offset += self.frame_size
+
+        # Update highest-known-valid-next-offset and seed to the next offset after target.
+        self._highest_valid_next_offset = current_offset
+        self._highest_valid_seed = seed
+
+        return seed
 
     @cached_property
     def commits(self) -> list[Commit]:
@@ -112,6 +179,11 @@ class WAL:
 
         return [checkpoints_map[salt] for salt in sorted(checkpoints_map.keys())]
 
+    @cached_property
+    def header_checksum_seed(self) -> tuple[int, int]:
+        """Cached initial checksum seed calculated from the WAL header first 24 bytes."""
+        return calculate_checksum(self.header.dumps()[:24], endian=self.checksum_endian)
+
 
 class Frame:
     def __init__(self, wal: WAL, offset: int):
@@ -126,12 +198,39 @@ class Frame:
     def __repr__(self) -> str:
         return f"<Frame page_number={self.page_number} page_count={self.page_count}>"
 
-    @property
-    def valid(self) -> bool:
+    def is_valid(self, validate_checksums: bool = True) -> bool:
+        """Return whether the frame is valid by comparing its salt values and optionally verifying the checksum.
+
+        A frame is valid if:
+            - Its salt1 and salt2 values match those in the WAL header.
+            - Its checksum matches the calculated checksum.
+
+        References:
+            - https://sqlite.org/fileformat2.html#wal_file_format
+        """
+        return (self.is_valid_salt() and self.is_valid_checksum()) if validate_checksums else self.is_valid_salt()
+
+    def is_valid_salt(self) -> bool:
+        """Return whether the frame's salt values match those in the WAL header.
+
+        References:
+            - https://sqlite.org/fileformat2.html#wal_file_format
+        """
         salt1_match = self.header.salt1 == self.wal.header.salt1
         salt2_match = self.header.salt2 == self.wal.header.salt2
 
         return salt1_match and salt2_match
+
+    def is_valid_checksum(self) -> bool:
+        """Return whether the frame's checksum matches the calculated checksum.
+
+        Use WAL's highest valid offset to skip checks for already-verified frames.
+        """
+        if self.offset < self.wal._highest_valid_next_offset:
+            return True
+
+        seed = self.wal.seed_for_offset(self.offset)
+        return seed is not None
 
     @property
     def data(self) -> bytes:
@@ -188,8 +287,13 @@ class Commit(_FrameCollection):
     """
 
 
-def checksum(buf: bytes, endian: str = ">") -> tuple[int, int]:
-    s0 = s1 = 0
+def calculate_checksum(buf: bytes, seed: tuple[int, int] = (0, 0), endian: str = ">") -> tuple[int, int]:
+    """Calculate the checksum of a WAL header or frame.
+
+    References:
+        - https://sqlite.org/fileformat2.html#checksum_algorithm
+    """
+    s0, s1 = seed
     num_ints = len(buf) // 4
     arr = struct.unpack(f"{endian}{num_ints}I", buf)
 
