@@ -23,8 +23,3 @@ def hash_db() -> Iterator[BinaryIO]:
 @pytest.fixture
 def recno_db() -> Iterator[BinaryIO]:
     yield from open_file_gz("_data/bsd/recno.db.gz")
-
-
-@pytest.fixture
-def rpm_packages() -> Iterator[BinaryIO]:
-    yield from open_file_gz("_data/bsd/rpm/Packages.gz")

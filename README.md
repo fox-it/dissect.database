@@ -28,7 +28,6 @@ Some CLI tools related to specific databases exists. These tools allow you to du
 | `dissect-ual`      | Windows [User Access Logging](https://learn.microsoft.com/en-us/windows-server/administration/user-access-logging/get-started-with-user-access-logging) database. |
 | `dissect-sru`      | Windows System Resources And Usage Monitor database.                                                                                                              |
 | `dissect-certlog`  | Windows [AD CS database](https://learn.microsoft.com/en-us/windows-server/identity/ad-cs/active-directory-certificate-services-overview) database.                |
-| `dissect-rpm`      | [Red Hat Package Manager](https://rpm.org/) database.                                                                                                             |
 | `dissect-impacket` | Impacket compatibility shim for `secretsdump.py`.                                                                                                                 |
 
 ### Impacket compatibility shim for secretsdump.py
