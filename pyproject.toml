@@ -37,7 +37,8 @@ repository = "https://github.com/fox-it/dissect.database"
 
 [project.optional-dependencies]
 full = [
-    "pycryptodome"
+    "pycryptodome",
+    "cramjam",
 ]
 dev = [
     "dissect.database[full]",

@@ -1,0 +1,242 @@
+from __future__ import annotations
+
+import gzip
+import os
+import zlib
+from enum import IntEnum
+from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
+
+from dissect.util.ts import webkittimestamp
+
+from dissect.database.chromium.cache.c_simple import c_simple
+from dissect.database.chromium.cache.util import parse_cache_key
+
+try:
+    from cramjam import brotli
+
+    HAS_CRAMJAM = True
+
+except ImportError:
+    HAS_CRAMJAM = False
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
+
+
+class SimpleDiskCache:
+    """Chromium Very Simple Disk Cache Backend implementation.
+
+    References:
+        - https://www.chromium.org/developers/design-documents/network-stack/disk-cache/very-simple-backend/
+        - https://chromium.googlesource.com/chromium/src/+/HEAD/net/disk_cache/simple/
+    """
+
+    def __init__(self, path: Path):
+        if not path.exists():
+            raise ValueError(f"Provided path does not exist: {path!r}")
+
+        if not path.is_dir():
+            raise ValueError(f"Provided path is not a directory: {path!r}")
+
+        # Sanity check for expected directory structure.
+        files = {"index-dir", "index"}
+        self.children = set(path.iterdir())
+        if not files.issubset({file.name for file in self.children}):
+            raise ValueError(f"Provided directory does not contain expected disk cache files: {path!r}")
+
+        self.path = path
+        self.index = SimpleIndexFile(self, path.joinpath("index-dir/the-real-index"))
+        self.last_used = self.index.last_used
+        self.cache_files = [child for child in self.children if len(child.name) == 18 and "_" in child.name]
+
+    def __repr__(self) -> str:
+        return (
+            f"<SimpleDiskCache path='{self.path!s}' cache_files={len(self.cache_files)!r} last_used={self.last_used!r}>"
+        )
+
+    def entries(self) -> Iterator[SimpleCacheFile]:
+        for file in self.cache_files:
+            yield SimpleCacheFile(self, file)
+
+    def get_key(self, key: str) -> SimpleCacheFile | None:
+        """Return the first matching :class:`SimpleCacheFile` for the given ``key`` identifier."""
+        for entry in self.entries():
+            if entry.key == key:
+                return entry
+        return None
+
+    def get_url(self, resource_url: str) -> SimpleCacheFile | None:
+        """Get the first matching :class:`SimpleCacheFile` for the given resource url."""
+        for entry in self.entries():
+            if resource_url == entry.resource_url:
+                return entry
+        return None
+
+    def get_host(self, host: str) -> Iterator[SimpleCacheFile]:
+        """Get all :class:`CacheEntryStore` for the given host."""
+        for entry in self.entries():
+            if urlsplit(entry.resource_url).hostname == host:
+                yield entry
+
+
+class SimpleIndexFile:
+    """Represents a Chromium Very Simple Disk Cache Backend index file."""
+
+    def __init__(self, disk_cache: SimpleDiskCache, path: Path):
+        self.disk_cache = disk_cache
+        self.path = path
+
+        self.fh = path.open("rb")
+        self.header = c_simple.RealIndexHeader(self.fh)
+
+        if self.header.magic != c_simple.kSimpleIndexMagicNumber:
+            raise ValueError(f"Unexpected magic header for {path!s}: {self.header.magic!r}")
+
+        self.entries = self.header.entries
+
+        if len(self.entries) != self.header.num_entries:
+            raise ValueError(f"Mismatch in amount of expected entries for {path!s}")
+
+        self.last_used = webkittimestamp(self.entries[-1].last_used)
+
+    def __repr__(self):
+        return f"<SimpleIndexFile path='{self.path.name!s}' entries={len(self.entries)!r} last_used={self.last_used!s}>"
+
+
+class SimpleCacheFile:
+    """Represents a Chromium Very Simple Disk Cache Backend cache file.
+
+    References:
+        - https://chromium.googlesource.com/chromium/src/+/HEAD/net/disk_cache/simple/simple_entry_format.h
+        - https://github.com/schorlet/simplecache
+    """
+
+    def __init__(self, disk_cache: SimpleDiskCache, path: Path):
+        self.disk_cache = disk_cache
+        self.path = path
+
+        self.fh = path.open("rb")
+        self.header = c_simple.SimpleFileHeader(self.fh)
+        self.header_size = len(self.header.dumps())
+        self.type = infer_file_type(self.path.name)
+
+        self.key = self.header.key.decode("latin1")
+        self.credential_key, self.upload_data_identifier, self.isolation_key, self.resource_url = parse_cache_key(
+            self.key
+        )
+
+    def __repr__(self) -> str:
+        return f"<SimpleCacheFile key={self.key!r} type={self.type.name!r} path='{self.path.name!s}'>"
+
+    def _streams(self) -> None:
+        """Parse the stream(s) of this Simple Cache File."""
+        if self.type == SimpleFileType.STREAM_0_1:
+            # We read backwards in the file handle (stream 0 is positioned after stream 1).
+
+            # Stream 0
+            self.fh.seek(-c_simple.kSimpleEOFSize, os.SEEK_END)
+            eof0 = c_simple.SimpleFileEOF(self.fh)
+
+            if eof0.magic != c_simple.kSimpleFinalMagicNumber:
+                raise ValueError(f"Invalid EOF0 magic header {eof0!r}")
+
+            offset = -c_simple.kSimpleEOFSize - eof0.stream_size
+            if eof0.flags in (2, 3):
+                offset -= 32
+            self.fh.seek(offset, os.SEEK_END)
+            self._meta = self.fh.read(eof0.stream_size)
+
+            # Stream 1
+            self.fh.seek(-(c_simple.kSimpleEOFSize * 2) - eof0.stream_size, os.SEEK_END)
+            if eof0.flags in (2, 3):
+                self.fh.seek(-32, os.SEEK_CUR)
+
+            eof1_offset = self.fh.tell()
+            eof1 = c_simple.SimpleFileEOF(self.fh)
+
+            if eof1.magic != c_simple.kSimpleFinalMagicNumber:
+                raise ValueError(f"Invalid EOF1 magic header {eof1!r}")
+
+            # Some EOF markers have a stream_size of 0x0 while the data is resident, this is intended behavior
+            # according to source, but older Chromium versions did populate stream_size.
+            # We can determine the size of stream 1 by reading until the beginning of the EOF marker for stream 1.
+            stream_size = eof1.stream_size or (eof1_offset - self.header_size)
+
+            self.fh.seek(self.header_size)
+            self._data = self.fh.read(stream_size)
+
+        elif self.type == SimpleFileType.STREAM_2:
+            # Should be simple
+            raise NotImplementedError
+
+        elif self.type == SimpleFileType.STREAM_SPARSE:
+            ranges = []
+            while True:
+                try:
+                    range_header = c_simple.SimpleFileSparseRangeHeader(self.fh)
+                except EOFError:
+                    break
+
+                if range_header.magic != c_simple.kSimpleSparseRangeMagicNumber:
+                    break
+
+                offset = self.fh.tell()
+                ranges.append((range_header, offset))
+                self.fh.seek(offset + range_header.length)
+
+            if len(ranges) > 1:
+                raise ValueError("Did not expect another range in sparse stream")
+
+            for range_header, offset in ranges:
+                self.fh.seek(offset)
+                self._meta = b""
+                self._data = self.fh.read(range_header.length)
+
+    @property
+    def meta(self) -> bytes:
+        if not hasattr(self, "_meta"):
+            self._streams()
+        return self._meta
+
+    @property
+    def data(self) -> bytes:
+        if not hasattr(self, "_data"):
+            self._streams()
+
+        if self._data[0:2] == b"\x1f\x8b":
+            return gzip.decompress(self._data)
+
+        if b"content-encoding:br" in self.meta:
+            if not HAS_CRAMJAM:
+                raise RuntimeError("Missing required dependency cramjam to decode brotli data")
+
+            return brotli.decompress(self._data).read()
+
+        if b"content-encoding:deflate" in self.meta:
+            return zlib.decompress(self._data, -zlib.MAX_WBITS)
+
+        return self._data
+
+
+class SimpleFileType(IntEnum):
+    """SimpleFileType enum."""
+
+    STREAM_0_1 = 0
+    STREAM_2 = 1
+    STREAM_SPARSE = 2
+
+
+def infer_file_type(file_name: str) -> SimpleFileType:
+    """Infer the :class:`SimpleFileType` based on the name of the :class:`SimpleCacheFile`."""
+    if file_name.endswith("_0"):
+        return SimpleFileType.STREAM_0_1
+
+    if file_name.endswith("_1"):
+        return SimpleFileType.STREAM_2
+
+    if file_name.endswith("_s"):
+        return SimpleFileType.STREAM_SPARSE
+
+    raise ValueError(f"Unknown SimpleFileType for filename {file_name!r}")
