@@ -26,6 +26,7 @@ enum COMPRESSION_SCHEME {
     COMPRESS_SCRUB          = 0x4,
     COMPRESS_XPRESS9        = 0x5,
     COMPRESS_XPRESS10       = 0x6,
+    COMPRESS_LZ4            = 0x7,
 };
 
 enum JET_coltyp {
