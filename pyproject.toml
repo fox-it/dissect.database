@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dissect.database"
-description = "A Dissect module implementing parsers for various database formats, including Berkeley DB, Microsofts Extensible Storage Engine (ESE) and SQLite3"
+description = "A Dissect module implementing parsers for various database formats, including Berkeley DB, Google's LevelDB, Microsoft's Extensible Storage Engine (ESE) and SQLite3"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -37,7 +37,8 @@ repository = "https://github.com/fox-it/dissect.database"
 
 [project.optional-dependencies]
 full = [
-    "pycryptodome"
+    "pycryptodome",
+    "v8serialize",  # required for js object decoding
 ]
 dev = [
     "dissect.database[full]",
@@ -48,6 +49,7 @@ dev = [
 [dependency-groups]
 test = [
     "pytest",
+    "v8serialize",
 ]
 lint = [
     "ruff==0.13.1",

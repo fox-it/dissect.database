@@ -3,7 +3,8 @@
 A Dissect module implementing parsers for various database formats, including:
 
 - Berkeley DB, used for example in older RPM databases
-- Microsofts Extensible Storage Engine (ESE), used for example in Active Directory, Exchange and Windows Update
+- Microsoft's Extensible Storage Engine (ESE), used for example in Active Directory, Exchange and Windows Update
+- Google's LevelDB, used by browsers to store LocalStorage, SessionStorage and serialized IndexedDB databases
 - SQLite3, commonly used by applications to store configuration data
 
 For more information, please see [the documentation](https://docs.dissect.tools/en/latest/projects/dissect.database/index.html).
